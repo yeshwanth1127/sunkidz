@@ -1,0 +1,42 @@
+---
+description: Flutter go_router route patterns - prevents "no routes for location" errors
+globs: mobile/lib/core/router/**/*.dart
+alwaysApply: false
+---
+
+# Flutter Route Configuration
+
+## Route Structure
+
+Use **nested routes** for list + detail patterns (e.g. `/students` and `/students/:id`):
+
+```dart
+GoRoute(
+  path: '/students',
+  builder: (context, state) {
+    final id = state.pathParameters['id'];
+    if (id != null && id.isNotEmpty) {
+      return StudentProfileScreen(studentId: id);
+    }
+    return const StudentListScreen();
+  },
+  routes: [
+    GoRoute(
+      path: ':id',
+      builder: (_, state) => StudentProfileScreen(studentId: state.pathParameters['id']!),
+    ),
+  ],
+),
+```
+
+- Parent `builder` handles both `/students` (list) and `/students/:id` (detail) via `pathParameters['id']`
+- Child route `:id` registers the path so `/students/123` is valid
+
+## When Adding New Routes
+
+1. **Full restart REQUIRED**: Hot reload (r) does NOT pick up new routes. You will get "no routes for location" until you:
+   - **Option A**: Stop the app (Ctrl+C) and run `flutter run -d chrome --web-port 7777` again
+   - **Option B**: Press **R** (capital R) in the terminal for hot restart
+2. Add route to `app_router.dart` routes array
+3. Add drawer/navigation entry if needed
+4. For list+detail: use nested structure above, not sibling routes
