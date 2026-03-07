@@ -40,6 +40,12 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
         _classes = [];
         _selectedClassId = null;
       });
+      final allClasses = await api.getClasses();
+      if (mounted) {
+        setState(() {
+          _classes = allClasses;
+        });
+      }
       await _loadStudents();
       if (_selectedBranchId != null) await _loadClasses(_selectedBranchId!);
     } catch (_) {
@@ -95,7 +101,21 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     if (branchId != null) {
       _loadClasses(branchId).then((_) => _loadStudents());
     } else {
-      _loadStudents();
+      final api = ref.read(adminApiProvider);
+      if (api != null) {
+        api.getClasses().then((classes) {
+          if (mounted) {
+            setState(() {
+              _classes = classes;
+            });
+          }
+          _loadStudents();
+        }).catchError((_) {
+          _loadStudents();
+        });
+      } else {
+        _loadStudents();
+      }
     }
   }
 
@@ -215,10 +235,27 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                         ),
                         items: [
                           const DropdownMenuItem(value: null, child: Text('All grades')),
-                          ..._classes.map((c) => DropdownMenuItem(
-                                value: c['id'] as String?,
-                                child: Text(c['name']?.toString() ?? '—'),
-                              )),
+                          ...(() {
+                            final seen = <String>{};
+                            final uniqueClasses = _classes.where((c) {
+                              final id = (c['id']?.toString() ?? '').trim();
+                              if (id.isEmpty) return false;
+                              final key = id.toLowerCase();
+                              if (seen.contains(key)) return false;
+                              seen.add(key);
+                              return true;
+                            }).toList();
+                            return uniqueClasses.map((c) => DropdownMenuItem(
+                                  value: c['id'] as String?,
+                                  child: Text(
+                                    [
+                                      c['name']?.toString() ?? '—',
+                                      if ((c['branch_name']?.toString() ?? '').isNotEmpty) c['branch_name'].toString(),
+                                      if ((c['academic_year']?.toString() ?? '').isNotEmpty) c['academic_year'].toString(),
+                                    ].join(' • '),
+                                  ),
+                                ));
+                          })(),
                         ],
                         onChanged: _onClassChanged,
                       ),

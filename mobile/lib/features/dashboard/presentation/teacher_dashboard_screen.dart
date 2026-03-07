@@ -156,6 +156,20 @@ class TeacherDashboardScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _TeacherActionCard(
+                      icon: Icons.menu_book,
+                      label: 'View Syllabus',
+                      color: Colors.purple,
+                      isOutlined: true,
+                      onTap: () => context.go('/teacher/syllabus'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TeacherActionCard(
                       icon: Icons.cloud_upload,
                       label: 'Upload Homework',
                       color: Colors.blue,

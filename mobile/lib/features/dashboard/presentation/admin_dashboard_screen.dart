@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
+import '../../../core/api/admin_provider.dart';
 import '../../../core/config/app_config.dart';
 import '../../../shared/widgets/stat_card.dart';
 import '../../../shared/widgets/admin_drawer.dart';
@@ -26,6 +27,20 @@ class AdminDashboardScreen extends ConsumerWidget {
     return '$rate%';
   }
 
+  static String _formatCurrency(double amount) {
+    final rounded = amount.round();
+    final text = rounded.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      final reverseIndex = text.length - i;
+      buffer.write(text[i]);
+      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+        buffer.write(',');
+      }
+    }
+    return '₹${buffer.toString()}';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
@@ -35,6 +50,7 @@ class AdminDashboardScreen extends ConsumerWidget {
     final branchesCount = dashboardAsync.valueOrNull?.branchesCount ?? 0;
     final studentsCount = dashboardAsync.valueOrNull?.studentsCount ?? 0;
     final staffCount = dashboardAsync.valueOrNull?.staffCount ?? 0;
+    final collectedFees = dashboardAsync.valueOrNull?.collectedFees ?? 0;
     final recentEnquiries = dashboardAsync.valueOrNull?.recentEnquiries ?? [];
 
     return Scaffold(
@@ -141,12 +157,15 @@ class AdminDashboardScreen extends ConsumerWidget {
                     backgroundColor: AppColors.pastelGreen,
                     iconColor: const Color(0xFF16A34A),
                   ),
-                  StatCard(
-                    icon: Icons.payments,
-                    label: 'Fees Due',
-                    value: '—',
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    iconColor: Colors.grey,
+                  GestureDetector(
+                    onTap: () => context.push('/admin/fees?branch_id='),
+                    child: StatCard(
+                      icon: Icons.receipt,
+                      label: 'Fee Management',
+                      value: _formatCurrency(collectedFees),
+                      backgroundColor: const Color(0xFFFEF3C7),
+                      iconColor: const Color(0xFFF59E0B),
+                    ),
                   ),
                 ],
               ),
@@ -247,7 +266,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 children: [
                   Text('Admissions Analytics', style: Theme.of(context).textTheme.titleLarge),
                   TextButton(
-                    onPressed: () => context.push('/admissions'),
+                    onPressed: () => context.push('/admin/reports'),
                     child: Text('View Report', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ],

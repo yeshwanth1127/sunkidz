@@ -4,10 +4,27 @@ import 'coordinator_provider.dart';
 
 /// API for student profile: get and optionally update.
 class StudentProfileApi {
-  StudentProfileApi({required this.getStudent, this.updateStudent});
+  StudentProfileApi({
+    required this.getStudent,
+    this.updateStudent,
+    required this.getStudentAttendance,
+    this.updateStudentAttendance,
+    required this.getStudentFees,
+    this.updateStudentFees,
+    this.recordFeePayment,
+    required this.getStudentFeePayments,
+  });
 
   final Future<Map<String, dynamic>> Function(String) getStudent;
   final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)? updateStudent;
+  final Future<Map<String, dynamic>> Function(String, {int days}) getStudentAttendance;
+  final Future<Map<String, dynamic>> Function(String, String, String)? updateStudentAttendance;
+  
+  // Fee management
+  final Future<Map<String, dynamic>> Function(String) getStudentFees;
+  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)? updateStudentFees;
+  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)? recordFeePayment;
+  final Future<List<Map<String, dynamic>>> Function(String) getStudentFeePayments;
 }
 
 /// Returns the API that can fetch a student profile for the current user.
@@ -15,13 +32,29 @@ class StudentProfileApi {
 final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
   final adminApi = ref.watch(adminApiProvider);
   final coordinatorApi = ref.watch(coordinatorApiProvider);
+  
   if (adminApi != null) {
-    return StudentProfileApi(getStudent: adminApi.getStudent, updateStudent: null);
+    return StudentProfileApi(
+      getStudent: adminApi.getStudent,
+      updateStudent: null,
+      getStudentAttendance: adminApi.getStudentAttendance,
+      updateStudentAttendance: adminApi.updateStudentAttendance,
+      getStudentFees: adminApi.getStudentFees,
+      updateStudentFees: adminApi.updateStudentFees,
+      recordFeePayment: adminApi.recordFeePayment,
+      getStudentFeePayments: adminApi.getStudentFeePayments,
+    );
   }
   if (coordinatorApi != null) {
     return StudentProfileApi(
       getStudent: coordinatorApi.getStudent,
       updateStudent: coordinatorApi.updateStudent,
+      getStudentAttendance: coordinatorApi.getStudentAttendance,
+      updateStudentAttendance: coordinatorApi.updateStudentAttendance,
+      getStudentFees: coordinatorApi.getStudentFees,
+      updateStudentFees: coordinatorApi.updateStudentFees,
+      recordFeePayment: coordinatorApi.recordFeePayment,
+      getStudentFeePayments: coordinatorApi.getStudentFeePayments,
     );
   }
   return null;

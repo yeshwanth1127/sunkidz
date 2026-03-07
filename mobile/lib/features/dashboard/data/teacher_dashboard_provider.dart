@@ -3,6 +3,7 @@ import '../../../core/api/teacher_provider.dart';
 
 class TeacherDashboardData {
   final String? branchName;
+  final String? classId;
   final String? className;
   final int studentsCount;
   final int boysCount;
@@ -11,6 +12,7 @@ class TeacherDashboardData {
 
   const TeacherDashboardData({
     this.branchName,
+    this.classId,
     this.className,
     this.studentsCount = 0,
     this.boysCount = 0,
@@ -26,6 +28,7 @@ final teacherDashboardDataProvider = FutureProvider<TeacherDashboardData?>((ref)
     final data = await api.getDashboard();
     return TeacherDashboardData(
       branchName: data['branch_name']?.toString(),
+      classId: data['class_id']?.toString(),
       className: data['class_name']?.toString(),
       studentsCount: data['students_count'] as int? ?? 0,
       boysCount: data['boys_count'] as int? ?? 0,
