@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from sqlalchemy import Column, String, Date, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Date, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -15,5 +15,6 @@ class Attendance(Base):
     date = Column(Date, nullable=False)
     status = Column(String(20), nullable=False, default="present")  # present, absent, leave
     marked_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    submitted = Column(Boolean, nullable=False, default=False)  # Locked after being formally submitted
 
     __table_args__ = (UniqueConstraint("student_id", "date", name="uq_attendance_student_date"),)

@@ -1,8 +1,10 @@
 from uuid import UUID
 from datetime import date, timedelta
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_admin
@@ -12,6 +14,9 @@ from app.models.user import User
 from app.models.branch import Branch, Class, BranchAssignment
 from app.models.student import Student
 from app.models.attendance import Attendance
+from app.models.fees import FeeStructure, FeePayment
+from app.models.marks_card import MarksCard
+from app.models.enquiry import Enquiry
 from app.schemas.admin import (
     BranchCreate,
     BranchUpdate,
@@ -25,6 +30,13 @@ from app.schemas.admin import (
     AssignmentCreate,
     AssignmentUpdate,
     AssignmentResponse,
+)
+from app.schemas.fee import (
+    FeeStructureCreate,
+    FeeStructureResponse,
+    FeePaymentCreate,
+    FeePaymentResponse,
+    FeesDetailResponse,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -649,3 +661,534 @@ def get_attendance_history(
             by_student[str(a.student_id)]["dates"][dk] = a.status
     dates = sorted(by_date.keys())
     return {"period": period, "start": start_d.isoformat(), "end": end_d.isoformat(), "dates": dates, "by_date": by_date, "by_student": by_student}
+
+
+@router.get("/students/{student_id}/attendance")
+def get_student_attendance(
+    student_id: UUID,
+    days: int = 30,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get attendance records for a specific student for the last N days."""
+    # Get student details
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Get attendance records for the last N days
+    cutoff_date = date.today() - timedelta(days=days)
+    attendance_records = db.query(Attendance).filter(
+        Attendance.student_id == student_id,
+        Attendance.date >= cutoff_date,
+    ).order_by(Attendance.date.desc()).all()
+    
+    # Calculate statistics
+    present = sum(1 for a in attendance_records if a.status == "present")
+    absent = sum(1 for a in attendance_records if a.status == "absent")
+    leave = sum(1 for a in attendance_records if a.status == "leave")
+    total = len(attendance_records)
+    attendance_percentage = round((present / total * 100) if total > 0 else 0, 1)
+    
+    return {
+        "student_id": str(student.id),
+        "student_name": student.name,
+        "admission_number": student.admission_number,
+        "total_days": total,
+        "present": present,
+        "absent": absent,
+        "leave": leave,
+        "attendance_percentage": attendance_percentage,
+        "records": [
+            {
+                "date": a.date.isoformat(),
+                "status": a.status,
+            }
+            for a in attendance_records
+        ],
+    }
+
+
+@router.put("/students/{student_id}/attendance")
+def update_student_attendance(
+    student_id: UUID,
+    att_date: date,
+    status: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Update attendance status for a specific student on a specific date."""
+    # Validate student exists
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Validate status
+    if status not in ("present", "absent", "leave"):
+        raise HTTPException(status_code=400, detail="Invalid status. Must be 'present', 'absent', or 'leave'")
+    
+    # Find or create attendance record
+    attendance = db.query(Attendance).filter(
+        Attendance.student_id == student_id,
+        Attendance.date == att_date,
+    ).first()
+    
+    if not attendance:
+        attendance = Attendance(student_id=student_id, date=att_date, status=status, marked_by=_.id)
+        db.add(attendance)
+    else:
+        attendance.status = status
+        attendance.marked_by = _.id
+    
+    db.commit()
+    db.refresh(attendance)
+    
+    return {
+        "id": str(attendance.id),
+        "student_id": str(attendance.student_id),
+        "date": attendance.date.isoformat(),
+        "status": attendance.status,
+    }
+
+
+# --- Fee Management ---
+@router.get("/students/{student_id}/fees", response_model=FeesDetailResponse)
+def get_student_fees(
+    student_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get fee structure and payment history for a specific student."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    
+    # Get all payments for this student
+    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
+    
+    # Calculate paid amounts per component
+    paid_amounts = {}
+    for payment in payments:
+        if payment.component not in paid_amounts:
+            paid_amounts[payment.component] = 0.0
+        paid_amounts[payment.component] += payment.amount_paid
+    
+    # If no fee structure, return defaults with zero values
+    if not fee_struct:
+        return FeesDetailResponse(
+            student_id=str(student.id),
+            student_name=student.name,
+            admission_number=student.admission_number or "",
+            advance_fees=0.0,
+            term_fee_1=0.0,
+            term_fee_2=0.0,
+            term_fee_3=0.0,
+            total_due=0.0,
+            advance_fees_paid=0.0,
+            term_fee_1_paid=0.0,
+            term_fee_2_paid=0.0,
+            term_fee_3_paid=0.0,
+            total_paid=0.0,
+            advance_fees_balance=0.0,
+            term_fee_1_balance=0.0,
+            term_fee_2_balance=0.0,
+            term_fee_3_balance=0.0,
+            total_balance=0.0,
+            payments=[],
+        )
+    
+    # Calculate balances
+    advance_fees_paid = paid_amounts.get("advance_fees", 0.0)
+    term_fee_1_paid = paid_amounts.get("term_fee_1", 0.0)
+    term_fee_2_paid = paid_amounts.get("term_fee_2", 0.0)
+    term_fee_3_paid = paid_amounts.get("term_fee_3", 0.0)
+    total_paid = sum(paid_amounts.values())
+    
+    advance_fees_balance = fee_struct.advance_fees - advance_fees_paid
+    term_fee_1_balance = fee_struct.term_fee_1 - term_fee_1_paid
+    term_fee_2_balance = fee_struct.term_fee_2 - term_fee_2_paid
+    term_fee_3_balance = fee_struct.term_fee_3 - term_fee_3_paid
+    total_balance = (fee_struct.advance_fees + fee_struct.term_fee_1 + fee_struct.term_fee_2 + fee_struct.term_fee_3) - total_paid
+    
+    return FeesDetailResponse(
+        student_id=str(student.id),
+        student_name=student.name,
+        admission_number=student.admission_number or "",
+        advance_fees=fee_struct.advance_fees,
+        term_fee_1=fee_struct.term_fee_1,
+        term_fee_2=fee_struct.term_fee_2,
+        term_fee_3=fee_struct.term_fee_3,
+        total_due=fee_struct.advance_fees + fee_struct.term_fee_1 + fee_struct.term_fee_2 + fee_struct.term_fee_3,
+        advance_fees_paid=advance_fees_paid,
+        term_fee_1_paid=term_fee_1_paid,
+        term_fee_2_paid=term_fee_2_paid,
+        term_fee_3_paid=term_fee_3_paid,
+        total_paid=total_paid,
+        advance_fees_balance=advance_fees_balance,
+        term_fee_1_balance=term_fee_1_balance,
+        term_fee_2_balance=term_fee_2_balance,
+        term_fee_3_balance=term_fee_3_balance,
+        total_balance=total_balance,
+        payments=[
+            FeePaymentResponse(
+                id=str(p.id),
+                component=p.component,
+                amount_paid=p.amount_paid,
+                payment_mode=p.payment_mode,
+                payment_date=p.payment_date,
+                created_at=p.created_at,
+            )
+            for p in payments
+        ],
+    )
+
+
+@router.post("/students/{student_id}/fees", response_model=FeeStructureResponse)
+def save_student_fees(
+    student_id: UUID,
+    data: FeeStructureCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Create or update fee structure for a student."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    
+    if fee_struct:
+        # Update existing fee structure
+        fee_struct.advance_fees = data.advance_fees
+        fee_struct.term_fee_1 = data.term_fee_1
+        fee_struct.term_fee_2 = data.term_fee_2
+        fee_struct.term_fee_3 = data.term_fee_3
+    else:
+        # Create new fee structure
+        fee_struct = FeeStructure(
+            student_id=student_id,
+            branch_id=student.branch_id,
+            advance_fees=data.advance_fees,
+            term_fee_1=data.term_fee_1,
+            term_fee_2=data.term_fee_2,
+            term_fee_3=data.term_fee_3,
+        )
+        db.add(fee_struct)
+    
+    db.commit()
+    db.refresh(fee_struct)
+    
+    return FeeStructureResponse(
+        id=str(fee_struct.id),
+        student_id=str(fee_struct.student_id),
+        branch_id=str(fee_struct.branch_id),
+        advance_fees=fee_struct.advance_fees,
+        term_fee_1=fee_struct.term_fee_1,
+        term_fee_2=fee_struct.term_fee_2,
+        term_fee_3=fee_struct.term_fee_3,
+        created_at=fee_struct.created_at,
+        updated_at=fee_struct.updated_at,
+    )
+
+
+@router.post("/students/{student_id}/fees/payment")
+def record_fee_payment(
+    student_id: UUID,
+    data: FeePaymentCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Record a fee payment for a student."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    
+    if not fee_struct:
+        raise HTTPException(status_code=404, detail="Fee structure not found for this student")
+    
+    # Validate component
+    valid_components = ["advance_fees", "term_fee_1", "term_fee_2", "term_fee_3"]
+    if data.component not in valid_components:
+        raise HTTPException(status_code=400, detail=f"Invalid component. Must be one of: {', '.join(valid_components)}")
+    
+    # Validate payment_mode
+    valid_modes = ["cash", "upi", "net_banking", "cheque", "bank_transfer"]
+    if data.payment_mode not in valid_modes:
+        raise HTTPException(status_code=400, detail=f"Invalid payment_mode. Must be one of: {', '.join(valid_modes)}")
+    
+    # Create payment record
+    payment = FeePayment(
+        fee_structure_id=fee_struct.id,
+        student_id=student_id,
+        component=data.component,
+        amount_paid=data.amount_paid,
+        payment_mode=data.payment_mode,
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    
+    return FeePaymentResponse(
+        id=str(payment.id),
+        component=payment.component,
+        amount_paid=payment.amount_paid,
+        payment_mode=payment.payment_mode,
+        payment_date=payment.payment_date,
+        created_at=payment.created_at,
+    )
+
+
+@router.get("/students/{student_id}/fees/payments", response_model=list[FeePaymentResponse])
+def get_student_fee_payments(
+    student_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get all fee payment records for a student."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.created_at.desc()).all()
+    
+    return [
+        FeePaymentResponse(
+            id=str(p.id),
+            component=p.component,
+            amount_paid=p.amount_paid,
+            payment_mode=p.payment_mode,
+            payment_date=p.payment_date,
+            created_at=p.created_at,
+        )
+        for p in payments
+    ]
+
+
+# --- Marks Cards ---
+class MarksCardUpsert(BaseModel):
+    academic_year: str = "2024-25"
+    data: dict[str, Any] = {}
+
+
+@router.get("/marks/{student_id}")
+def get_marks(
+    student_id: UUID,
+    academic_year: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get marks for a student."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    card = db.query(MarksCard).filter(
+        MarksCard.student_id == student_id,
+        MarksCard.academic_year == academic_year
+    ).first()
+    
+    if not card:
+        return {
+            "student_id": str(student_id),
+            "academic_year": academic_year,
+            "data": {},
+            "sent_to_parent_at": None
+        }
+    
+    return {
+        "id": str(card.id),
+        "student_id": str(card.student_id),
+        "academic_year": card.academic_year,
+        "data": card.data or {},
+        "sent_to_parent_at": card.sent_to_parent_at.isoformat() if card.sent_to_parent_at else None,
+    }
+
+
+@router.put("/marks/{student_id}")
+def upsert_marks(
+    student_id: UUID,
+    body: MarksCardUpsert,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Update marks for a student."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    card = db.query(MarksCard).filter(
+        MarksCard.student_id == student_id,
+        MarksCard.academic_year == body.academic_year
+    ).first()
+    
+    if card:
+        card.data = body.data
+    else:
+        card = MarksCard(
+            student_id=student_id,
+            academic_year=body.academic_year,
+            data=body.data
+        )
+        db.add(card)
+    
+    db.commit()
+    db.refresh(card)
+    
+    return {
+        "id": str(card.id),
+        "student_id": str(card.student_id),
+        "academic_year": card.academic_year,
+        "data": card.data or {},
+    }
+
+
+@router.post("/marks/{student_id}/send-to-parent")
+def send_marks_to_parent(
+    student_id: UUID,
+    academic_year: str = Query("2024-25"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Mark marks card as sent to parent."""
+    card = db.query(MarksCard).filter(
+        MarksCard.student_id == student_id,
+        MarksCard.academic_year == academic_year
+    ).first()
+    
+    if not card:
+        raise HTTPException(status_code=404, detail="Marks card not found")
+    
+    from datetime import datetime, timezone
+    card.sent_to_parent_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(card)
+    
+    return {
+        "id": str(card.id),
+        "student_id": str(card.student_id),
+        "academic_year": card.academic_year,
+        "sent_to_parent_at": card.sent_to_parent_at.isoformat(),
+    }
+
+
+# --- Analytics & Reports ---
+
+@router.get("/analytics")
+def get_analytics(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get comprehensive analytics data for admin reports."""
+    from datetime import datetime, timedelta
+    from sqlalchemy import extract, and_
+    
+    # Students by grade/class
+    students_by_grade = []
+    classes = db.query(Class).all()
+    for cls in classes:
+        count = db.query(func.count(Student.id)).filter(
+            Student.class_id == cls.id,
+            Student.admission_number.isnot(None)
+        ).scalar() or 0
+        if count > 0:
+            students_by_grade.append({
+                "grade": cls.name,
+                "count": count,
+                "branch": db.query(Branch.name).filter(Branch.id == cls.branch_id).scalar() or "Unknown"
+            })
+    
+    # Enquiries and admissions by month (last 6 months)
+    today = datetime.now()
+    
+    enquiries_by_month = []
+    admissions_by_month = []
+    
+    for i in range(6):
+        month_start = today - timedelta(days=30 * (5 - i))
+        month_end = month_start + timedelta(days=30)
+        month_name = month_start.strftime("%b %Y")
+        
+        # Count enquiries created in this month
+        enq_count = db.query(func.count(Enquiry.id)).filter(
+            and_(
+                Enquiry.created_at >= month_start,
+                Enquiry.created_at < month_end
+            )
+        ).scalar() or 0
+        
+        # Count admissions (students admitted) in this month
+        adm_count = db.query(func.count(Student.id)).filter(
+            and_(
+                Student.created_at >= month_start,
+                Student.created_at < month_end,
+                Student.admission_number.isnot(None)
+            )
+        ).scalar() or 0
+        
+        enquiries_by_month.append({"month": month_name, "count": enq_count})
+        admissions_by_month.append({"month": month_name, "count": adm_count})
+    
+    # Revenue collected
+    total_fees_paid = db.query(func.sum(FeePayment.amount_paid)).scalar() or 0.0
+    total_fees_due = 0.0
+    
+    # Calculate total due from fee structures
+    fee_structures = db.query(FeeStructure).all()
+    for fs in fee_structures:
+        if fs.advance_fees:
+            total_fees_due += float(fs.advance_fees)
+        if fs.term_fee_1:
+            total_fees_due += float(fs.term_fee_1)
+        if fs.term_fee_2:
+            total_fees_due += float(fs.term_fee_2)
+        if fs.term_fee_3:
+            total_fees_due += float(fs.term_fee_3)
+    
+    outstanding = total_fees_due - total_fees_paid
+    
+    # Enquiry conversion stats
+    total_enquiries = db.query(func.count(Enquiry.id)).scalar() or 0
+    converted_enquiries = db.query(func.count(Enquiry.id)).filter(
+        Enquiry.status == "converted"
+    ).scalar() or 0
+    pending_enquiries = db.query(func.count(Enquiry.id)).filter(
+        Enquiry.status == "pending"
+    ).scalar() or 0
+    rejected_enquiries = db.query(func.count(Enquiry.id)).filter(
+        Enquiry.status == "rejected"
+    ).scalar() or 0
+    
+    return {
+        "students_by_grade": students_by_grade,
+        "enquiries_by_month": enquiries_by_month,
+        "admissions_by_month": admissions_by_month,
+        "revenue": {
+            "total_collected": float(total_fees_paid),
+            "total_due": float(total_fees_due),
+            "outstanding": float(outstanding),
+            "collection_rate": round((total_fees_paid / total_fees_due * 100), 2) if total_fees_due > 0 else 0.0
+        },
+        "enquiry_stats": {
+            "total": total_enquiries,
+            "converted": converted_enquiries,
+            "pending": pending_enquiries,
+            "rejected": rejected_enquiries,
+            "conversion_rate": round((converted_enquiries / total_enquiries * 100), 2) if total_enquiries > 0 else 0.0
+        }
+    }

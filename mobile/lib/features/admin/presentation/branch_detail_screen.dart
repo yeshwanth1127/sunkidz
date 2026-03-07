@@ -63,6 +63,60 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
     );
   }
 
+  Future<void> _confirmDeleteBranch() async {
+    if (_branch == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Branch?'),
+        content: Text('Are you sure you want to delete "${_branch!['name']}"? This action cannot be undone and will remove all associated data.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _deleteBranch();
+    }
+  }
+
+  Future<void> _deleteBranch() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    try {
+      await api.deleteBranch(widget.branchId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branch deleted')));
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')));
+      }
+    }
+  }
+
+  Future<void> _deleteClass(String classId) async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    try {
+      await api.deleteClass(classId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Class deleted')));
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')));
+      }
+    }
+  }
+
   void _showAddGrade() {
     showModalBottomSheet(
       context: context,
@@ -90,6 +144,14 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
             builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
           ),
           IconButton(icon: const Icon(Icons.edit), onPressed: _branch != null ? _showEditBranch : null),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'delete') _confirmDeleteBranch();
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('Delete Branch', style: TextStyle(color: Colors.red))])),
+                    ],
+                  ),
         ],
       ),
       body: _loading
@@ -117,7 +179,10 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          _ClassesList(classes: (_branch!['classes'] as List?)?.cast<Map<String, dynamic>>() ?? []),
+                          _ClassesList(
+                            classes: (_branch!['classes'] as List?)?.cast<Map<String, dynamic>>() ?? [],
+                            onDelete: _deleteClass,
+                          ),
                         ],
                       ),
                     ),
@@ -184,8 +249,9 @@ class _InfoCard extends StatelessWidget {
 
 class _ClassesList extends StatelessWidget {
   final List<Map<String, dynamic>> classes;
+  final Function(String) onDelete;
 
-  const _ClassesList({required this.classes});
+  const _ClassesList({required this.classes, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -198,14 +264,39 @@ class _ClassesList extends StatelessWidget {
       );
     }
     return Column(
-      children: classes.map((c) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: CircleAvatar(backgroundColor: AppColors.pastelYellow, child: Icon(Icons.school, color: const Color(0xFFCA8A04))),
-          title: Text(c['name'] as String? ?? ''),
-          subtitle: Text(c['academic_year'] as String? ?? ''),
-        ),
-      )).toList(),
+      children: classes.map((c) {
+        final classId = c['id'] as String;
+        final className = c['name'] as String? ?? '';
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(backgroundColor: AppColors.pastelYellow, child: Icon(Icons.school, color: const Color(0xFFCA8A04))),
+            title: Text(className),
+            subtitle: Text(c['academic_year'] as String? ?? ''),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Delete Class?'),
+                    content: Text('Are you sure you want to delete "$className"? This will remove all students from this class.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) onDelete(classId);
+              },
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

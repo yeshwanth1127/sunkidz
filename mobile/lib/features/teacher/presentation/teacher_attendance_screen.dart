@@ -17,6 +17,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   Map<String, String> _statusMap = {};
   bool _loading = true;
   bool _saving = false;
+  bool _locked = false;  // Track if attendance is locked/submitted
   String? _error;
   List<Map<String, dynamic>> _records = [];
   Map<String, dynamic>? _historyData;
@@ -48,6 +49,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
       _loading = true;
       _error = null;
       _statusMap = {};
+      _locked = false;
     });
     try {
       final res = await api.getAttendance(date: _dateStr(_selectedDate));
@@ -59,6 +61,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
       setState(() {
         _records = recs;
         _statusMap = map;
+        _locked = (res['locked'] as bool?) ?? false;  // Get locked status
         _loading = false;
       });
     } catch (e) {
@@ -156,7 +159,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                         context: context,
                         initialDate: _selectedDate,
                         firstDate: DateTime(2020),
-                        lastDate: DateTime.now().add(const Duration(days: 1)),
+                        lastDate: DateTime.now(),  // Only today and before, not future
                       );
                       if (d != null) setState(() => _selectedDate = d);
                       await _loadAttendance();
@@ -167,13 +170,41 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                 ),
                 const SizedBox(width: 12),
                 FilledButton.icon(
-                  onPressed: _saving || _loading || _records.isEmpty ? null : _submitAttendance,
-                  icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check_circle),
-                  label: Text(_saving ? 'Saving...' : 'Save Attendance'),
+                  onPressed: _saving || _loading || _records.isEmpty || _locked ? null : _submitAttendance,
+                  icon: _saving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : _locked
+                          ? const Icon(Icons.lock)
+                          : const Icon(Icons.check_circle),
+                  label: Text(_locked ? 'Locked' : (_saving ? 'Saving...' : 'Save Attendance')),
                 ),
               ],
             ),
             const SizedBox(height: 16),
+            if (_locked)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    border: Border.all(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock, color: Colors.orange, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Attendance for this date is locked and cannot be edited',
+                          style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -200,7 +231,8 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
               ..._records.map((r) => _StudentAttendanceCard(
                     student: r,
                     status: _statusMap[r['id'] as String] ?? 'present',
-                    onStatusChanged: (s) => setState(() => _statusMap[r['id'] as String] = s),
+                    onStatusChanged: (s) => _locked ? null : setState(() => _statusMap[r['id'] as String] = s),
+                    locked: _locked,
                   )),
             ],
           ],
@@ -412,8 +444,14 @@ class _StudentAttendanceCard extends StatelessWidget {
   final Map<String, dynamic> student;
   final String status;
   final ValueChanged<String> onStatusChanged;
+  final bool locked;
 
-  const _StudentAttendanceCard({required this.student, required this.status, required this.onStatusChanged});
+  const _StudentAttendanceCard({
+    required this.student,
+    required this.status,
+    required this.onStatusChanged,
+    required this.locked,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -421,9 +459,9 @@ class _StudentAttendanceCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
+        color: locked ? Colors.grey.shade50 : Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        border: Border.all(color: locked ? Colors.orange.withValues(alpha: 0.3) : Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
@@ -447,9 +485,9 @@ class _StudentAttendanceCard extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
             child: Row(
               children: [
-                _StatusBtn(label: 'P', status: 'present', current: status, onTap: () => onStatusChanged('present')),
-                _StatusBtn(label: 'A', status: 'absent', current: status, onTap: () => onStatusChanged('absent')),
-                _StatusBtn(label: 'L', status: 'leave', current: status, onTap: () => onStatusChanged('leave')),
+                _StatusBtn(label: 'P', status: 'present', current: status, onTap: () => locked ? null : onStatusChanged('present'), locked: locked),
+                _StatusBtn(label: 'A', status: 'absent', current: status, onTap: () => locked ? null : onStatusChanged('absent'), locked: locked),
+                _StatusBtn(label: 'L', status: 'leave', current: status, onTap: () => locked ? null : onStatusChanged('leave'), locked: locked),
               ],
             ),
           ),
@@ -463,9 +501,16 @@ class _StatusBtn extends StatelessWidget {
   final String label;
   final String status;
   final String current;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool locked;
 
-  const _StatusBtn({required this.label, required this.status, required this.current, required this.onTap});
+  const _StatusBtn({
+    required this.label,
+    required this.status,
+    required this.current,
+    required this.onTap,
+    required this.locked,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -479,12 +524,16 @@ class _StatusBtn extends StatelessWidget {
     } else if (status == 'leave') {
       if (isSelected) { bg = Colors.amber; fg = Colors.white; }
     }
+    
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-        child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg)),
+      onTap: locked ? null : onTap,
+      child: Opacity(
+        opacity: locked ? 0.5 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg)),
+        ),
       ),
     );
   }

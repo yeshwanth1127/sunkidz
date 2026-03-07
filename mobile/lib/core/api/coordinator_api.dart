@@ -55,6 +55,16 @@ class CoordinatorApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getStudentAttendance(String studentId, {int days = 30}) async {
+    final r = await _dio.get('/coordinator/students/$studentId/attendance', queryParameters: {'days': days});
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateStudentAttendance(String studentId, String date, String status) async {
+    final r = await _dio.put('/coordinator/students/$studentId/attendance', queryParameters: {'att_date': date, 'status': status});
+    return r.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getStaffAttendance({required String date}) async {
     final r = await _dio.get('/coordinator/staff-attendance', queryParameters: {'att_date': date});
     return r.data as Map<String, dynamic>;
@@ -82,5 +92,26 @@ class CoordinatorApi {
   Future<Map<String, dynamic>> createEnquiry(Map<String, dynamic> data) async {
     final r = await _dio.post('/coordinator/enquiries', data: data);
     return r.data as Map<String, dynamic>;
+  }
+
+  // Fee Management
+  Future<Map<String, dynamic>> getStudentFees(String studentId) async {
+    final r = await _dio.get('/coordinator/students/$studentId/fees');
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateStudentFees(String studentId, Map<String, dynamic> data) async {
+    final r = await _dio.post('/coordinator/students/$studentId/fees', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> recordFeePayment(String studentId, Map<String, dynamic> data) async {
+    final r = await _dio.post('/coordinator/students/$studentId/fees/payment', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getStudentFeePayments(String studentId) async {
+    final r = await _dio.get('/coordinator/students/$studentId/fees/payments');
+    return List<Map<String, dynamic>>.from(r.data as List);
   }
 }

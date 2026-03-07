@@ -88,6 +88,42 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
     );
   }
 
+  void _showEnquiryDetails(Map<String, dynamic> enquiry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 1,
+        expand: false,
+        builder: (_, controller) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Enquiry Details', style: Theme.of(context).textTheme.titleLarge),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: controller,
+                  child: _EnquiryDetailView(enquiry: enquiry),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,6 +147,7 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
                   itemBuilder: (_, i) => _EnquiryCard(
                     enquiry: _enquiries[i],
                     onConvert: () => _showAdmissionForm(_enquiries[i]),
+                    onTap: () => _showEnquiryDetails(_enquiries[i]),
                   ),
                 ),
     );
@@ -120,8 +157,9 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
 class _EnquiryCard extends StatelessWidget {
   final Map<String, dynamic> enquiry;
   final VoidCallback onConvert;
+  final VoidCallback onTap;
 
-  const _EnquiryCard({required this.enquiry, required this.onConvert});
+  const _EnquiryCard({required this.enquiry, required this.onConvert, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -131,59 +169,182 @@ class _EnquiryCard extends StatelessWidget {
     final ageStr = age is int ? (enquiry['age_months'] != null ? '$age yrs' : 'Age $age') : age.toString();
     final status = enquiry['status'] as String? ?? 'pending';
     final isConverted = status == 'converted';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: status == 'pending' ? AppColors.pastelYellow : status == 'converted' ? AppColors.pastelGreen : AppColors.pastelBlue,
-                  borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: status == 'pending' ? AppColors.pastelYellow : status == 'converted' ? AppColors.pastelGreen : AppColors.pastelBlue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.mail, color: status == 'converted' ? const Color(0xFF16A34A) : AppColors.primary),
                 ),
-                child: Icon(Icons.mail, color: status == 'converted' ? const Color(0xFF16A34A) : AppColors.primary),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('$branch • $ageStr', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                  ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('$branch • $ageStr', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                    ],
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isConverted ? Colors.green.shade100 : status == 'pending' ? Colors.amber.shade100 : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(999),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isConverted ? Colors.green.shade100 : status == 'pending' ? Colors.amber.shade100 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isConverted ? Colors.green.shade700 : Colors.grey.shade700),
+                  ),
                 ),
-                child: Text(status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isConverted ? Colors.green.shade700 : Colors.grey.shade700)),
+              ],
+            ),
+            if (!isConverted) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onConvert,
+                  icon: const Icon(Icons.school, size: 18),
+                  label: const Text('Convert to Admission'),
+                ),
               ),
             ],
-          ),
-          if (!isConverted) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onConvert,
-                icon: const Icon(Icons.school, size: 18),
-                label: const Text('Convert to Admission'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EnquiryDetailView extends StatelessWidget {
+  final Map<String, dynamic> enquiry;
+
+  const _EnquiryDetailView({required this.enquiry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section(title: 'Child Information'),
+        _InfoRow(label: 'Name', value: enquiry['child_name']),
+        _InfoRow(label: 'Date of Birth', value: enquiry['date_of_birth']?.toString().split('T').first ?? '—'),
+        _InfoRow(label: 'Age', value: enquiry['age_years'] != null ? '${enquiry['age_years']} years ${enquiry['age_months'] ?? 0} months' : '—'),
+        _InfoRow(label: 'Gender', value: enquiry['gender']),
+        const SizedBox(height: 16),
+        _Section(title: 'Branch'),
+        _InfoRow(label: 'Preferred Branch', value: enquiry['branch_name']),
+        const SizedBox(height: 16),
+        _Section(title: 'Father Details'),
+        _InfoRow(label: 'Name', value: enquiry['father_name']),
+        _InfoRow(label: 'Occupation', value: enquiry['father_occupation']),
+        _InfoRow(label: 'Place of Work', value: enquiry['father_place_of_work']),
+        _InfoRow(label: 'Email', value: enquiry['father_email']),
+        _InfoRow(label: 'Contact', value: enquiry['father_contact_no']),
+        const SizedBox(height: 16),
+        _Section(title: 'Mother Details'),
+        _InfoRow(label: 'Name', value: enquiry['mother_name']),
+        _InfoRow(label: 'Occupation', value: enquiry['mother_occupation']),
+        _InfoRow(label: 'Place of Work', value: enquiry['mother_place_of_work']),
+        _InfoRow(label: 'Email', value: enquiry['mother_email']),
+        _InfoRow(label: 'Contact', value: enquiry['mother_contact_no']),
+        const SizedBox(height: 16),
+        _Section(title: 'Siblings'),
+        _InfoRow(label: 'Siblings Info', value: enquiry['siblings_info']),
+        _InfoRow(label: 'Siblings Age', value: enquiry['siblings_age']),
+        const SizedBox(height: 16),
+        _Section(title: 'Address'),
+        _InfoRow(label: 'Residential Address', value: enquiry['residential_address']),
+        _InfoRow(label: 'Residential Contact', value: enquiry['residential_contact_no']),
+        const SizedBox(height: 16),
+        _Section(title: 'Additional Information'),
+        _InfoRow(label: 'Challenges / Specialities', value: enquiry['challenges_specialities']),
+        _InfoRow(label: 'Expectations from School', value: enquiry['expectations_from_school']),
+        const SizedBox(height: 16),
+        _Section(title: 'Status'),
+        _InfoRow(label: 'Status', value: enquiry['status']),
+        _InfoRow(label: 'Created At', value: enquiry['created_at']?.toString().split('T').first ?? '—'),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  final String title;
+
+  const _Section({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: AppColors.primary,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final dynamic value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final displayValue = value?.toString().trim();
+    if (displayValue == null || displayValue.isEmpty || displayValue == 'null') {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 14,
               ),
             ),
-          ],
+          ),
+          Expanded(
+            child: Text(
+              displayValue,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+          ),
         ],
       ),
     );

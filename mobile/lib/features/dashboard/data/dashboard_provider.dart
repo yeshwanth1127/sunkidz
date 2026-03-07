@@ -5,6 +5,7 @@ class DashboardData {
   final int branchesCount;
   final int studentsCount;
   final int staffCount;
+  final double collectedFees;
   final List<Map<String, dynamic>> recentEnquiries;
   final int newEnquiries;
   final int convertedEnquiries;
@@ -15,6 +16,7 @@ class DashboardData {
     required this.branchesCount,
     required this.studentsCount,
     required this.staffCount,
+    required this.collectedFees,
     required this.recentEnquiries,
     required this.newEnquiries,
     required this.convertedEnquiries,
@@ -31,6 +33,9 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
     final admissions = await api.getAdmissions();
     final users = await api.getUsers();
     final enquiries = await api.getEnquiries();
+    final analytics = await api.getAnalytics();
+    final revenue = analytics['revenue'] as Map<String, dynamic>?;
+    final collectedFees = (revenue?['total_collected'] as num?)?.toDouble() ?? 0.0;
     
     // Count enquiry statuses
     int newEnquiries = 0;
@@ -61,6 +66,7 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
       branchesCount: branches.length,
       studentsCount: admissions.length,
       staffCount: users.length,
+      collectedFees: collectedFees,
       recentEnquiries: enquiries.take(5).toList(),
       newEnquiries: newEnquiries,
       convertedEnquiries: convertedEnquiries,

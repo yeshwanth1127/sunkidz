@@ -262,13 +262,6 @@ class _BranchCard extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onTap,
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('Manage Branch'),
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary),
-            ),
           ],
         ),
       ),

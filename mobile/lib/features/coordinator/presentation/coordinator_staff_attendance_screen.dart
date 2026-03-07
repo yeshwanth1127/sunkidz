@@ -17,6 +17,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
   DateTime _selectedDate = DateTime.now();
   bool _loading = true;
   bool _saving = false;
+  bool _locked = false;  // Track if attendance is locked/submitted
   Map<String, dynamic>? _staffData;
   Map<String, dynamic>? _historyData;
   String _historyPeriod = 'week';
@@ -44,12 +45,16 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
   Future<void> _loadStaffAttendance() async {
     final api = ref.read(coordinatorApiProvider);
     if (api == null) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _locked = false;
+    });
     try {
       final res = await api.getStaffAttendance(date: _dateStr(_selectedDate));
       if (mounted) {
         setState(() {
           _staffData = res;
+          _locked = (res['locked'] as bool?) ?? false;  // Get locked status
           _loading = false;
         });
       }
@@ -86,7 +91,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
   }
 
   void _setStatus(int index, String status) {
-    if (_staffData == null) return;
+    if (_staffData == null || _locked) return;  // Don't allow changes if locked
     final staff = List<Map<String, dynamic>>.from(_staffData!['staff'] as List);
     if (index >= staff.length) return;
     staff[index] = {...staff[index], 'status': status};
@@ -162,7 +167,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
                   context: context,
                   initialDate: _selectedDate,
                   firstDate: DateTime(2020),
-                  lastDate: DateTime.now().add(const Duration(days: 1)),
+                  lastDate: DateTime.now(),  // Only today and before, not future
                 );
                 if (d != null) {
                   setState(() => _selectedDate = d);
@@ -173,6 +178,30 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
               label: Text(_formatDate(_selectedDate)),
             ),
             const SizedBox(height: 16),
+            if (_locked)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    border: Border.all(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock, color: Colors.orange, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Attendance for this date is locked and cannot be edited',
+                          style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (_loading && _staffData == null)
               const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
             else if (_staffData == null)
@@ -212,14 +241,18 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
         const SizedBox(height: 16),
         ...staff.asMap().entries.map((e) => _StaffRow(
               staff: e.value,
-              onStatusChanged: (status) => _setStatus(e.key, status),
+              onStatusChanged: (status) => _locked ? null : _setStatus(e.key, status),
+              locked: _locked,
             )),
         const SizedBox(height: 24),
-        FilledButton(
-          onPressed: _saving ? null : _saveAttendance,
-          child: _saving
+        FilledButton.icon(
+          onPressed: _saving || _locked ? null : _saveAttendance,
+          icon: _saving
               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Save Attendance'),
+              : _locked
+                  ? const Icon(Icons.lock)
+                  : const Icon(Icons.check_circle),
+          label: Text(_locked ? 'Locked' : (_saving ? 'Saving...' : 'Save Attendance')),
         ),
       ],
     );
@@ -380,9 +413,14 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
 
 class _StaffRow extends StatelessWidget {
   final Map<String, dynamic> staff;
-  final void Function(String) onStatusChanged;
+  final void Function(String)? onStatusChanged;
+  final bool locked;
 
-  const _StaffRow({required this.staff, required this.onStatusChanged});
+  const _StaffRow({
+    required this.staff,
+    required this.onStatusChanged,
+    required this.locked,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -393,9 +431,9 @@ class _StaffRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
+        color: locked ? Colors.grey.shade50 : Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        border: Border.all(color: locked ? Colors.orange.withValues(alpha: 0.3) : Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
@@ -414,17 +452,20 @@ class _StaffRow extends StatelessWidget {
               ],
             ),
           ),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'present', label: Text('P'), icon: Icon(Icons.check, size: 16)),
-              ButtonSegment(value: 'absent', label: Text('A'), icon: Icon(Icons.close, size: 16)),
-              ButtonSegment(value: 'leave', label: Text('L'), icon: Icon(Icons.event_busy, size: 16)),
-            ],
-            selected: {status},
-            onSelectionChanged: (s) => onStatusChanged(s.first),
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+          Opacity(
+            opacity: locked ? 0.5 : 1.0,
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'present', label: Text('P'), icon: Icon(Icons.check, size: 16)),
+                ButtonSegment(value: 'absent', label: Text('A'), icon: Icon(Icons.close, size: 16)),
+                ButtonSegment(value: 'leave', label: Text('L'), icon: Icon(Icons.event_busy, size: 16)),
+              ],
+              selected: {status},
+              onSelectionChanged: locked ? null : (s) => onStatusChanged?.call(s.first),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+              ),
             ),
           ),
         ],

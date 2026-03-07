@@ -99,13 +99,13 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                             // Logo without white background
                             Image.asset(
                               'images/new_logo.png',
-                              width: 200,
-                              height: 200,
+                              width: 300,
+                              height: 300,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) {
                                 return Icon(
                                   Icons.school,
-                                  size: 120,
+                                  size: 180,
                                   color: Colors.white.withValues(alpha: 0.9),
                                 );
                               },

@@ -165,7 +165,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
               controller: _tabController,
               children: [
                 _DetailsTab(student: s),
-                const Center(child: Text('Attendance tab')),
+                _AttendanceTab(studentId: widget.studentId),
                 const Center(child: Text('Report Cards tab')),
                 const Center(child: Text('Fees tab')),
               ],
@@ -533,6 +533,305 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceTab extends ConsumerStatefulWidget {
+  final String studentId;
+
+  const _AttendanceTab({required this.studentId});
+
+  @override
+  ConsumerState<_AttendanceTab> createState() => _AttendanceTabState();
+}
+
+class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
+  Map<String, dynamic>? _attendance;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttendance();
+  }
+
+  Future<void> _loadAttendance() async {
+    final api = ref.read(studentProfileApiProvider);
+    if (api == null) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Not authorized';
+        });
+      }
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final attendance = await api.getStudentAttendance(widget.studentId);
+      if (mounted) {
+        setState(() {
+          _attendance = attendance;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _editAttendance(String dateStr, String currentStatus) async {
+    String newStatus = currentStatus;
+    final api = ref.read(studentProfileApiProvider);
+    
+    if (api == null || api.updateStudentAttendance == null) return;
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Attendance'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Date: $dateStr'),
+            const SizedBox(height: 16),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'present', label: Text('Present'), icon: Icon(Icons.check_circle)),
+                ButtonSegment(value: 'absent', label: Text('Absent'), icon: Icon(Icons.cancel)),
+                ButtonSegment(value: 'leave', label: Text('Leave'), icon: Icon(Icons.event_busy)),
+              ],
+              selected: {newStatus},
+              onSelectionChanged: (Set<String> newSelection) {
+                newStatus = newSelection.first;
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, newStatus),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null && result != currentStatus && mounted) {
+      setState(() => _loading = true);
+      try {
+        await api.updateStudentAttendance!(widget.studentId, dateStr, result);
+        if (mounted) {
+          await _loadAttendance();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
+          );
+          setState(() => _loading = false);
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _loadAttendance, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+    if (_attendance == null || _attendance!['total_days'] == 0) {
+      return const Center(child: Text('No attendance records available'));
+    }
+
+    final att = _attendance!;
+    final totalDays = att['total_days'] as int? ?? 0;
+    final present = att['present'] as int? ?? 0;
+    final absent = att['absent'] as int? ?? 0;
+    final leave = att['leave'] as int? ?? 0;
+    final percentage = att['attendance_percentage'] as double? ?? 0.0;
+    final records = (att['records'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Summary cards
+          Row(
+            children: [
+              _SummaryChip(label: 'Total: $totalDays', color: AppColors.primary),
+              const SizedBox(width: 8),
+              _SummaryChip(label: 'Present: $present', color: Colors.green),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _SummaryChip(label: 'Absent: $absent', color: Colors.red),
+              const SizedBox(width: 8),
+              _SummaryChip(label: 'Leave: $leave', color: Colors.amber),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Attendance percentage
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Attendance Percentage', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: percentage / 100,
+                          minHeight: 20,
+                          backgroundColor: Colors.grey.shade300,
+                          valueColor: AlwaysStoppedAnimation(
+                            percentage >= 75 ? Colors.green : percentage >= 60 ? Colors.amber : Colors.red,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('$percentage%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Attendance records
+          if (records.isNotEmpty) ...[
+            Text('Recent Attendance', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ...records.map((record) {
+              final dateStr = record['date'] as String? ?? '';
+              final status = record['status'] as String? ?? 'present';
+              final date = DateTime.tryParse(dateStr);
+              String displayDate = dateStr;
+              if (date != null) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                displayDate = '${months[date.month - 1]} ${date.day}';
+              }
+              
+              Color statusColor = Colors.grey;
+              IconData statusIcon = Icons.help;
+              String statusLabel = status;
+              
+              if (status == 'present') {
+                statusColor = Colors.green;
+                statusIcon = Icons.check_circle;
+                statusLabel = 'Present';
+              } else if (status == 'absent') {
+                statusColor = Colors.red;
+                statusIcon = Icons.cancel;
+                statusLabel = 'Absent';
+              } else if (status == 'leave') {
+                statusColor = Colors.amber;
+                statusIcon = Icons.event_busy;
+                statusLabel = 'Leave';
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(statusIcon, color: statusColor),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(displayDate, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      if (ref.read(studentProfileApiProvider)?.updateStudentAttendance != null)
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          onPressed: () => _editAttendance(dateStr, status),
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _SummaryChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
         ),
       ),
     );

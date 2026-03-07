@@ -9,6 +9,12 @@ class UserResponse(BaseModel):
     role: str
     branch_id: str | None = None
     class_id: str | None = None
+    profile_photo: str | None = None
 
     class Config:
         from_attributes = True
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str

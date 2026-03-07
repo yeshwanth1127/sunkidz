@@ -66,6 +66,7 @@ def get_dashboard(
 
     return {
         "branch_name": branch_name,
+        "class_id": str(assignment.class_id) if assignment and assignment.class_id else None,
         "class_name": class_name,
         "students_count": students_count,
         "boys_count": boys_count,
@@ -275,17 +276,32 @@ def get_attendance(
     db: Session = Depends(get_db),
 ):
     """Get attendance for teacher's class on a given date."""
+    from datetime import date as date_class
+    from datetime import timedelta
+    
     class_id = _teacher_class_id(user, db)
     if not class_id:
-        return {"date": att_date.isoformat(), "records": []}
+        return {"date": att_date.isoformat(), "locked": False, "records": []}
+    
+    # Check if date is in the past or already submitted
+    today = date_class.today()
+    is_past = att_date < today
+    
     students = db.query(Student).filter(
         Student.class_id == class_id,
         Student.admission_number.isnot(None),
     ).order_by(Student.name).all()
+    
     att_map = {a.student_id: a for a in db.query(Attendance).filter(
         Attendance.date == att_date,
         Attendance.student_id.in_([s.id for s in students]),
     ).all()}
+    
+    # Check if any record for this date is submitted
+    submitted_count = sum(1 for a in att_map.values() if a.submitted)
+    is_submitted = submitted_count > 0
+    is_locked = is_submitted or is_past
+    
     result = []
     for s in students:
         a = att_map.get(s.id)
@@ -305,7 +321,7 @@ def get_attendance(
             "branch_name": branch_name,
             "status": a.status if a else "present",
         })
-    return {"date": att_date.isoformat(), "records": result}
+    return {"date": att_date.isoformat(), "locked": is_locked, "records": result}
 
 
 @router.put("/attendance")
@@ -314,10 +330,27 @@ def upsert_attendance(
     user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    """Mark attendance for teacher's class on a given date."""
+    """Mark attendance for teacher's class on a given date. Locks attendance once submitted."""
+    from datetime import date as date_class
+    
     class_id = _teacher_class_id(user, db)
     if not class_id:
         raise HTTPException(status_code=400, detail="No class assigned")
+    
+    # Prevent editing past days
+    today = date_class.today()
+    if body.date < today:
+        raise HTTPException(status_code=400, detail="Cannot edit attendance for past dates")
+    
+    # Check if attendance for this date is already submitted
+    existing_records = db.query(Attendance).filter(
+        Attendance.date == body.date,
+        Attendance.student_id.in_([UUID(rec.student_id) for rec in body.records])
+    ).all()
+    
+    if any(a.submitted for a in existing_records):
+        raise HTTPException(status_code=400, detail="Attendance for this date is already submitted and locked")
+    
     for rec in body.records:
         sid = UUID(rec.student_id)
         if not _student_in_teacher_class(sid, class_id, db):
@@ -330,10 +363,11 @@ def upsert_attendance(
         if existing:
             existing.status = status
             existing.marked_by = user.id
+            existing.submitted = True  # Mark as submitted
         else:
-            db.add(Attendance(student_id=sid, date=body.date, status=status, marked_by=user.id))
+            db.add(Attendance(student_id=sid, date=body.date, status=status, marked_by=user.id, submitted=True))
     db.commit()
-    return {"date": body.date.isoformat(), "count": len(body.records)}
+    return {"date": body.date.isoformat(), "count": len(body.records), "locked": True}
 
 
 @router.get("/attendance/history")

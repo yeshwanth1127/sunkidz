@@ -64,6 +64,7 @@ class Student(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     parent_links = relationship("ParentStudentLink", back_populates="student", lazy="selectin")
+    fee_structure = relationship("FeeStructure", back_populates="student", uselist=False)
 
 
 class ParentStudentLink(Base):

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/api/parent_provider.dart';
@@ -8,6 +9,9 @@ import '../../../core/auth/auth_provider.dart';
 import '../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../shared/widgets/marks_card_display.dart';
 import '../../../shared/widgets/parent_bus_tracking_widget.dart';
+import '../../../features/syllabus/providers/syllabus_provider.dart';
+import '../../../features/syllabus/domain/models/syllabus_model.dart';
+import '../../../core/config/api_config.dart';
 
 class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -19,8 +23,12 @@ class ParentDashboardScreen extends ConsumerStatefulWidget {
 class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   List<Map<String, dynamic>> _marksCards = [];
   List<Map<String, dynamic>> _children = [];
+  List<Homework> _homework = [];
+  Map<String, dynamic>? _feeData;
   bool _loadingMarks = true;
   bool _loadingChildren = true;
+  bool _loadingHomework = true;
+  bool _loadingFees = true;
   Map<String, dynamic>? _selectedChild;
 
   @override
@@ -30,6 +38,45 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
       _loadMarksCards();
       _loadChildren();
     });
+  }
+
+  Future<void> _loadHomework() async {
+    if (_selectedChild == null) {
+      setState(() {
+        _homework = [];
+        _loadingHomework = false;
+      });
+      return;
+    }
+
+    final classId = _selectedChild!['class_id'] as String?;
+    if (classId == null) {
+      setState(() {
+        _homework = [];
+        _loadingHomework = false;
+      });
+      return;
+    }
+
+    setState(() => _loadingHomework = true);
+
+    try {
+      final service = ref.read(syllabusServiceProvider);
+      final homeworkList = await service.fetchHomework(classId: classId);
+      if (mounted) {
+        setState(() {
+          _homework = homeworkList;
+          _loadingHomework = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _homework = [];
+          _loadingHomework = false;
+        });
+      }
+    }
   }
 
 
@@ -49,9 +96,46 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
           _selectedChild = children.isNotEmpty ? children[0] : null;
           _loadingChildren = false;
         });
+        _loadHomework();
+        _loadFees();
       }
     } catch (_) {
       if (mounted) setState(() => _loadingChildren = false);
+    }
+  }
+
+  Future<void> _loadFees() async {
+    if (_selectedChild == null) {
+      setState(() {
+        _feeData = null;
+        _loadingFees = false;
+      });
+      return;
+    }
+
+    final api = ref.read(parentApiProvider);
+    if (api == null) {
+      setState(() => _loadingFees = false);
+      return;
+    }
+
+    setState(() => _loadingFees = true);
+
+    try {
+      final fees = await api.getStudentFees(_selectedChild!['id']);
+      if (mounted) {
+        setState(() {
+          _feeData = fees;
+          _loadingFees = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _feeData = null;
+          _loadingFees = false;
+        });
+      }
     }
   }
 
@@ -127,6 +211,11 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
     final userName = userAsync.valueOrNull?['full_name']?.toString() ?? 'Parent';
+    final userId = ref.read(authProvider).userId;
+    final hasProfilePhoto = userAsync.valueOrNull?['profile_photo'] != null;
+    final profilePhotoUrl = hasProfilePhoto && userId != null 
+        ? '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/auth/profile-photo/$userId'
+        : null;
     
     return Scaffold(
       appBar: AppBar(
@@ -158,6 +247,26 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               ),
             ],
           ),
+          InkWell(
+            onTap: () => context.push('/parent/settings'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                backgroundImage: profilePhotoUrl != null 
+                    ? NetworkImage('$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}')
+                    : null,
+                child: profilePhotoUrl == null 
+                    ? Text(
+                        userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
+                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       drawer: Drawer(
@@ -226,6 +335,8 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   }).toList(),
                   onChanged: (val) {
                     setState(() => _selectedChild = val);
+                    _loadHomework();
+                    _loadFees();
                   },
                 ),
               ),
@@ -257,9 +368,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               title: const Text('Homework'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Homework feature coming soon')),
-                );
+                context.push('/parent/homework');
               },
             ),
             ListTile(
@@ -275,9 +384,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               title: const Text('Fees'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Fees feature coming soon')),
-                );
+                // Already on home showing fees
               },
             ),
             if (_hasBusAccess)
@@ -483,9 +590,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     label: 'Homework',
                     color: Colors.orange,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Homework feature coming soon')),
-                      );
+                      context.push('/parent/homework');
                     },
                   ),
                   _QuickActionCard(
@@ -493,7 +598,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     label: 'Marks Cards',
                     color: Colors.green,
                     onTap: () {
-                      // Scroll to marks cards section or show filtered
+                      context.push('/parent/marks-cards');
                     },
                   ),
                   _QuickActionCard(
@@ -501,9 +606,13 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     label: 'Fees',
                     color: Colors.purple,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Fees feature coming soon')),
-                      );
+                      if (_selectedChild != null) {
+                        context.push('/parent/fees', extra: {'student': _selectedChild});
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please select a student first')),
+                        );
+                      }
                     },
                   ),
                   if (_hasBusAccess)
@@ -565,6 +674,262 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                       onTap: () => _showMarksCard(context, mc),
                     ),
                   )),
+            const SizedBox(height: 24),
+            // Fees Section
+            if (_selectedChild != null) ...[  
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Fee Details', style: Theme.of(context).textTheme.titleLarge),
+              ),
+              const SizedBox(height: 12),
+              if (_loadingFees)
+                const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              else if (_feeData == null || (_feeData!['total_due'] ?? 0.0) == 0.0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardTheme.color,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.account_balance_wallet_outlined, size: 40, color: Colors.grey.shade400),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            'No fee structure set up yet for this student.',
+                            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardTheme.color,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.account_balance_wallet, color: Colors.purple, size: 28),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Fee Summary', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                                  Text('${_feeData!['student_name']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _FeeStatCard(
+                                label: 'Total Due',
+                                amount: _feeData!['total_due'] ?? 0.0,
+                                color: Colors.red,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _FeeStatCard(
+                                label: 'Paid',
+                                amount: _feeData!['total_paid'] ?? 0.0,
+                                color: Colors.green,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _FeeStatCard(
+                                label: 'Balance',
+                                amount: _feeData!['total_balance'] ?? 0.0,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        _FeeComponentRow('Advance Fees', _feeData!['advance_fees_balance'] ?? 0.0),
+                        const SizedBox(height: 8),
+                        _FeeComponentRow('Term Fee 1', _feeData!['term_fee_1_balance'] ?? 0.0),
+                        const SizedBox(height: 8),
+                        _FeeComponentRow('Term Fee 2', _feeData!['term_fee_2_balance'] ?? 0.0),
+                        const SizedBox(height: 8),
+                        _FeeComponentRow('Term Fee 3', _feeData!['term_fee_3_balance'] ?? 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 24),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Homework', style: Theme.of(context).textTheme.titleLarge),
+                  if (_homework.isNotEmpty)
+                    Text('${_homework.length} assigned', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_loadingHomework)
+              const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+            else if (_homework.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardTheme.color,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Theme.of(context).dividerColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.school, size: 40, color: Colors.grey.shade400),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'No homework assigned yet for ${_selectedChild?['class_name'] ?? 'this class'}.',
+                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _homework.length,
+                  itemBuilder: (ctx, i) {
+                    final hw = _homework[i];
+                    return Container(
+                      width: 300,
+                      margin: EdgeInsets.only(right: i < _homework.length - 1 ? 12 : 0),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardTheme.color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Theme.of(context).dividerColor),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.assignment, color: Colors.orange, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      hw.title,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Assigned: ${DateFormat('MMM dd, yyyy').format(hw.uploadDate)}',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (hw.description != null && hw.description!.isNotEmpty)
+                            Text(
+                              hw.description!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                            ),
+                          const Spacer(),
+                          if (hw.dueDate != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: hw.dueDate!.isBefore(DateTime.now()) ? Colors.red.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 12,
+                                    color: hw.dueDate!.isBefore(DateTime.now()) ? Colors.red : Colors.blue,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Due: ${DateFormat('MMM dd').format(hw.dueDate!)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: hw.dueDate!.isBefore(DateTime.now()) ? Colors.red : Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            onPressed: () => context.push('/parent/homework'),
+                            icon: const Icon(Icons.visibility, size: 16),
+                            label: const Text('View Details'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              minimumSize: const Size(double.infinity, 36),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -722,6 +1087,72 @@ class _GalleryImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: Image.network(url, width: 128, height: 128, fit: BoxFit.cover),
+    );
+  }
+}
+
+class _FeeStatCard extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+
+  const _FeeStatCard({required this.label, required this.amount, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '₹${amount.toStringAsFixed(0)}',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeeComponentRow extends StatelessWidget {
+  final String label;
+  final double balance;
+
+  const _FeeComponentRow(this.label, this.balance);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 14)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: balance > 0 ? Colors.orange.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            '₹${balance.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: balance > 0 ? Colors.orange.shade700 : Colors.green.shade700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
