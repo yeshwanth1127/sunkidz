@@ -83,6 +83,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

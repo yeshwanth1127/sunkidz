@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../shared/widgets/marks_card_display.dart';
 import '../../../shared/widgets/parent_bus_tracking_widget.dart';
 import '../../../features/syllabus/providers/syllabus_provider.dart';
@@ -17,18 +16,21 @@ class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
 
   @override
-  ConsumerState<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
+  ConsumerState<ParentDashboardScreen> createState() =>
+      _ParentDashboardScreenState();
 }
 
 class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   List<Map<String, dynamic>> _marksCards = [];
   List<Map<String, dynamic>> _children = [];
   List<Homework> _homework = [];
+  List<GalleryItem> _dailyGalleryItems = [];
   Map<String, dynamic>? _feeData;
   bool _loadingMarks = true;
   bool _loadingChildren = true;
   bool _loadingHomework = true;
   bool _loadingFees = true;
+  bool _loadingGallery = true;
   Map<String, dynamic>? _selectedChild;
 
   @override
@@ -79,7 +81,44 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     }
   }
 
+  Future<void> _loadGallery() async {
+    if (_selectedChild == null) {
+      setState(() {
+        _dailyGalleryItems = [];
+        _loadingGallery = false;
+      });
+      return;
+    }
 
+    final classId = _selectedChild!['class_id'] as String?;
+    if (classId == null) {
+      setState(() {
+        _dailyGalleryItems = [];
+        _loadingGallery = false;
+      });
+      return;
+    }
+
+    setState(() => _loadingGallery = true);
+
+    try {
+      final service = ref.read(syllabusServiceProvider);
+      final gallery = await service.fetchGallery(classId: classId);
+      if (mounted) {
+        setState(() {
+          _dailyGalleryItems = gallery;
+          _loadingGallery = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _dailyGalleryItems = [];
+          _loadingGallery = false;
+        });
+      }
+    }
+  }
 
   Future<void> _loadChildren() async {
     final api = ref.read(parentApiProvider);
@@ -90,7 +129,9 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     try {
       final res = await api.getChildren();
       if (mounted) {
-        final children = List<Map<String, dynamic>>.from(res['children'] as List? ?? []);
+        final children = List<Map<String, dynamic>>.from(
+          res['children'] as List? ?? [],
+        );
         setState(() {
           _children = children;
           _selectedChild = children.isNotEmpty ? children[0] : null;
@@ -98,6 +139,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
         });
         _loadHomework();
         _loadFees();
+        _loadGallery();
       }
     } catch (_) {
       if (mounted) setState(() => _loadingChildren = false);
@@ -147,10 +189,13 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     }
     try {
       final res = await api.getMarksCards();
-      if (mounted) setState(() {
-        _marksCards = List<Map<String, dynamic>>.from(res['marks_cards'] as List? ?? []);
-        _loadingMarks = false;
-      });
+      if (mounted)
+        setState(() {
+          _marksCards = List<Map<String, dynamic>>.from(
+            res['marks_cards'] as List? ?? [],
+          );
+          _loadingMarks = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loadingMarks = false);
     }
@@ -174,8 +219,14 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${mc['student_name']} • ${mc['academic_year']}', style: Theme.of(context).textTheme.titleMedium),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  Text(
+                    '${mc['student_name']} • ${mc['academic_year']}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
                 ],
               ),
             ),
@@ -210,14 +261,17 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
-    final userName = userAsync.valueOrNull?['full_name']?.toString() ?? 'Parent';
+    final userName =
+        userAsync.valueOrNull?['full_name']?.toString() ?? 'Parent';
     final userId = ref.read(authProvider).userId;
+    final authToken = ref.read(authProvider).token;
     final hasProfilePhoto = userAsync.valueOrNull?['profile_photo'] != null;
-    final profilePhotoUrl = hasProfilePhoto && userId != null 
+    final profilePhotoUrl = hasProfilePhoto && userId != null
         ? '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/auth/profile-photo/$userId'
         : null;
-    
+
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
         title: Row(
           children: [
@@ -235,14 +289,20 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
         actions: [
           Stack(
             children: [
-              IconButton(icon: Icon(Icons.notifications_outlined), onPressed: () {}),
+              IconButton(
+                icon: Icon(Icons.notifications_outlined),
+                onPressed: () {},
+              ),
               Positioned(
                 top: 8,
                 right: 8,
                 child: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             ],
@@ -254,13 +314,19 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               child: CircleAvatar(
                 radius: 18,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                backgroundImage: profilePhotoUrl != null 
-                    ? NetworkImage('$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}')
+                backgroundImage: profilePhotoUrl != null
+                    ? NetworkImage(
+                        '$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}',
+                      )
                     : null,
-                child: profilePhotoUrl == null 
+                child: profilePhotoUrl == null
                     ? Text(
                         userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
-                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       )
                     : null,
               ),
@@ -276,72 +342,74 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               decoration: BoxDecoration(color: AppColors.primary),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'images/new_logo.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.school, size: 32, color: AppColors.primary);
-                        },
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'images/new_logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                Icons.school,
+                                size: 28,
+                                color: AppColors.primary,
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    userName,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Parent Portal',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Parent Portal',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            if (_loadingChildren)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(),
-              )
-            else if (_children.isEmpty)
+            if (!_loadingChildren && _children.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('No children linked', style: TextStyle(color: Colors.grey.shade600)),
-              )
-            else ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: DropdownButtonFormField<Map<String, dynamic>>(
-                  decoration: const InputDecoration(
-                    labelText: 'Select Child',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  value: _selectedChild,
-                  items: _children.map((child) {
-                    return DropdownMenuItem(
-                      value: child,
-                      child: Text(child['name'] as String? ?? 'Unknown'),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() => _selectedChild = val);
-                    _loadHomework();
-                    _loadFees();
-                  },
+                child: Text(
+                  'No children linked',
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
-              ),
+              )
+            else
               const Divider(),
-            ],
             ListTile(
               leading: Icon(Icons.home, color: AppColors.primary),
               title: const Text('Home'),
@@ -355,10 +423,15 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               onTap: () {
                 Navigator.pop(context);
                 if (_selectedChild != null) {
-                  context.push('/parent/attendance', extra: {'student': _selectedChild});
+                  context.push(
+                    '/parent/attendance',
+                    extra: {'student': _selectedChild},
+                  );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please select a student first')),
+                    const SnackBar(
+                      content: Text('Please select a student first'),
+                    ),
                   );
                 }
               },
@@ -392,14 +465,21 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 leading: Icon(Icons.directions_bus, color: Colors.blue),
                 title: const Text('Bus Tracking'),
                 trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Active',
-                    style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.green.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 onTap: () {
@@ -411,7 +491,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             const Divider(),
             ListTile(
               leading: Icon(Icons.logout, color: Colors.red.shade700),
-              title: Text('Logout', style: TextStyle(color: Colors.red.shade700)),
+              title: Text(
+                'Logout',
+                style: TextStyle(color: Colors.red.shade700),
+              ),
               onTap: () {
                 ref.read(authProvider.notifier).logout();
                 context.go('/login');
@@ -434,7 +517,13 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     color: Theme.of(context).cardTheme.color,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Theme.of(context).dividerColor),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -445,14 +534,24 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.primary, width: 2),
+                              border: Border.all(
+                                color: AppColors.primary,
+                                width: 2,
+                              ),
                             ),
                             child: CircleAvatar(
                               radius: 38,
-                              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                              backgroundColor: AppColors.primary.withValues(
+                                alpha: 0.1,
+                              ),
                               child: Text(
-                                (_selectedChild!['name'] as String? ?? 'S')[0].toUpperCase(),
-                                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                (_selectedChild!['name'] as String? ?? 'S')[0]
+                                    .toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
                               ),
                             ),
                           ),
@@ -462,17 +561,27 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _selectedChild!['name'] as String? ?? 'Unknown',
+                                  _selectedChild!['name'] as String? ??
+                                      'Unknown',
                                   style: Theme.of(context).textTheme.titleLarge,
                                 ),
                                 Row(
                                   children: [
-                                    Icon(Icons.location_on, size: 14, color: AppColors.primary),
+                                    Icon(
+                                      Icons.location_on,
+                                      size: 14,
+                                      color: AppColors.primary,
+                                    ),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
-                                        _selectedChild!['branch_name'] as String? ?? 'No Branch',
-                                        style: TextStyle(color: AppColors.primary, fontSize: 14),
+                                        _selectedChild!['branch_name']
+                                                as String? ??
+                                            'No Branch',
+                                        style: TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 14,
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -481,12 +590,18 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Class: ${_selectedChild!['class_name'] ?? 'Not Assigned'}',
-                                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
                                 ),
                                 if (_selectedChild!['admission_number'] != null)
                                   Text(
                                     'Admission: ${_selectedChild!['admission_number']}',
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12,
+                                    ),
                                   ),
                               ],
                             ),
@@ -494,33 +609,14 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Profile editing coming soon')),
-                                );
-                              },
-                              icon: Icon(Icons.edit, size: 18),
-                              label: const Text('Edit Profile'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Container(
-                            width: 48,
-                            height: 40,
-                            decoration: BoxDecoration(color: AppColors.secondary, borderRadius: BorderRadius.circular(8)),
-                            child: Icon(Icons.child_care, color: Colors.black87),
-                          ),
-                        ],
-                      ),
                       if (_hasBusAccess)
                         Padding(
                           padding: const EdgeInsets.only(top: 12),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
                               borderRadius: BorderRadius.circular(8),
@@ -529,11 +625,19 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.check_circle, size: 16, color: Colors.green.shade700),
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: Colors.green.shade700,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Bus Facility Active',
-                                  style: TextStyle(fontSize: 12, color: Colors.green.shade700, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -550,7 +654,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Live Bus Tracking', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Live Bus Tracking',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 12),
                     const ParentBusTrackingWidget(),
                   ],
@@ -558,7 +665,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
+              child: Text(
+                'Quick Actions',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
             const SizedBox(height: 12),
             Padding(
@@ -577,10 +687,15 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     color: AppColors.primary,
                     onTap: () {
                       if (_selectedChild != null) {
-                        context.push('/parent/attendance', extra: {'student': _selectedChild});
+                        context.push(
+                          '/parent/attendance',
+                          extra: {'student': _selectedChild},
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please select a student first')),
+                          const SnackBar(
+                            content: Text('Please select a student first'),
+                          ),
                         );
                       }
                     },
@@ -607,10 +722,18 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     color: Colors.purple,
                     onTap: () {
                       if (_selectedChild != null) {
-                        context.push('/parent/fees', extra: {'student': _selectedChild});
+                        context.push(
+                          '/parent/fees',
+                          extra: {
+                            'student': _selectedChild,
+                            'feeData': _feeData,
+                          },
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please select a student first')),
+                          const SnackBar(
+                            content: Text('Please select a student first'),
+                          ),
                         );
                       }
                     },
@@ -633,15 +756,27 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Marks Cards', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Marks Cards',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   if (_marksCards.isNotEmpty)
-                    Text('${_marksCards.length} sent', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    Text(
+                      '${_marksCards.length} sent',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
             if (_loadingMarks)
-              const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
             else if (_marksCards.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -654,12 +789,19 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.assignment_outlined, size: 40, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.assignment_outlined,
+                        size: 40,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
                           'No marks cards sent yet. Your child\'s teacher will share them when ready.',
-                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ],
@@ -667,24 +809,36 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 ),
               )
             else
-              ..._marksCards.map((mc) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    child: _MarksCardTile(
-                      marksCard: mc,
-                      onTap: () => _showMarksCard(context, mc),
-                    ),
-                  )),
+              ..._marksCards.map(
+                (mc) => Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  child: _MarksCardTile(
+                    marksCard: mc,
+                    onTap: () => _showMarksCard(context, mc),
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
             // Fees Section
-            if (_selectedChild != null) ...[  
+            if (_selectedChild != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Fee Details', style: Theme.of(context).textTheme.titleLarge),
+                child: Text(
+                  'Fee Details',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
               const SizedBox(height: 12),
               if (_loadingFees)
-                const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-              else if (_feeData == null || (_feeData!['total_due'] ?? 0.0) == 0.0)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_feeData == null ||
+                  (_feeData!['total_due'] ?? 0.0) == 0.0)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -696,12 +850,19 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.account_balance_wallet_outlined, size: 40, color: Colors.grey.shade400),
+                        Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 40,
+                          color: Colors.grey.shade400,
+                        ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Text(
                             'No fee structure set up yet for this student.',
-                            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
                         ),
                       ],
@@ -717,7 +878,13 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                       color: Theme.of(context).cardTheme.color,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Theme.of(context).dividerColor),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -730,15 +897,31 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                 color: Colors.purple.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.account_balance_wallet, color: Colors.purple, size: 28),
+                              child: const Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.purple,
+                                size: 28,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Fee Summary', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                                  Text('${_feeData!['student_name']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                                  Text(
+                                    'Fee Summary',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    '${_feeData!['student_name']}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -775,13 +958,25 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                         const SizedBox(height: 16),
                         const Divider(),
                         const SizedBox(height: 12),
-                        _FeeComponentRow('Advance Fees', _feeData!['advance_fees_balance'] ?? 0.0),
+                        _FeeComponentRow(
+                          'Advance Fees',
+                          _feeData!['advance_fees_balance'] ?? 0.0,
+                        ),
                         const SizedBox(height: 8),
-                        _FeeComponentRow('Term Fee 1', _feeData!['term_fee_1_balance'] ?? 0.0),
+                        _FeeComponentRow(
+                          'Term Fee 1',
+                          _feeData!['term_fee_1_balance'] ?? 0.0,
+                        ),
                         const SizedBox(height: 8),
-                        _FeeComponentRow('Term Fee 2', _feeData!['term_fee_2_balance'] ?? 0.0),
+                        _FeeComponentRow(
+                          'Term Fee 2',
+                          _feeData!['term_fee_2_balance'] ?? 0.0,
+                        ),
                         const SizedBox(height: 8),
-                        _FeeComponentRow('Term Fee 3', _feeData!['term_fee_3_balance'] ?? 0.0),
+                        _FeeComponentRow(
+                          'Term Fee 3',
+                          _feeData!['term_fee_3_balance'] ?? 0.0,
+                        ),
                       ],
                     ),
                   ),
@@ -793,15 +988,27 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Homework', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Homework',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   if (_homework.isNotEmpty)
-                    Text('${_homework.length} assigned', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    Text(
+                      '${_homework.length} assigned',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
             if (_loadingHomework)
-              const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
             else if (_homework.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -819,7 +1026,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                       Expanded(
                         child: Text(
                           'No homework assigned yet for ${_selectedChild?['class_name'] ?? 'this class'}.',
-                          style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ],
@@ -837,13 +1047,23 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     final hw = _homework[i];
                     return Container(
                       width: 300,
-                      margin: EdgeInsets.only(right: i < _homework.length - 1 ? 12 : 0),
+                      margin: EdgeInsets.only(
+                        right: i < _homework.length - 1 ? 12 : 0,
+                      ),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardTheme.color,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).dividerColor),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -856,7 +1076,11 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                   color: Colors.orange.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(Icons.assignment, color: Colors.orange, size: 24),
+                                child: const Icon(
+                                  Icons.assignment,
+                                  color: Colors.orange,
+                                  size: 24,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -865,13 +1089,19 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                   children: [
                                     Text(
                                       hw.title,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
                                       'Assigned: ${DateFormat('MMM dd, yyyy').format(hw.uploadDate)}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -879,19 +1109,28 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          if (hw.description != null && hw.description!.isNotEmpty)
+                          if (hw.description != null &&
+                              hw.description!.isNotEmpty)
                             Text(
                               hw.description!,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                              ),
                             ),
                           const Spacer(),
                           if (hw.dueDate != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: hw.dueDate!.isBefore(DateTime.now()) ? Colors.red.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+                                color: hw.dueDate!.isBefore(DateTime.now())
+                                    ? Colors.red.withValues(alpha: 0.1)
+                                    : Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Row(
@@ -900,7 +1139,9 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                   Icon(
                                     Icons.calendar_today,
                                     size: 12,
-                                    color: hw.dueDate!.isBefore(DateTime.now()) ? Colors.red : Colors.blue,
+                                    color: hw.dueDate!.isBefore(DateTime.now())
+                                        ? Colors.red
+                                        : Colors.blue,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -908,7 +1149,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: hw.dueDate!.isBefore(DateTime.now()) ? Colors.red : Colors.blue,
+                                      color:
+                                          hw.dueDate!.isBefore(DateTime.now())
+                                          ? Colors.red
+                                          : Colors.blue,
                                     ),
                                   ),
                                 ],
@@ -936,39 +1180,61 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Daily Gallery', style: Theme.of(context).textTheme.titleLarge),
-                  TextButton(onPressed: () {}, child: Text('See All', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600))),
+                  Text(
+                    'Daily Gallery',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      'See All',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
             SizedBox(
               height: 128,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _GalleryImage(url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAHwdpFhE-lMEBdDwyGfq5TfffGSaVD9gIWknw3BgnRLY-PFUCAA6HH9wrDIXx2A98y_G9I5Pu-2Dya1hsW6drtJv7a0LQ09AEo0by3VpflTGTAQjsE3Dc16ed1v12n4cOHHBPe6cirUkLKeG8slgsi-eP4I0i50MjpfXDIriKLVzq97qg0K6U-ooeo-TA4W_G6fF8XeJsxIyBtMQLIr5FfqWjeuU8g1i93dsKKm3TDIfLFI_RpWxlTOsIsdvUypq4s0sXy2t_jM7g'),
-                  const SizedBox(width: 12),
-                  _GalleryImage(url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCPuKoqqBFyiDqsZSEwIwYH-zdFDvDaVdRkH6cnvYDsfJayv0_WDir2XGXH91OMmkOjeqy_fuHPjK42rV-Q9i92hKHL2GMPJjJU7IJTc6jLSVH-Yk57SiSBprcxsuCG4cID5DWAj811686aVjs4k-TfhespDqC_VCWGsioX0fJTQ2F71Cq31VY1xgz0LP2r1ogsmmjIPhAeexaYEFjXcfevBtdfNBxwNzONWSRZW1z77XC4wY3mzu4EGMs-0fzECXseW-ehnhKVRI0'),
-                  const SizedBox(width: 12),
-                  _GalleryImage(url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC6edSOTxJ7wqV7K8Vg1JqNmwgT2JsSJpj71Eh_cJRQBWu2e1Kb8ax6Z-PPflUCIsWPcJaBRHkFi6a59LwnqxG8-GDEj7q9ydJx1x5colTmDF4at5_eEoR0UrjCN_e8ragtvgBpVbcjfISYFtO8uOF6_XeH3tqgOCFTLSVjPQk3sBHrMM3VIehn3_wDso5pSb7LGyIZotHUEpVAu5HHIeUfaghCpgnbWTZhObS-LO071aJ5eFt_GpC1XyzysHJwALWEiiNy2u9Pfc4'),
-                ],
-              ),
+              child: _loadingGallery
+                  ? const Center(child: CircularProgressIndicator())
+                  : _dailyGalleryItems.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'No gallery photos available yet',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _dailyGalleryItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final item = _dailyGalleryItems[index];
+                        final url =
+                            '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/gallery/${item.id}/file${authToken != null ? '?token=$authToken' : ''}';
+                        return _GalleryImage(url: url);
+                      },
+                    ),
             ),
             const SizedBox(height: 100),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: 0,
-        onTap: (_) {},
-        items: const [
-          NavItem(icon: Icons.home, label: 'Home'),
-          NavItem(icon: Icons.menu_book, label: 'Academic'),
-          NavItem(icon: Icons.chat_bubble_outline, label: 'Messages'),
-          NavItem(icon: Icons.credit_card, label: 'Fees'),
-        ],
       ),
     );
   }
@@ -999,7 +1265,13 @@ class _QuickActionCard extends StatelessWidget {
           color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Theme.of(context).dividerColor),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1007,11 +1279,17 @@ class _QuickActionCard extends StatelessWidget {
             Container(
               width: 56,
               height: 56,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, size: 28, color: color),
             ),
             const SizedBox(height: 12),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
               Text(
@@ -1049,23 +1327,48 @@ class _MarksCardTile extends StatelessWidget {
           color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Theme.of(context).dividerColor),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-              child: Icon(Icons.assignment, color: Colors.green.shade700, size: 28),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.assignment,
+                color: Colors.green.shade700,
+                size: 28,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(marksCard['student_name'] as String? ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  Text('${marksCard['academic_year']} • ${marksCard['class_name'] ?? '—'}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                  Text('Sent: $sentStr', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  Text(
+                    marksCard['student_name'] as String? ?? '—',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    '${marksCard['academic_year']} • ${marksCard['class_name'] ?? '—'}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  Text(
+                    'Sent: $sentStr',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
                 ],
               ),
             ),
@@ -1096,7 +1399,11 @@ class _FeeStatCard extends StatelessWidget {
   final double amount;
   final Color color;
 
-  const _FeeStatCard({required this.label, required this.amount, required this.color});
+  const _FeeStatCard({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1111,13 +1418,21 @@ class _FeeStatCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 6),
           Text(
             '₹${amount.toStringAsFixed(0)}',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -1140,7 +1455,9 @@ class _FeeComponentRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: balance > 0 ? Colors.orange.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+            color: balance > 0
+                ? Colors.orange.withValues(alpha: 0.1)
+                : Colors.green.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
@@ -1148,7 +1465,9 @@ class _FeeComponentRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: balance > 0 ? Colors.orange.shade700 : Colors.green.shade700,
+              color: balance > 0
+                  ? Colors.orange.shade700
+                  : Colors.green.shade700,
             ),
           ),
         ),

@@ -73,6 +73,7 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       drawer: const AdminDrawer(),
       appBar: AppBar(
         leading: Builder(

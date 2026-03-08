@@ -1,6 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+import logging
 
 from app.core.database import get_db
 from app.core.auth import require_admin
@@ -8,6 +9,9 @@ from app.models.user import User
 from app.models.enquiry import Enquiry
 from app.models.branch import Branch
 from app.schemas.enquiry import EnquiryCreate, EnquiryResponse, EnquiryDetailResponse
+from app.services.notification_service import send_enquiry_notification
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/enquiries", tags=["enquiries"])
 
@@ -85,6 +89,13 @@ def create_enquiry(
     db.add(e)
     db.commit()
     db.refresh(e)
+    
+    # Send WhatsApp notification (non-blocking)
+    try:
+        send_enquiry_notification(e)
+    except Exception as ex:
+        logger.error(f"Failed to send WhatsApp notification for enquiry {e.id}: {str(ex)}")
+    
     branch_name = None
     if e.branch_id:
         branch = db.query(Branch).filter(Branch.id == e.branch_id).first()
@@ -149,3 +160,20 @@ def get_enquiry(
         challenges_specialities=e.challenges_specialities,
         expectations_from_school=e.expectations_from_school,
     )
+
+
+@router.post("/{enquiry_id}/reject")
+def reject_enquiry(
+    enquiry_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Reject an enquiry by setting status to 'rejected'."""
+    e = db.query(Enquiry).filter(Enquiry.id == enquiry_id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Enquiry not found")
+    if e.status == "converted":
+        raise HTTPException(status_code=400, detail="Cannot reject a converted enquiry")
+    e.status = "rejected"
+    db.commit()
+    return {"ok": True, "message": "Enquiry rejected successfully"}

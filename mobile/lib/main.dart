@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/auth/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
+  const storage = FlutterSecureStorage();
   runApp(
     ProviderScope(
       overrides: [
-        authProvider.overrideWith((ref) => AuthNotifier(prefs)),
+        authProvider.overrideWith((ref) => AuthNotifier(storage)),
       ],
       child: const SunkidzApp(),
     ),

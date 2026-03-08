@@ -13,12 +13,13 @@ from app.core.security import decode_access_token
 from app.models.user import User
 from app.models.student import Student, ParentStudentLink
 from app.models.branch import Class, BranchAssignment
-from app.models.syllabus import Syllabus, Homework
+from app.models.syllabus import Syllabus, Homework, GalleryImage
 from app.schemas.syllabus import (
     SyllabusResponse,
     SyllabusUpdate,
     HomeworkResponse,
     HomeworkUpdate,
+    GalleryResponse,
 )
 
 router = APIRouter(tags=["syllabus-homework"])
@@ -27,10 +28,12 @@ router = APIRouter(tags=["syllabus-homework"])
 UPLOAD_DIR = "uploads"
 SYLLABUS_DIR = os.path.join(UPLOAD_DIR, "syllabus")
 HOMEWORK_DIR = os.path.join(UPLOAD_DIR, "homework")
+GALLERY_DIR = os.path.join(UPLOAD_DIR, "gallery")
 
 # Ensure directories exist
 os.makedirs(SYLLABUS_DIR, exist_ok=True)
 os.makedirs(HOMEWORK_DIR, exist_ok=True)
+os.makedirs(GALLERY_DIR, exist_ok=True)
 
 
 def _get_user_classes(db: Session, user: User) -> List[UUID]:
@@ -689,3 +692,151 @@ def view_homework_file(
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path=homework.file_path, filename=homework.file_name, media_type="application/octet-stream")
+
+
+# ========== GALLERY ENDPOINTS ==========
+
+@router.post("/gallery/upload", response_model=GalleryResponse)
+async def upload_gallery_image(
+    class_id: UUID = Form(...),
+    upload_date: str = Form(...),
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a gallery image (admin/coordinator/teacher for accessible class)."""
+    if current_user.role not in ["admin", "coordinator", "teacher"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only staff can upload gallery images")
+
+    if not _can_upload_to_class(db, current_user, class_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to upload gallery images for this class",
+        )
+
+    class_ = db.query(Class).filter(Class.id == class_id).first()
+    if not class_:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are allowed for gallery")
+
+    file_path, file_name, file_size = await _save_file(file, GALLERY_DIR)
+
+    item = GalleryImage(
+        class_id=class_id,
+        uploaded_by=current_user.id,
+        title=title,
+        description=description,
+        upload_date=datetime.fromisoformat(upload_date).date(),
+        file_path=file_path,
+        file_name=file_name,
+        file_size=file_size,
+    )
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    return GalleryResponse(
+        id=item.id,
+        class_id=item.class_id,
+        uploaded_by=item.uploaded_by,
+        uploader_name=current_user.full_name,
+        title=item.title,
+        description=item.description,
+        upload_date=item.upload_date,
+        file_name=item.file_name,
+        file_path=item.file_path,
+        file_size=item.file_size,
+        class_name=class_.name,
+        created_at=item.created_at.isoformat() if item.created_at else "",
+    )
+
+
+@router.get("/gallery", response_model=List[GalleryResponse])
+def list_gallery(
+    class_id: Optional[UUID] = None,
+    upload_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List gallery images visible to current user. Parents only see children's classes."""
+    query = db.query(GalleryImage)
+
+    if class_id:
+        if not _can_view_class(db, current_user, class_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view this class")
+        query = query.filter(GalleryImage.class_id == class_id)
+    else:
+        if current_user.role == "teacher":
+            user_classes = _get_user_classes(db, current_user)
+            if not user_classes:
+                return []
+            query = query.filter(GalleryImage.class_id.in_(user_classes))
+        elif current_user.role == "coordinator":
+            user_classes = _get_user_classes(db, current_user)
+            if not user_classes:
+                return []
+            query = query.filter(GalleryImage.class_id.in_(user_classes))
+        elif current_user.role == "parent":
+            parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.user_id == current_user.id).all()
+            student_ids = [link.student_id for link in parent_links]
+            if not student_ids:
+                return []
+            children = db.query(Student).filter(Student.id.in_(student_ids)).all()
+            children_class_ids = [child.class_id for child in children if child.class_id]
+            if not children_class_ids:
+                return []
+            query = query.filter(GalleryImage.class_id.in_(children_class_ids))
+
+    if upload_date:
+        query = query.filter(GalleryImage.upload_date == datetime.fromisoformat(upload_date).date())
+
+    items = query.order_by(GalleryImage.upload_date.desc(), GalleryImage.created_at.desc()).all()
+    result = []
+    for item in items:
+        class_ = db.query(Class).filter(Class.id == item.class_id).first()
+        uploader = db.query(User).filter(User.id == item.uploaded_by).first()
+        result.append(
+            GalleryResponse(
+                id=item.id,
+                class_id=item.class_id,
+                uploaded_by=item.uploaded_by,
+                uploader_name=uploader.full_name if uploader else None,
+                title=item.title,
+                description=item.description,
+                upload_date=item.upload_date,
+                file_name=item.file_name,
+                file_path=item.file_path,
+                file_size=item.file_size,
+                class_name=class_.name if class_ else "",
+                created_at=item.created_at.isoformat() if item.created_at else "",
+            )
+        )
+    return result
+
+
+@router.get("/gallery/{gallery_id}/file")
+def view_gallery_file(
+    gallery_id: UUID,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """View/download gallery image file."""
+    user = _resolve_request_user(db, current_user, token)
+
+    item = db.query(GalleryImage).filter(GalleryImage.id == gallery_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Gallery image not found")
+
+    if not _can_view_class(db, user, item.class_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view this image")
+
+    if not os.path.exists(item.file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(path=item.file_path, filename=item.file_name, media_type="application/octet-stream")

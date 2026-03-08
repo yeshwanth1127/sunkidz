@@ -129,3 +129,50 @@ class Homework {
     };
   }
 }
+
+class GalleryItem {
+  final String id;
+  final String classId;
+  final String uploadedBy;
+  final String? uploaderName;
+  final String? title;
+  final String? description;
+  final DateTime uploadDate;
+  final String filePath;
+  final String fileName;
+  final String? fileSize;
+  final String className;
+  final DateTime createdAt;
+
+  GalleryItem({
+    required this.id,
+    required this.classId,
+    required this.uploadedBy,
+    this.uploaderName,
+    this.title,
+    this.description,
+    required this.uploadDate,
+    required this.filePath,
+    required this.fileName,
+    this.fileSize,
+    required this.className,
+    required this.createdAt,
+  });
+
+  factory GalleryItem.fromJson(Map<String, dynamic> json) {
+    return GalleryItem(
+      id: json['id'],
+      classId: json['class_id'],
+      uploadedBy: json['uploaded_by'],
+      uploaderName: json['uploader_name'],
+      title: json['title'],
+      description: json['description'],
+      uploadDate: DateTime.parse(json['upload_date']),
+      filePath: json['file_path'],
+      fileName: json['file_name'],
+      fileSize: json['file_size'],
+      className: json['class_name'],
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+}

@@ -50,6 +50,7 @@ class _TeacherStudentsScreenState extends ConsumerState<TeacherStudentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       drawer: const TeacherDrawer(),
       appBar: AppBar(
         leading: Builder(

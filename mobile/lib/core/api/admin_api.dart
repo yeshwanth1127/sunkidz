@@ -5,15 +5,17 @@ class AdminApi {
   AdminApi(this._token);
 
   final String _token;
-  late final Dio _dio = Dio(BaseOptions(
-    baseUrl: '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}',
-    connectTimeout: const Duration(seconds: 30),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $_token',
-    },
-  ));
+  late final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}',
+      connectTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+    ),
+  );
 
   // Branches
   Future<List<Map<String, dynamic>>> getBranches() async {
@@ -33,13 +35,16 @@ class AdminApi {
     String? contactNo,
     String status = 'active',
   }) async {
-    final r = await _dio.post('/admin/branches', data: {
-      'name': name,
-      if (code != null) 'code': code,
-      'address': address,
-      'contact_no': contactNo,
-      'status': status,
-    });
+    final r = await _dio.post(
+      '/admin/branches',
+      data: {
+        'name': name,
+        if (code != null) 'code': code,
+        'address': address,
+        'contact_no': contactNo,
+        'status': status,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -59,6 +64,10 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<void> deleteBranch(String id) async {
+    await _dio.delete('/admin/branches/$id');
+  }
+
   // Classes (Grades)
   Future<List<Map<String, dynamic>>> getClasses({String? branchId}) async {
     final q = branchId != null ? '?branch_id=$branchId' : '';
@@ -71,15 +80,22 @@ class AdminApi {
     required String name,
     String academicYear = '2024-25',
   }) async {
-    final r = await _dio.post('/admin/classes', data: {
-      'branch_id': branchId,
-      'name': name,
-      'academic_year': academicYear,
-    });
+    final r = await _dio.post(
+      '/admin/classes',
+      data: {
+        'branch_id': branchId,
+        'name': name,
+        'academic_year': academicYear,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateClass(String id, {String? name, String? academicYear}) async {
+  Future<Map<String, dynamic>> updateClass(
+    String id, {
+    String? name,
+    String? academicYear,
+  }) async {
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
     if (academicYear != null) data['academic_year'] = academicYear;
@@ -87,20 +103,21 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<void> deleteBranch(String id) async {
-    await _dio.delete('/admin/branches/$id');
-  }
-
   Future<void> deleteClass(String id) async {
     await _dio.delete('/admin/classes/$id');
   }
 
   // Users (Teachers, Coordinators)
-  Future<List<Map<String, dynamic>>> getUsers({String? role, String? branchId}) async {
+  Future<List<Map<String, dynamic>>> getUsers({
+    String? role,
+    String? branchId,
+  }) async {
     final params = <String, String>{};
     if (role != null) params['role'] = role;
     if (branchId != null) params['branch_id'] = branchId;
-    final q = params.isEmpty ? '' : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final q = params.isEmpty
+        ? ''
+        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
     final r = await _dio.get('/admin/users$q');
     return List<Map<String, dynamic>>.from(r.data as List);
   }
@@ -112,13 +129,16 @@ class AdminApi {
     required String role,
     String? phone,
   }) async {
-    final r = await _dio.post('/admin/users', data: {
-      if (email != null) 'email': email,
-      'password': password,
-      'full_name': fullName,
-      'role': role,
-      if (phone != null) 'phone': phone,
-    });
+    final r = await _dio.post(
+      '/admin/users',
+      data: {
+        if (email != null) 'email': email,
+        'password': password,
+        'full_name': fullName,
+        'role': role,
+        if (phone != null) 'phone': phone,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -132,6 +152,18 @@ class AdminApi {
 
   Future<Map<String, dynamic>> toggleBusOpt(String studentId) async {
     final r = await _dio.post('/admin/students/$studentId/toggle-bus-opt');
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> transferStudentBranch(
+    String studentId, {
+    required String branchId,
+    String? classId,
+  }) async {
+    final r = await _dio.put(
+      '/admin/students/$studentId/branch',
+      data: {'branch_id': branchId, if (classId != null) 'class_id': classId},
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -163,11 +195,14 @@ class AdminApi {
     required String branchId,
     String? classId,
   }) async {
-    final r = await _dio.post('/admin/assignments', data: {
-      'user_id': userId,
-      'branch_id': branchId,
-      if (classId != null) 'class_id': classId,
-    });
+    final r = await _dio.post(
+      '/admin/assignments',
+      data: {
+        'user_id': userId,
+        'branch_id': branchId,
+        if (classId != null) 'class_id': classId,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -188,11 +223,16 @@ class AdminApi {
   }
 
   // Enquiries
-  Future<List<Map<String, dynamic>>> getEnquiries({String? status, String? branchId}) async {
+  Future<List<Map<String, dynamic>>> getEnquiries({
+    String? status,
+    String? branchId,
+  }) async {
     final params = <String, String>{};
     if (status != null) params['status'] = status;
     if (branchId != null) params['branch_id'] = branchId;
-    final q = params.isEmpty ? '' : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final q = params.isEmpty
+        ? ''
+        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
     final r = await _dio.get('/admin/enquiries$q');
     return List<Map<String, dynamic>>.from(r.data as List);
   }
@@ -207,6 +247,11 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> rejectEnquiry(String enquiryId) async {
+    final r = await _dio.post('/admin/enquiries/$enquiryId/reject');
+    return r.data as Map<String, dynamic>;
+  }
+
   // Students
   Future<Map<String, dynamic>> getStudent(String id) async {
     final r = await _dio.get('/admin/students/$id');
@@ -214,38 +259,68 @@ class AdminApi {
   }
 
   // Admissions / Students (convert enquiry to admission)
-  Future<List<Map<String, dynamic>>> getAdmissions({String? branchId, String? classId}) async {
+  Future<List<Map<String, dynamic>>> getAdmissions({
+    String? branchId,
+    String? classId,
+  }) async {
     final params = <String, String>{};
     if (branchId != null) params['branch_id'] = branchId;
     if (classId != null) params['class_id'] = classId;
-    final q = params.isEmpty ? '' : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final q = params.isEmpty
+        ? ''
+        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
     final r = await _dio.get('/admin/admissions$q');
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
-  Future<Map<String, dynamic>> createAdmissionFromEnquiry(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createAdmissionFromEnquiry(
+    Map<String, dynamic> data,
+  ) async {
     final r = await _dio.post('/admin/admissions/from-enquiry', data: data);
     return r.data as Map<String, dynamic>;
   }
 
   // Marks Cards
-  Future<Map<String, dynamic>> getMarks(String studentId, {String academicYear = '2024-25'}) async {
-    final r = await _dio.get('/admin/marks/$studentId', queryParameters: {'academic_year': academicYear});
+  Future<Map<String, dynamic>> getMarks(
+    String studentId, {
+    String academicYear = '2024-25',
+  }) async {
+    final r = await _dio.get(
+      '/admin/marks/$studentId',
+      queryParameters: {'academic_year': academicYear},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> upsertMarks(String studentId, {required String academicYear, required Map<String, dynamic> data}) async {
-    final r = await _dio.put('/admin/marks/$studentId', data: {'academic_year': academicYear, 'data': data});
+  Future<Map<String, dynamic>> upsertMarks(
+    String studentId, {
+    required String academicYear,
+    required Map<String, dynamic> data,
+  }) async {
+    final r = await _dio.put(
+      '/admin/marks/$studentId',
+      data: {'academic_year': academicYear, 'data': data},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> sendMarksToParent(String studentId, {String academicYear = '2024-25'}) async {
-    final r = await _dio.post('/admin/marks/$studentId/send-to-parent', queryParameters: {'academic_year': academicYear});
+  Future<Map<String, dynamic>> sendMarksToParent(
+    String studentId, {
+    String academicYear = '2024-25',
+  }) async {
+    final r = await _dio.post(
+      '/admin/marks/$studentId/send-to-parent',
+      queryParameters: {'academic_year': academicYear},
+    );
     return r.data as Map<String, dynamic>;
   }
 
   // Attendance
-  Future<Map<String, dynamic>> getAttendance({required String date, String? branchId, String? classId}) async {
+  Future<Map<String, dynamic>> getAttendance({
+    required String date,
+    String? branchId,
+    String? classId,
+  }) async {
     final params = <String, String>{'att_date': date};
     if (branchId != null) params['branch_id'] = branchId;
     if (classId != null) params['class_id'] = classId;
@@ -253,48 +328,104 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getAttendanceHistory({String period = 'week', String? branchId, String? classId}) async {
+  Future<Map<String, dynamic>> getAttendanceHistory({
+    String period = 'week',
+    String? branchId,
+    String? classId,
+  }) async {
     final params = <String, String>{'period': period};
     if (branchId != null) params['branch_id'] = branchId;
     if (classId != null) params['class_id'] = classId;
-    final r = await _dio.get('/admin/attendance/history', queryParameters: params);
+    final r = await _dio.get(
+      '/admin/attendance/history',
+      queryParameters: params,
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getStudentAttendance(String studentId, {int days = 30}) async {
-    final r = await _dio.get('/admin/students/$studentId/attendance', queryParameters: {'days': days});
+  Future<Map<String, dynamic>> getStudentAttendance(
+    String studentId, {
+    int days = 30,
+  }) async {
+    final r = await _dio.get(
+      '/admin/students/$studentId/attendance',
+      queryParameters: {'days': days},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateStudentAttendance(String studentId, String date, String status) async {
-    final r = await _dio.put('/admin/students/$studentId/attendance', queryParameters: {'att_date': date, 'status': status});
+  Future<Map<String, dynamic>> updateStudentAttendance(
+    String studentId,
+    String date,
+    String status,
+  ) async {
+    final r = await _dio.put(
+      '/admin/students/$studentId/attendance',
+      queryParameters: {'att_date': date, 'status': status},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  // Fee Management
+  // Fees
   Future<Map<String, dynamic>> getStudentFees(String studentId) async {
     final r = await _dio.get('/admin/students/$studentId/fees');
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateStudentFees(String studentId, Map<String, dynamic> data) async {
-    final r = await _dio.post('/admin/students/$studentId/fees', data: data);
+  Future<Map<String, dynamic>> updateStudentFees(
+    String studentId,
+    Map<String, dynamic> data,
+  ) async {
+    final r = await _dio.put('/admin/students/$studentId/fees', data: data);
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> recordFeePayment(String studentId, Map<String, dynamic> data) async {
-    final r = await _dio.post('/admin/students/$studentId/fees/payment', data: data);
+  Future<Map<String, dynamic>> recordFeePayment(
+    String studentId,
+    Map<String, dynamic> data,
+  ) async {
+    final r = await _dio.post(
+      '/admin/students/$studentId/fees/payments',
+      data: data,
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> getStudentFeePayments(String studentId) async {
+  Future<Map<String, dynamic>> getStudentFeePayments(String studentId) async {
     final r = await _dio.get('/admin/students/$studentId/fees/payments');
-    return List<Map<String, dynamic>>.from(r.data as List);
+    return r.data as Map<String, dynamic>;
   }
 
-  // Analytics & Reports
+  // Analytics
   Future<Map<String, dynamic>> getAnalytics() async {
     final r = await _dio.get('/admin/analytics');
+    return r.data as Map<String, dynamic>;
+  }
+
+  // Staff Attendance
+  Future<Map<String, dynamic>> getStaffAttendance({
+    required String date,
+    String? branchId,
+  }) async {
+    final params = <String, String>{'att_date': date};
+    if (branchId != null) params['branch_id'] = branchId;
+    final r = await _dio.get(
+      '/admin/staff-attendance',
+      queryParameters: params,
+    );
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getStaffAttendanceHistory({
+    String period = 'week',
+    String? branchId,
+  }) async {
+    final params = <String, String>{'period': period};
+    if (branchId != null) params['branch_id'] = branchId;
+    final r = await _dio.get(
+      '/admin/staff-attendance/history',
+      queryParameters: params,
+    );
     return r.data as Map<String, dynamic>;
   }
 }

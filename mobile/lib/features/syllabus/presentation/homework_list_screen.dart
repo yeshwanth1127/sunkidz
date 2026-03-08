@@ -7,6 +7,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
+import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../shared/widgets/parent_drawer.dart';
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
@@ -65,9 +66,7 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
   void _navigateToUpload() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const HomeworkUploadScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const HomeworkUploadScreen()),
     ).then((_) => setState(() {}));
   }
 
@@ -84,7 +83,8 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
     }
 
     final encodedToken = Uri.encodeQueryComponent(token);
-    final url = '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/homework/$homeworkId/file?token=$encodedToken';
+    final url =
+        '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/homework/$homeworkId/file?token=$encodedToken';
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
@@ -131,14 +131,25 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final isAdmin = auth.role == UserRole.admin;
-    final canUpload = auth.role == UserRole.admin || auth.role == UserRole.teacher || auth.role == UserRole.coordinator;
+    final canUpload =
+        auth.role == UserRole.admin ||
+        auth.role == UserRole.teacher ||
+        auth.role == UserRole.coordinator;
+    final drawer = switch (auth.role) {
+      UserRole.admin => const AdminDrawer(),
+      UserRole.coordinator => const CoordinatorDrawer(),
+      UserRole.teacher => const TeacherDrawer(),
+      UserRole.parent => const ParentDrawer(),
+      UserRole.busStaff || null => const SizedBox.shrink(),
+    };
     final filter = HomeworkFilter(
       classId: _selectedClassId,
       uploadDate: _selectedDate?.toIso8601String().split('T')[0],
     );
 
     return Scaffold(
-      drawer: isAdmin ? const AdminDrawer() : (auth.role == UserRole.coordinator ? const CoordinatorDrawer() : const ParentDrawer()),
+      backgroundColor: const Color(0xFFFFF4E0),
+      drawer: drawer,
       appBar: AppBar(
         leading: Builder(
           builder: (ctx) => IconButton(
@@ -179,10 +190,12 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
                         value: null,
                         child: Text('All Classes'),
                       ),
-                      ..._classes.map((cls) => DropdownMenuItem(
-                            value: cls['id'],
-                            child: Text(cls['name']),
-                          )),
+                      ..._classes.map(
+                        (cls) => DropdownMenuItem(
+                          value: cls['id'],
+                          child: Text(cls['name']),
+                        ),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -234,12 +247,12 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
           ),
           // List
           Expanded(
-            child: ref.watch(homeworkListProvider(filter)).when(
+            child: ref
+                .watch(homeworkListProvider(filter))
+                .when(
                   data: (homeworkList) {
                     if (homeworkList.isEmpty) {
-                      return const Center(
-                        child: Text('No homework found'),
-                      );
+                      return const Center(child: Text('No homework found'));
                     }
                     return ListView.builder(
                       padding: const EdgeInsets.all(16),
@@ -250,15 +263,16 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
                           homework: homework,
                           isAdmin: isAdmin,
                           onView: () => _viewHomeworkFile(homework.id),
-                          onDelete: isAdmin ? () => _deleteHomework(homework.id) : null,
+                          onDelete: isAdmin
+                              ? () => _deleteHomework(homework.id)
+                              : null,
                         );
                       },
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, stack) => Center(
-                    child: Text('Error: $error'),
-                  ),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => Center(child: Text('Error: $error')),
                 ),
           ),
         ],
@@ -273,7 +287,12 @@ class _HomeworkCard extends StatelessWidget {
   final VoidCallback onView;
   final VoidCallback? onDelete;
 
-  const _HomeworkCard({required this.homework, required this.isAdmin, required this.onView, this.onDelete});
+  const _HomeworkCard({
+    required this.homework,
+    required this.isAdmin,
+    required this.onView,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -292,9 +311,13 @@ class _HomeworkCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Class: ${homework.className}'),
-            Text('Upload Date: ${DateFormat('MMM dd, yyyy').format(homework.uploadDate)}'),
+            Text(
+              'Upload Date: ${DateFormat('MMM dd, yyyy').format(homework.uploadDate)}',
+            ),
             if (homework.dueDate != null)
-              Text('Due Date: ${DateFormat('MMM dd, yyyy').format(homework.dueDate!)}'),
+              Text(
+                'Due Date: ${DateFormat('MMM dd, yyyy').format(homework.dueDate!)}',
+              ),
             if (homework.uploaderName != null)
               Text('Assigned by: ${homework.uploaderName}'),
             if (homework.fileSize != null) Text('Size: ${homework.fileSize}'),

@@ -35,17 +35,12 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     }
     try {
       final branches = await api.getBranches();
-      if (mounted) setState(() {
-        _branches = branches;
-        _classes = [];
-        _selectedClassId = null;
-      });
-      final allClasses = await api.getClasses();
-      if (mounted) {
+      if (mounted)
         setState(() {
-          _classes = allClasses;
+          _branches = branches;
+          _classes = [];
+          _selectedClassId = null;
         });
-      }
       await _loadStudents();
       if (_selectedBranchId != null) await _loadClasses(_selectedBranchId!);
     } catch (_) {
@@ -58,10 +53,11 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     if (api == null) return;
     try {
       final classes = await api.getClasses(branchId: branchId);
-      if (mounted) setState(() {
-        _classes = classes;
-        _selectedClassId = null;
-      });
+      if (mounted)
+        setState(() {
+          _classes = classes;
+          _selectedClassId = null;
+        });
     } catch (_) {}
   }
 
@@ -71,24 +67,27 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    if (mounted) setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted)
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
     try {
       final students = await api.getAdmissions(
         branchId: _selectedBranchId,
         classId: _selectedClassId,
       );
-      if (mounted) setState(() {
-        _students = students;
-        _loading = false;
-      });
+      if (mounted)
+        setState(() {
+          _students = students;
+          _loading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _loading = false;
-      });
+      if (mounted)
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
+        });
     }
   }
 
@@ -101,21 +100,7 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     if (branchId != null) {
       _loadClasses(branchId).then((_) => _loadStudents());
     } else {
-      final api = ref.read(adminApiProvider);
-      if (api != null) {
-        api.getClasses().then((classes) {
-          if (mounted) {
-            setState(() {
-              _classes = classes;
-            });
-          }
-          _loadStudents();
-        }).catchError((_) {
-          _loadStudents();
-        });
-      } else {
-        _loadStudents();
-      }
+      _loadStudents();
     }
   }
 
@@ -134,19 +119,29 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
           'This will remove all related data (attendance, marks cards, parent link) and cannot be undone.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await ref.read(adminApiProvider)!.deleteStudent(student['id'] as String);
+                await ref
+                    .read(adminApiProvider)!
+                    .deleteStudent(student['id'] as String);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student deleted')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Student deleted')),
+                  );
                   _loadStudents();
                 }
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                if (mounted)
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
             child: const Text('Delete'),
@@ -157,18 +152,216 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   }
 
   Future<void> _toggleBusOpt(Map<String, dynamic> student) async {
+    final isCurrentlyBusOpted = student['bus_opted'] as bool? ?? false;
+
+    if (isCurrentlyBusOpted) {
+      final shouldDisable = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Disable Bus Service?'),
+          content: Text(
+            'Are you sure you want to mark ${student['name']} as not opted for bus service?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Disable'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldDisable != true) {
+        return;
+      }
+    }
+
     try {
-      final result = await ref.read(adminApiProvider)!.toggleBusOpt(student['id'] as String);
+      final result = await ref
+          .read(adminApiProvider)!
+          .toggleBusOpt(student['id'] as String);
       if (mounted) {
         final busOpted = result['bus_opted'] as bool? ?? false;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(busOpted ? 'Bus service enabled' : 'Bus service disabled')),
+          SnackBar(
+            content: Text(
+              busOpted ? 'Bus service enabled' : 'Bus service disabled',
+            ),
+          ),
         );
         _loadStudents();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _showShiftBranchDialog(Map<String, dynamic> student) async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+
+    String? selectedBranchId = student['branch_id'] as String?;
+    String? selectedClassId = student['class_id'] as String?;
+    List<Map<String, dynamic>> branchClasses = [];
+    bool loadingClasses = false;
+
+    Future<void> loadClassesForBranch(
+      StateSetter setSheetState,
+      String branchId,
+    ) async {
+      setSheetState(() => loadingClasses = true);
+      try {
+        final classes = await api.getClasses(branchId: branchId);
+        setSheetState(() {
+          branchClasses = classes;
+          final classExists = classes.any((c) => c['id'] == selectedClassId);
+          if (!classExists) {
+            selectedClassId = classes.isNotEmpty
+                ? classes.first['id'] as String?
+                : null;
+          }
+        });
+      } finally {
+        setSheetState(() => loadingClasses = false);
+      }
+    }
+
+    if (selectedBranchId != null) {
+      try {
+        branchClasses = await api.getClasses(branchId: selectedBranchId);
+        final classExists = branchClasses.any(
+          (c) => c['id'] == selectedClassId,
+        );
+        if (!classExists) {
+          selectedClassId = branchClasses.isNotEmpty
+              ? branchClasses.first['id'] as String?
+              : null;
+        }
+      } catch (_) {
+        branchClasses = [];
+      }
+    }
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => AlertDialog(
+          title: const Text('Shift Student Branch'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${student['name']} (${student['admission_number'] ?? '—'})',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedBranchId,
+                decoration: const InputDecoration(
+                  labelText: 'Target Branch',
+                  border: OutlineInputBorder(),
+                ),
+                items: _branches
+                    .map(
+                      (b) => DropdownMenuItem<String>(
+                        value: b['id'] as String,
+                        child: Text(b['name']?.toString() ?? '—'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setSheetState(() {
+                    selectedBranchId = value;
+                    selectedClassId = null;
+                    branchClasses = [];
+                  });
+                  loadClassesForBranch(setSheetState, value);
+                },
+              ),
+              const SizedBox(height: 12),
+              if (loadingClasses)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  value: selectedClassId,
+                  decoration: const InputDecoration(
+                    labelText: 'Target Grade',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: branchClasses
+                      .map(
+                        (c) => DropdownMenuItem<String>(
+                          value: c['id'] as String,
+                          child: Text(c['name']?.toString() ?? '—'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: branchClasses.isEmpty
+                      ? null
+                      : (value) => setSheetState(() => selectedClassId = value),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selectedBranchId == null
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              child: const Text('Shift'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || selectedBranchId == null) return;
+
+    try {
+      final result = await api.transferStudentBranch(
+        student['id'] as String,
+        branchId: selectedBranchId!,
+        classId: selectedClassId,
+      );
+      if (mounted) {
+        final updatedAdmissionNo =
+            result['admission_number']?.toString() ??
+            (student['admission_number']?.toString() ?? '—');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Shifted to ${result['branch_name']} ${result['class_name'] != null ? '• ${result['class_name']}' : ''}. Admission No: $updatedAdmissionNo',
+            ),
+          ),
+        );
+        _loadStudents();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -176,6 +369,7 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       drawer: const AdminDrawer(),
       appBar: AppBar(
         leading: Builder(
@@ -201,7 +395,11 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Filter', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.grey),
+                Text(
+                  'Filter',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: Colors.grey),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -212,14 +410,22 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Branch',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('All branches')),
-                          ..._branches.map((b) => DropdownMenuItem(
-                                value: b['id'] as String?,
-                                child: Text(b['name']?.toString() ?? '—'),
-                              )),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All branches'),
+                          ),
+                          ..._branches.map(
+                            (b) => DropdownMenuItem(
+                              value: b['id'] as String?,
+                              child: Text(b['name']?.toString() ?? '—'),
+                            ),
+                          ),
                         ],
                         onChanged: _onBranchChanged,
                       ),
@@ -231,31 +437,22 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Grade',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('All grades')),
-                          ...(() {
-                            final seen = <String>{};
-                            final uniqueClasses = _classes.where((c) {
-                              final id = (c['id']?.toString() ?? '').trim();
-                              if (id.isEmpty) return false;
-                              final key = id.toLowerCase();
-                              if (seen.contains(key)) return false;
-                              seen.add(key);
-                              return true;
-                            }).toList();
-                            return uniqueClasses.map((c) => DropdownMenuItem(
-                                  value: c['id'] as String?,
-                                  child: Text(
-                                    [
-                                      c['name']?.toString() ?? '—',
-                                      if ((c['branch_name']?.toString() ?? '').isNotEmpty) c['branch_name'].toString(),
-                                      if ((c['academic_year']?.toString() ?? '').isNotEmpty) c['academic_year'].toString(),
-                                    ].join(' • '),
-                                  ),
-                                ));
-                          })(),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All grades'),
+                          ),
+                          ..._classes.map(
+                            (c) => DropdownMenuItem(
+                              value: c['id'] as String?,
+                              child: Text(c['name']?.toString() ?? '—'),
+                            ),
+                          ),
                         ],
                         onChanged: _onClassChanged,
                       ),
@@ -269,48 +466,67 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            FilledButton(onPressed: _load, child: const Text('Retry')),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : _students.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.school_outlined, size: 64, color: Colors.grey.shade400),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No students found',
-                                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _selectedBranchId != null || _selectedClassId != null
-                                      ? 'Try adjusting your filters'
-                                      : 'Convert enquiries to admissions from the Enquiries screen',
-                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _students.length,
-                            itemBuilder: (_, i) => _StudentCard(
-                              student: _students[i],
-                              onTap: () => context.go('/students/${_students[i]['id']}'),
-                              onDelete: () => _confirmDeleteStudent(_students[i]),
-                              onBusOptToggle: () => _toggleBusOpt(_students[i]),
-                            ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: _load,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _students.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.school_outlined,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No students found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey.shade600,
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _selectedBranchId != null || _selectedClassId != null
+                              ? 'Try adjusting your filters'
+                              : 'Convert enquiries to admissions from the Enquiries screen',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _students.length,
+                    itemBuilder: (_, i) => _StudentCard(
+                      student: _students[i],
+                      onTap: () =>
+                          context.go('/students/${_students[i]['id']}'),
+                      onDelete: () => _confirmDeleteStudent(_students[i]),
+                      onBusOptToggle: () => _toggleBusOpt(_students[i]),
+                      onShiftBranch: () => _showShiftBranchDialog(_students[i]),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -327,12 +543,14 @@ class _StudentCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onBusOptToggle;
+  final VoidCallback onShiftBranch;
 
   const _StudentCard({
     required this.student,
     required this.onTap,
     required this.onDelete,
     required this.onBusOptToggle,
+    required this.onShiftBranch,
   });
 
   @override
@@ -342,10 +560,16 @@ class _StudentCard extends StatelessWidget {
     final branch = student['branch_name'] as String? ?? '—';
     final className = student['class_name'] as String? ?? '';
     final age = student['age_years'] ?? student['age_months'];
-    final ageStr = age is int ? (student['age_months'] != null ? '$age yrs' : 'Age $age') : (age?.toString() ?? '—');
+    final ageStr = age is int
+        ? (student['age_months'] != null ? '$age yrs' : 'Age $age')
+        : (age?.toString() ?? '—');
     final busOpted = student['bus_opted'] as bool? ?? false;
 
-    final subtitle = [branch, if (className.isNotEmpty) className, ageStr].join(' • ');
+    final subtitle = [
+      branch,
+      if (className.isNotEmpty) className,
+      ageStr,
+    ].join(' • ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -379,12 +603,28 @@ class _StudentCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             admissionNo,
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontFamily: 'monospace'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500,
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         ],
                       ),
@@ -392,10 +632,21 @@ class _StudentCard extends StatelessWidget {
                     PopupMenuButton<String>(
                       icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
                       onSelected: (v) {
+                        if (v == 'shift_branch') onShiftBranch();
                         if (v == 'delete') onDelete();
                       },
                       itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                        const PopupMenuItem(
+                          value: 'shift_branch',
+                          child: Text('Shift Branch'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -414,16 +665,24 @@ class _StudentCard extends StatelessWidget {
                         label: Text(
                           busOpted ? 'Bus Opted' : 'Opt Bus',
                           style: TextStyle(
-                            color: busOpted ? Colors.green : Colors.grey.shade700,
-                            fontWeight: busOpted ? FontWeight.w600 : FontWeight.normal,
+                            color: busOpted
+                                ? Colors.green
+                                : Colors.grey.shade700,
+                            fontWeight: busOpted
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                            color: busOpted ? Colors.green : Colors.grey.shade300,
+                            color: busOpted
+                                ? Colors.green
+                                : Colors.grey.shade300,
                             width: busOpted ? 2 : 1,
                           ),
-                          backgroundColor: busOpted ? Colors.green.withValues(alpha: 0.1) : null,
+                          backgroundColor: busOpted
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : null,
                         ),
                       ),
                     ),

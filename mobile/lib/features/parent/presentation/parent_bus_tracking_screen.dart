@@ -8,6 +8,7 @@ class ParentBusTrackingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
         title: const Text('Bus Tracking'),
         leading: IconButton(

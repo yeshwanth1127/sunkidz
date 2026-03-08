@@ -14,24 +14,65 @@ class TeacherDrawer extends ConsumerWidget {
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(color: const Color(0xFF42F07C).withValues(alpha: 0.2)),
+            decoration: BoxDecoration(
+              color: const Color(0xFF42F07C).withValues(alpha: 0.2),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Icon(Icons.school, size: 40, color: const Color(0xFF42F07C)),
                 const SizedBox(height: 8),
-                Text('Teacher Portal', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Teacher Portal',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
               ],
             ),
           ),
-          _DrawerTile(icon: Icons.dashboard, label: 'Home', onTap: () => _navigate(context, '/teacher')),
-          _DrawerTile(icon: Icons.face, label: 'Students', onTap: () => _navigate(context, '/teacher/students')),
-          _DrawerTile(icon: Icons.event_available, label: 'Attendance', onTap: () => _navigate(context, '/teacher/attendance')),
-          _DrawerTile(icon: Icons.menu_book, label: 'Syllabus', onTap: () => _navigate(context, '/teacher/syllabus')),
-          _DrawerTile(icon: Icons.assignment, label: 'Homework', onTap: () => _navigate(context, '/teacher/homework')),
-          _DrawerTile(icon: Icons.grade, label: 'Marks Card', onTap: () => _navigate(context, '/teacher/marks')),          _DrawerTile(icon: Icons.settings, label: 'Settings', onTap: () => _navigate(context, '/teacher/settings')),          const Divider(),
-          _DrawerTile(icon: Icons.logout, label: 'Logout', onTap: () => _logout(context, ref)),
+          _DrawerTile(
+            icon: Icons.dashboard,
+            label: 'Home',
+            onTap: () => _navigate(context, '/teacher'),
+          ),
+          _DrawerTile(
+            icon: Icons.face,
+            label: 'Students',
+            onTap: () => _navigate(context, '/teacher/students'),
+          ),
+          _DrawerTile(
+            icon: Icons.event_available,
+            label: 'Attendance',
+            onTap: () => _navigate(context, '/teacher/attendance'),
+          ),
+          _DrawerTile(
+            icon: Icons.menu_book,
+            label: 'Syllabus',
+            onTap: () => _navigate(context, '/teacher/syllabus'),
+          ),
+          _DrawerTile(
+            icon: Icons.assignment,
+            label: 'Homework',
+            onTap: () => _navigate(context, '/teacher/homework'),
+          ),
+          _DrawerTile(
+            icon: Icons.grade,
+            label: 'Marks Card',
+            onTap: () => _navigate(context, '/teacher/marks'),
+          ),
+          _DrawerTile(
+            icon: Icons.settings,
+            label: 'Settings',
+            onTap: () => _navigate(context, '/teacher/settings'),
+          ),
+          const Divider(),
+          _DrawerTile(
+            icon: Icons.logout,
+            label: 'Logout',
+            onTap: () => _logout(context, ref),
+          ),
         ],
       ),
     );
@@ -54,14 +95,14 @@ class _DrawerTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _DrawerTile({required this.icon, required this.label, required this.onTap});
+  const _DrawerTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      onTap: onTap,
-    );
+    return ListTile(leading: Icon(icon), title: Text(label), onTap: onTap);
   }
 }

@@ -147,6 +147,7 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
     );
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       drawer: isAdmin ? const AdminDrawer() : (auth.role == UserRole.coordinator ? const CoordinatorDrawer() : const TeacherDrawer()),
       appBar: AppBar(
         leading: Builder(

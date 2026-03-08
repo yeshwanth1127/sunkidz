@@ -1,0 +1,13 @@
+2026-03-08 18:44:38,127 - app.services.notification_service - INFO - Sending enquiry notification for yeshwanth to father's number: 8095404788
+2026-03-08 18:44:38,128 - app.services.whatsapp_service - INFO - Attempting to send WhatsApp message to 918095404788 for child: yeshwanth
+2026-03-08 18:44:39,725 - app.services.whatsapp_service - WARNING - WhatsApp API returned status 400 for 918095404788: {"error":{"message":"(#131030) Recipient phone number not in allowed list","type":"OAuthException","code":131030,"error_data":{"messaging_product":"whatsapp","details":"Recipient phone number not in allowed list: Add recipient phone number to recipient list and try again."},"fbtrace_id":"ANGy6nmRzSkDeDY8POxgLxu"}}
+2026-03-08 18:44:39,726 - app.services.whatsapp_service - INFO - Retry attempt 2/3 after 1s delay
+2026-03-08 18:44:41,506 - app.services.whatsapp_service - WARNING - WhatsApp API returned status 400 for 918095404788: {"error":{"message":"(#131030) Recipient phone number not in allowed list","type":"OAuthException","code":131030,"error_data":{"messaging_product":"whatsapp","details":"Recipient phone number not in allowed list: Add recipient phone number to recipient list and try again."},"fbtrace_id":"A37K7bvp5UhKwhF5GzUOzzv"}}
+2026-03-08 18:44:41,507 - app.services.whatsapp_service - INFO - Retry attempt 3/3 after 2s delay
+2026-03-08 18:44:44,326 - app.services.whatsapp_service - WARNING - WhatsApp API returned status 400 for 918095404788: {"error":{"message":"(#131030) Recipient phone number not in allowed list","type":"OAuthException","code":131030,"error_data":{"messaging_product":"whatsapp","details":"Recipient phone number not in allowed list: Add recipient phone number to recipient list and try again."},"fbtrace_id":"AF1R1rxABJMHQ5iqmruh1cu"}}
+2026-03-08 18:44:44,327 - app.services.whatsapp_service - ERROR - Failed to send WhatsApp message to 918095404788 after 3 attempts
+2026-03-08 18:44:44,328 - app.services.notification_service - ERROR - Failed to send enquiry notification for enquiry ID c4d8d490-1c09-427c-b375-000b3fdf403f
+2026-03-08 18:48:56,295 - app.services.notification_service - INFO - Sending enquiry notification for pp to father's number: 8095404788
+2026-03-08 18:48:56,296 - app.services.whatsapp_service - INFO - Attempting to send WhatsApp message to 918095404788 for child: pp
+2026-03-08 18:48:57,794 - app.services.whatsapp_service - INFO - WhatsApp message sent successfully to 918095404788
+2026-03-08 18:48:57,795 - app.services.notification_service - INFO - Successfully sent enquiry notification for enquiry ID 7373d94e-4309-4b3b-b602-9354d5c87d55

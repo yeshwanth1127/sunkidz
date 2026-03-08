@@ -110,6 +110,7 @@ class _ParentMarksCardsScreenState extends ConsumerState<ParentMarksCardsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
         title: const Text('Marks Cards'),
         elevation: 0,

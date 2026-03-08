@@ -4,8 +4,9 @@ import '../../../core/api/student_profile_provider.dart';
 
 class ParentFeesScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> student;
+  final Map<String, dynamic>? initialFeeData;
 
-  const ParentFeesScreen({super.key, required this.student});
+  const ParentFeesScreen({super.key, required this.student, this.initialFeeData});
 
   @override
   ConsumerState<ParentFeesScreen> createState() => _ParentFeesScreenState();
@@ -19,6 +20,11 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
   @override
   void initState() {
     super.initState();
+    // Use initial fee data if provided
+    if (widget.initialFeeData != null) {
+      _feeData = widget.initialFeeData;
+      _loading = false;
+    }
     _loadFees();
   }
 
@@ -31,7 +37,11 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
 
     setState(() => _loading = true);
     try {
-      final res = await api.getStudentFees(widget.student['id'] as String);
+      if (api.getStudentFees == null) {
+        setState(() => _loading = false);
+        return;
+      }
+      final res = await api.getStudentFees!(widget.student['id'] as String);
       if (mounted) {
         setState(() {
           _feeData = res;
@@ -52,6 +62,7 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
         title: const Text('Fee Details'),
         elevation: 0,

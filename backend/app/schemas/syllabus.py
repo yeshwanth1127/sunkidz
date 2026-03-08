@@ -66,3 +66,21 @@ class HomeworkResponse(HomeworkBase):
 
     class Config:
         from_attributes = True
+
+
+class GalleryResponse(BaseModel):
+    id: UUID
+    class_id: UUID
+    uploaded_by: UUID
+    uploader_name: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    upload_date: date
+    file_name: str
+    file_path: str
+    file_size: Optional[str] = None
+    class_name: str
+    created_at: str
+
+    class Config:
+        from_attributes = True
