@@ -32,6 +32,7 @@ class _AdminLiveTrackingDashboardState extends ConsumerState<AdminLiveTrackingDa
 
   @override
   void dispose() {
+    _mapController.dispose();
     _pageController.dispose();
     super.dispose();
   }

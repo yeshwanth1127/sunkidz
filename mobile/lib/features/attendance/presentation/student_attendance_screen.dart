@@ -20,6 +20,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
         title: Row(
           children: [

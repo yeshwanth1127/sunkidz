@@ -32,12 +32,14 @@ import '../../features/coordinator/presentation/coordinator_attendance_screen.da
 import '../../features/coordinator/presentation/coordinator_teachers_screen.dart';
 import '../../features/coordinator/presentation/coordinator_students_screen.dart';
 import '../../features/coordinator/presentation/coordinator_staff_attendance_screen.dart';
+import '../../features/coordinator/presentation/coordinator_gallery_screen.dart';
 import '../../features/admin/presentation/admin_attendance_screen.dart';
 import '../../features/admin/presentation/admin_fee_management_screen.dart';
 import '../../features/admin/presentation/admin_reports_screen.dart';
 import '../../features/parent/presentation/parent_fees_screen.dart';
 import '../../features/syllabus/presentation/syllabus_list_screen.dart';
 import '../../features/syllabus/presentation/homework_list_screen.dart';
+import '../../features/syllabus/presentation/gallery_upload_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -51,41 +53,75 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = auth.isAuthenticated;
       final isLandingPage = state.matchedLocation == '/';
       final isLoggingIn = state.matchedLocation == '/login';
-      
+      final loc = state.matchedLocation;
+
       // Allow landing page for everyone
       if (isLandingPage) return null;
-      
+
       // Redirect unauthenticated users to login
       if (!isLoggedIn && !isLoggingIn) return '/login';
-      
+
       // Redirect authenticated users from login to their dashboard
       if (isLoggedIn && isLoggingIn) return _homeForRole(auth.role);
-      
+
+      // Enforce role-based route isolation to prevent accidental cross-role navigation.
+      final role = auth.role;
+      final roleHome = _homeForRole(role);
+
+      if (loc.startsWith('/parent') && role != UserRole.parent) return roleHome;
+      if (loc.startsWith('/teacher') && role != UserRole.teacher)
+        return roleHome;
+      if (loc.startsWith('/coordinator') && role != UserRole.coordinator) {
+        return roleHome;
+      }
+      if (loc.startsWith('/admin') && role != UserRole.admin) return roleHome;
+      if (loc.startsWith('/bus-staff') && role != UserRole.busStaff) {
+        return roleHome;
+      }
+
+      // These top-level routes are admin-only in this app.
+      const adminOnlyRoots = {
+        '/branches',
+        '/staff',
+        '/enquiries',
+        '/admissions',
+        '/students',
+        '/marks',
+        '/attendance',
+      };
+      if (adminOnlyRoots.any((p) => loc == p || loc.startsWith('$p/')) &&
+          role != UserRole.admin) {
+        return roleHome;
+      }
+
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, __) => const LandingScreen(),
-      ),
-      GoRoute(
-        path: '/login',
-        builder: (_, __) => const LoginScreen(),
-      ),
+      GoRoute(path: '/', builder: (_, __) => const LandingScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(
         path: '/admin',
         builder: (_, __) => const AdminDashboardScreen(),
         routes: [
-          GoRoute(path: 'attendance', builder: (_, __) => const AdminAttendanceScreen()),
+          GoRoute(
+            path: 'attendance',
+            builder: (_, __) => const AdminAttendanceScreen(),
+          ),
           GoRoute(
             path: 'fees',
             builder: (_, state) {
               final branchId = state.uri.queryParameters['branch_id'] ?? '';
               final studentId = state.uri.queryParameters['student_id'];
-              return AdminFeeManagementScreen(branchId: branchId, studentId: studentId);
+              return AdminFeeManagementScreen(
+                branchId: branchId,
+                studentId: studentId,
+              );
             },
           ),
-          GoRoute(path: 'reports', builder: (_, __) => const AdminReportsScreen()),
+          GoRoute(
+            path: 'reports',
+            builder: (_, __) => const AdminReportsScreen(),
+          ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
@@ -93,12 +129,38 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/coordinator',
         builder: (_, __) => const CoordinatorDashboardScreen(),
         routes: [
-          GoRoute(path: 'attendance', builder: (_, __) => const CoordinatorAttendanceScreen()),
-          GoRoute(path: 'teachers', builder: (_, __) => const CoordinatorTeachersScreen()),
-          GoRoute(path: 'students', builder: (_, __) => const CoordinatorStudentsScreen()),
-          GoRoute(path: 'staff-attendance', builder: (_, __) => const CoordinatorStaffAttendanceScreen()),
-          GoRoute(path: 'syllabus', builder: (_, __) => const SyllabusListScreen()),
-          GoRoute(path: 'homework', builder: (_, __) => const HomeworkListScreen()),
+          GoRoute(
+            path: 'attendance',
+            builder: (_, __) => const CoordinatorAttendanceScreen(),
+          ),
+          GoRoute(
+            path: 'teachers',
+            builder: (_, __) => const CoordinatorTeachersScreen(),
+          ),
+          GoRoute(
+            path: 'students',
+            builder: (_, __) => const CoordinatorStudentsScreen(),
+          ),
+          GoRoute(
+            path: 'staff-attendance',
+            builder: (_, __) => const CoordinatorStaffAttendanceScreen(),
+          ),
+          GoRoute(
+            path: 'gallery',
+            builder: (_, __) => const CoordinatorGalleryScreen(),
+          ),
+          GoRoute(
+            path: 'syllabus',
+            builder: (_, __) => const SyllabusListScreen(),
+          ),
+          GoRoute(
+            path: 'homework',
+            builder: (_, __) => const HomeworkListScreen(),
+          ),
+          GoRoute(
+            path: 'gallery-upload',
+            builder: (_, __) => const GalleryUploadScreen(),
+          ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
@@ -106,13 +168,41 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/teacher',
         builder: (_, __) => const TeacherDashboardScreen(),
         routes: [
-          GoRoute(path: 'students', builder: (_, __) => const TeacherStudentsScreen()),
-          GoRoute(path: 'students/:id', builder: (_, s) => TeacherStudentProfileScreen(studentId: s.pathParameters['id']!)),
-          GoRoute(path: 'attendance', builder: (_, __) => const TeacherAttendanceScreen()),
-          GoRoute(path: 'syllabus', builder: (_, __) => const SyllabusListScreen()),
-          GoRoute(path: 'homework', builder: (_, __) => const HomeworkListScreen()),
-          GoRoute(path: 'marks', builder: (_, __) => const TeacherMarksScreen()),
-          GoRoute(path: 'marks/:studentId', builder: (_, s) => TeacherMarksEntryScreen(studentId: s.pathParameters['studentId']!)),
+          GoRoute(
+            path: 'students',
+            builder: (_, __) => const TeacherStudentsScreen(),
+          ),
+          GoRoute(
+            path: 'students/:id',
+            builder: (_, s) =>
+                TeacherStudentProfileScreen(studentId: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: 'attendance',
+            builder: (_, __) => const TeacherAttendanceScreen(),
+          ),
+          GoRoute(
+            path: 'syllabus',
+            builder: (_, __) => const SyllabusListScreen(),
+          ),
+          GoRoute(
+            path: 'homework',
+            builder: (_, __) => const HomeworkListScreen(),
+          ),
+          GoRoute(
+            path: 'gallery-upload',
+            builder: (_, __) => const GalleryUploadScreen(),
+          ),
+          GoRoute(
+            path: 'marks',
+            builder: (_, __) => const TeacherMarksScreen(),
+          ),
+          GoRoute(
+            path: 'marks/:studentId',
+            builder: (_, s) => TeacherMarksEntryScreen(
+              studentId: s.pathParameters['studentId']!,
+            ),
+          ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
@@ -135,7 +225,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'fees',
             builder: (_, state) {
               final extra = state.extra as Map<String, dynamic>?;
-              return ParentFeesScreen(student: extra?['student'] ?? {});
+              return ParentFeesScreen(
+                student: extra?['student'] ?? {},
+                initialFeeData: extra?['feeData'] as Map<String, dynamic>?,
+              );
             },
           ),
           GoRoute(
@@ -146,23 +239,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'homework',
             builder: (_, __) => const HomeworkListScreen(),
           ),
-          GoRoute(
-            path: 'settings',
-            builder: (_, __) => const SettingsScreen(),
-          ),
+          GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
       GoRoute(
         path: '/bus-staff',
         builder: (_, __) => const BusStaffDashboardScreen(),
       ),
-      GoRoute(
-        path: '/branches',
-        builder: (_, __) => const BranchListScreen(),
-      ),
+      GoRoute(path: '/branches', builder: (_, __) => const BranchListScreen()),
       GoRoute(
         path: '/branches/:id',
-        builder: (_, state) => BranchDetailScreen(branchId: state.pathParameters['id']!),
+        builder: (_, state) =>
+            BranchDetailScreen(branchId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/staff',
@@ -188,14 +276,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, state) => StudentProfileScreen(studentId: state.pathParameters['id']!),
+            builder: (_, state) =>
+                StudentProfileScreen(studentId: state.pathParameters['id']!),
           ),
         ],
       ),
-      GoRoute(
-        path: '/marks',
-        builder: (_, __) => const MarksCardScreen(),
-      ),
+      GoRoute(path: '/marks', builder: (_, __) => const MarksCardScreen()),
       GoRoute(
         path: '/attendance',
         builder: (_, __) => const StudentAttendanceScreen(),

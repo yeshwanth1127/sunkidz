@@ -8,7 +8,7 @@ from app.models.attendance import Attendance
 from app.models.staff_attendance import StaffAttendance
 from app.models.bus_route import BusRoute, RouteStudent
 from app.models.ride_session import RideSession, LocationUpdate
-from app.models.syllabus import Syllabus, Homework
+from app.models.syllabus import Syllabus, Homework, GalleryImage
 from app.models.fees import FeeStructure, FeePayment
 
 __all__ = [
@@ -30,7 +30,7 @@ __all__ = [
     "LocationUpdate",
     "Syllabus",
     "Homework",
+    "GalleryImage",
     "FeeStructure",
     "FeePayment",
-    "Homework",
 ]

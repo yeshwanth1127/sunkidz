@@ -1,3 +1,5 @@
+import logging
+from logging.handlers import RotatingFileHandler
 from uuid import UUID
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +19,16 @@ from app.api import coordinator as coordinator_api
 from app.api import parent as parent_api
 from app.api import bus_tracking as bus_tracking_api
 from app.api import syllabus as syllabus_api
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        RotatingFileHandler('app.log', maxBytes=10485760, backupCount=5),
+        logging.StreamHandler()
+    ]
+)
 
 app = FastAPI(
     title="Preschool LMS API",

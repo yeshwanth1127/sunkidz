@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # Default classes created for each branch
     default_branch_classes: tuple[str, ...] = ("playgroup", "ig1", "ig2", "ig3")
 
+    # WhatsApp Business API
+    whatsapp_api_token: str = ""
+    whatsapp_phone_number_id: str = ""
+    whatsapp_business_account_id: str = ""
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -220,4 +220,57 @@ class SyllabusService {
       throw Exception('Error deleting homework: $e');
     }
   }
+
+  // ========== Gallery API Calls ==========
+
+  Future<List<GalleryItem>> fetchGallery({
+    String? classId,
+    String? uploadDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (classId != null) queryParams['class_id'] = classId;
+      if (uploadDate != null) queryParams['upload_date'] = uploadDate;
+
+      final response = await _apiClient.dio.get(
+        '/gallery',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => GalleryItem.fromJson(json)).toList();
+      }
+      throw Exception('Failed to fetch gallery');
+    } catch (e) {
+      throw Exception('Error fetching gallery: $e');
+    }
+  }
+
+  Future<GalleryItem> uploadGalleryImage({
+    required String classId,
+    required DateTime uploadDate,
+    String? title,
+    String? description,
+    required MultipartFile file,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'class_id': classId,
+        'upload_date': uploadDate.toIso8601String(),
+        if (title != null && title.isNotEmpty) 'title': title,
+        if (description != null && description.isNotEmpty) 'description': description,
+        'file': file,
+      });
+
+      final response = await _apiClient.dio.post('/gallery/upload', data: formData);
+
+      if (response.statusCode == 200) {
+        return GalleryItem.fromJson(response.data);
+      }
+      throw Exception('Failed to upload gallery image');
+    } catch (e) {
+      throw Exception('Error uploading gallery image: $e');
+    }
+  }
 }

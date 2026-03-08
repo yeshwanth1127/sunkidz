@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
-import '../../../core/api/admin_provider.dart';
 import '../../../core/config/app_config.dart';
 import '../../../shared/widgets/stat_card.dart';
 import '../../../shared/widgets/admin_drawer.dart';
@@ -20,25 +20,14 @@ class AdminDashboardScreen extends ConsumerWidget {
     return 'Good evening';
   }
 
-  static String _getConversionRate({required int newEnquiries, required int convertedEnquiries}) {
+  static String _getConversionRate({
+    required int newEnquiries,
+    required int convertedEnquiries,
+  }) {
     final total = newEnquiries + convertedEnquiries;
     if (total == 0) return '0%';
     final rate = (convertedEnquiries / total * 100).toStringAsFixed(1);
     return '$rate%';
-  }
-
-  static String _formatCurrency(double amount) {
-    final rounded = amount.round();
-    final text = rounded.toString();
-    final buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      final reverseIndex = text.length - i;
-      buffer.write(text[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write(',');
-      }
-    }
-    return '₹${buffer.toString()}';
   }
 
   @override
@@ -50,14 +39,26 @@ class AdminDashboardScreen extends ConsumerWidget {
     final branchesCount = dashboardAsync.valueOrNull?.branchesCount ?? 0;
     final studentsCount = dashboardAsync.valueOrNull?.studentsCount ?? 0;
     final staffCount = dashboardAsync.valueOrNull?.staffCount ?? 0;
-    final collectedFees = dashboardAsync.valueOrNull?.collectedFees ?? 0;
+    final feesTotalDue = dashboardAsync.valueOrNull?.feesTotalDue ?? 0.0;
+    final feesPending = dashboardAsync.valueOrNull?.feesPending ?? 0.0;
+    final feesCollected = dashboardAsync.valueOrNull?.feesCollected ?? 0.0;
     final recentEnquiries = dashboardAsync.valueOrNull?.recentEnquiries ?? [];
 
+    final currency = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
+
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       drawer: const AdminDrawer(),
       appBar: AppBar(
         leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
         ),
         title: Container(
           padding: const EdgeInsets.all(4),
@@ -99,7 +100,11 @@ class AdminDashboardScreen extends ConsumerWidget {
             backgroundColor: AppColors.primary.withValues(alpha: 0.2),
             child: Text(
               userName.isNotEmpty ? userName[0].toUpperCase() : 'A',
-              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -125,7 +130,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                 branchesCount == 1
                     ? "Here's what's happening across 1 branch."
                     : "Here's what's happening across $branchesCount branches.",
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 24),
               GridView.count(
@@ -157,20 +164,23 @@ class AdminDashboardScreen extends ConsumerWidget {
                     backgroundColor: AppColors.pastelGreen,
                     iconColor: const Color(0xFF16A34A),
                   ),
-                  GestureDetector(
-                    onTap: () => context.push('/admin/fees?branch_id='),
-                    child: StatCard(
-                      icon: Icons.receipt,
-                      label: 'Fee Management',
-                      value: _formatCurrency(collectedFees),
-                      backgroundColor: const Color(0xFFFEF3C7),
-                      iconColor: const Color(0xFFF59E0B),
-                    ),
+                  StatCard(
+                    icon: Icons.payments,
+                    label: 'Fees Pending',
+                    value: currency.format(feesPending),
+                    trend:
+                        'Collected ${currency.format(feesCollected)} / Due ${currency.format(feesTotalDue)}',
+                    trendUp: true,
+                    backgroundColor: const Color(0xFFFFF7ED),
+                    iconColor: const Color(0xFFEA580C),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              Text('Quick Metrics', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Quick Metrics',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -180,7 +190,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardTheme.color,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).dividerColor),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -197,18 +209,25 @@ class AdminDashboardScreen extends ConsumerWidget {
                             children: [
                               Text(
                                 'New Enquiries',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.grey),
                               ),
-                              Icon(Icons.mail_outline, color: Colors.blue, size: 20),
+                              Icon(
+                                Icons.mail_outline,
+                                color: Colors.blue,
+                                size: 20,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            (dashboardAsync.valueOrNull?.newEnquiries ?? 0).toString(),
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            (dashboardAsync.valueOrNull?.newEnquiries ?? 0)
+                                .toString(),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                         ],
                       ),
@@ -221,7 +240,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardTheme.color,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Theme.of(context).dividerColor),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -238,21 +259,32 @@ class AdminDashboardScreen extends ConsumerWidget {
                             children: [
                               Text(
                                 'Conversion Rate',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.grey),
                               ),
-                              Icon(Icons.trending_up, color: Colors.green, size: 20),
+                              Icon(
+                                Icons.trending_up,
+                                color: Colors.green,
+                                size: 20,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
                             _getConversionRate(
-                              newEnquiries: dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                              convertedEnquiries: dashboardAsync.valueOrNull?.convertedEnquiries ?? 0,
+                              newEnquiries:
+                                  dashboardAsync.valueOrNull?.newEnquiries ?? 0,
+                              convertedEnquiries:
+                                  dashboardAsync
+                                      .valueOrNull
+                                      ?.convertedEnquiries ??
+                                  0,
                             ),
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                         ],
                       ),
@@ -264,28 +296,51 @@ class AdminDashboardScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Admissions Analytics', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Admissions Analytics',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   TextButton(
                     onPressed: () => context.push('/admin/reports'),
-                    child: Text('View Report', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text(
+                      'View Report',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               AdmissionsChart(
                 newEnquiries: dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                convertedEnquiries: dashboardAsync.valueOrNull?.convertedEnquiries ?? 0,
-                rejectedEnquiries: dashboardAsync.valueOrNull?.rejectedEnquiries ?? 0,
-                admissionsThisMonth: dashboardAsync.valueOrNull?.admissionsThisMonth.length ?? 0,
+                convertedEnquiries:
+                    dashboardAsync.valueOrNull?.convertedEnquiries ?? 0,
+                rejectedEnquiries:
+                    dashboardAsync.valueOrNull?.rejectedEnquiries ?? 0,
+                admissionsThisMonth:
+                    dashboardAsync.valueOrNull?.admissionsThisMonth.length ?? 0,
               ),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Recent Enquiries', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Recent Enquiries',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   TextButton(
                     onPressed: () => context.push('/enquiries'),
-                    child: Text('See All', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text(
+                      'See All',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -299,19 +354,27 @@ class AdminDashboardScreen extends ConsumerWidget {
                     border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Center(
-                    child: Text('No enquiries yet', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                    child: Text(
+                      'No enquiries yet',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 )
               else
-                ...recentEnquiries.map((e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _EnquiryTile(
-                        name: e['child_name']?.toString() ?? '—',
-                        branch: e['branch_name']?.toString() ?? '—',
-                        age: e['age_years'] ?? 0,
-                        status: e['status']?.toString() ?? 'pending',
-                      ),
-                    )),
+                ...recentEnquiries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _EnquiryTile(
+                      name: e['child_name']?.toString() ?? '—',
+                      branch: e['branch_name']?.toString() ?? '—',
+                      age: e['age_years'] ?? 0,
+                      status: e['status']?.toString() ?? 'pending',
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -326,7 +389,12 @@ class _EnquiryTile extends StatelessWidget {
   final int age;
   final String status;
 
-  const _EnquiryTile({required this.name, required this.branch, required this.age, required this.status});
+  const _EnquiryTile({
+    required this.name,
+    required this.branch,
+    required this.age,
+    required this.status,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -336,7 +404,13 @@ class _EnquiryTile extends StatelessWidget {
         color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Theme.of(context).dividerColor),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -354,20 +428,37 @@ class _EnquiryTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('$branch • Age $age', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  '$branch • Age $age',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: status.toLowerCase() == 'new' ? Colors.blue.shade100 : Colors.grey.shade200,
+              color: status.toLowerCase() == 'new'
+                  ? Colors.blue.shade100
+                  : Colors.grey.shade200,
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               status,
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: status.toLowerCase() == 'new' ? Colors.blue.shade700 : Colors.grey.shade700),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: status.toLowerCase() == 'new'
+                    ? Colors.blue.shade700
+                    : Colors.grey.shade700,
+              ),
             ),
           ),
         ],

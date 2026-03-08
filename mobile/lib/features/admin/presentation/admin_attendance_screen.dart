@@ -8,29 +8,37 @@ class AdminAttendanceScreen extends ConsumerStatefulWidget {
   const AdminAttendanceScreen({super.key});
 
   @override
-  ConsumerState<AdminAttendanceScreen> createState() => _AdminAttendanceScreenState();
+  ConsumerState<AdminAttendanceScreen> createState() =>
+      _AdminAttendanceScreenState();
 }
 
-class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> with SingleTickerProviderStateMixin {
+class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
   bool _loading = true;
   Map<String, dynamic>? _attendanceData;
   Map<String, dynamic>? _historyData;
+  Map<String, dynamic>? _staffAttendanceData;
+  Map<String, dynamic>? _staffHistoryData;
   String _historyPeriod = 'week';
   String? _filterBranchId;
   String? _filterClassId;
   bool _historyViewByStudent = false;
   List<Map<String, dynamic>> _branches = [];
 
-  static String _dateStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  static String _dateStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging && _tabController.index == 1) _loadHistory();
+      if (!_tabController.indexIsChanging) {
+        if (_tabController.index == 1) _loadHistory();
+        if (_tabController.index == 2) _loadStaffAttendance();
+      }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadBranches();
@@ -97,13 +105,59 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
     }
   }
 
+  Future<void> _loadStaffAttendance() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    setState(() => _loading = true);
+    try {
+      final res = await api.getStaffAttendance(
+        date: _dateStr(_selectedDate),
+        branchId: _filterBranchId,
+      );
+      setState(() {
+        _staffAttendanceData = res;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _staffAttendanceData = null;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadStaffHistory() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    setState(() => _loading = true);
+    try {
+      final res = await api.getStaffAttendanceHistory(
+        period: _historyPeriod,
+        branchId: _filterBranchId,
+      );
+      setState(() {
+        _staffHistoryData = res;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _staffHistoryData = null;
+        _loading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF4E0),
       drawer: const AdminDrawer(),
       appBar: AppBar(
         leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
         ),
         title: const Text('Attendance (All Branches)'),
         bottom: TabBar(
@@ -111,6 +165,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
           tabs: const [
             Tab(text: 'By Date'),
             Tab(text: 'History'),
+            Tab(text: 'Staff'),
           ],
         ),
       ),
@@ -119,6 +174,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
         children: [
           _buildByDateTab(),
           _buildHistoryTab(),
+          _buildStaffAttendanceTab(),
         ],
       ),
     );
@@ -138,10 +194,21 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _filterBranchId,
-                    decoration: const InputDecoration(labelText: 'Branch', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Branch',
+                      border: OutlineInputBorder(),
+                    ),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('All Branches')),
-                      ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Text(b['name'] as String? ?? '—'))),
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('All Branches'),
+                      ),
+                      ..._branches.map(
+                        (b) => DropdownMenuItem(
+                          value: b['id'] as String?,
+                          child: Text(b['name'] as String? ?? '—'),
+                        ),
+                      ),
                     ],
                     onChanged: (v) async {
                       setState(() => _filterBranchId = v);
@@ -152,16 +219,20 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _loading ? null : () async {
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now().add(const Duration(days: 1)),
-                      );
-                      if (d != null) setState(() => _selectedDate = d);
-                      await _loadAttendance();
-                    },
+                    onPressed: _loading
+                        ? null
+                        : () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 1),
+                              ),
+                            );
+                            if (d != null) setState(() => _selectedDate = d);
+                            await _loadAttendance();
+                          },
                     icon: const Icon(Icons.calendar_today, size: 18),
                     label: Text(_formatDate(_selectedDate)),
                   ),
@@ -170,11 +241,18 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
             ),
             const SizedBox(height: 16),
             if (_loading && _attendanceData == null)
-              const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
             else if (_attendanceData == null)
               const Center(child: Text('Failed to load'))
             else
-              _buildByBranchClassContent(_attendanceData!['by_branch_class'] as List? ?? []),
+              _buildByBranchClassContent(
+                _attendanceData!['by_branch_class'] as List? ?? [],
+              ),
           ],
         ),
       ),
@@ -191,13 +269,18 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
         final m = item as Map<String, dynamic>;
         final branch = m['branch'] as String? ?? '—';
         final cls = m['class'] as String? ?? '—';
-        final students = List<Map<String, dynamic>>.from(m['students'] as List? ?? []);
+        final students = List<Map<String, dynamic>>.from(
+          m['students'] as List? ?? [],
+        );
         int present = 0, absent = 0, leave = 0;
         for (final s in students) {
           final st = s['status'] as String? ?? 'present';
-          if (st == 'present') present++;
-          else if (st == 'absent') absent++;
-          else leave++;
+          if (st == 'present')
+            present++;
+          else if (st == 'absent')
+            absent++;
+          else
+            leave++;
         }
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
@@ -210,33 +293,55 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
                   children: [
                     Icon(Icons.business, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    Text('$branch • $cls', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '$branch • $cls',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   children: [
-                    _Chip(label: 'Total: ${students.length}', color: AppColors.primary),
+                    _Chip(
+                      label: 'Total: ${students.length}',
+                      color: AppColors.primary,
+                    ),
                     _Chip(label: 'P: $present', color: Colors.green),
                     _Chip(label: 'A: $absent', color: Colors.red),
                     _Chip(label: 'L: $leave', color: Colors.amber),
                   ],
                 ),
                 const SizedBox(height: 12),
-                ...students.take(10).map((s) => ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        radius: 16,
-                        child: Text((s['name'] as String? ?? '?').substring(0, 1).toUpperCase()),
+                ...students
+                    .take(10)
+                    .map(
+                      (s) => ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 16,
+                          child: Text(
+                            (s['name'] as String? ?? '?')
+                                .substring(0, 1)
+                                .toUpperCase(),
+                          ),
+                        ),
+                        title: Text(s['name'] as String? ?? '—'),
+                        trailing: _statusChip(
+                          s['status'] as String? ?? 'present',
+                        ),
                       ),
-                      title: Text(s['name'] as String? ?? '—'),
-                      trailing: _statusChip(s['status'] as String? ?? 'present'),
-                    )),
+                    ),
                 if (students.length > 10)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text('+ ${students.length - 10} more', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    child: Text(
+                      '+ ${students.length - 10} more',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -252,8 +357,14 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
     if (status == 'leave') c = Colors.amber;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: c.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-      child: Text(status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: c)),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: c),
+      ),
     );
   }
 
@@ -289,23 +400,32 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
                 ChoiceChip(
                   label: const Text('By Date'),
                   selected: !_historyViewByStudent,
-                  onSelected: (_) => setState(() => _historyViewByStudent = false),
+                  onSelected: (_) =>
+                      setState(() => _historyViewByStudent = false),
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
                   label: const Text('By Student'),
                   selected: _historyViewByStudent,
-                  onSelected: (_) => setState(() => _historyViewByStudent = true),
+                  onSelected: (_) =>
+                      setState(() => _historyViewByStudent = true),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             if (_loading && _historyData == null)
-              const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
             else if (_historyData == null)
               const Center(child: Text('No history'))
             else
-              _historyViewByStudent ? _buildHistoryByStudent(_historyData!) : _buildHistoryContent(_historyData!),
+              _historyViewByStudent
+                  ? _buildHistoryByStudent(_historyData!)
+                  : _buildHistoryContent(_historyData!),
           ],
         ),
       ),
@@ -321,13 +441,22 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${data['start']} to ${data['end']}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        Text(
+          '${data['start']} to ${data['end']}',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
         const SizedBox(height: 12),
         ...dates.reversed.map((dk) {
           final recs = byDate[dk] as List? ?? [];
-          final present = recs.where((r) => (r as Map)['status'] == 'present').length;
-          final absent = recs.where((r) => (r as Map)['status'] == 'absent').length;
-          final leave = recs.where((r) => (r as Map)['status'] == 'leave').length;
+          final present = recs
+              .where((r) => (r as Map)['status'] == 'present')
+              .length;
+          final absent = recs
+              .where((r) => (r as Map)['status'] == 'absent')
+              .length;
+          final leave = recs
+              .where((r) => (r as Map)['status'] == 'leave')
+              .length;
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -348,14 +477,21 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
       ..sort((a, b) {
         final aVal = a.value as Map;
         final bVal = b.value as Map;
-        final cmp = ((aVal['branch_name'] ?? '') as String).compareTo((bVal['branch_name'] ?? '') as String);
+        final cmp = ((aVal['branch_name'] ?? '') as String).compareTo(
+          (bVal['branch_name'] ?? '') as String,
+        );
         if (cmp != 0) return cmp;
-        return ((aVal['name'] ?? '') as String).compareTo((bVal['name'] ?? '') as String);
+        return ((aVal['name'] ?? '') as String).compareTo(
+          (bVal['name'] ?? '') as String,
+        );
       });
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${data['start']} to ${data['end']}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        Text(
+          '${data['start']} to ${data['end']}',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
         const SizedBox(height: 12),
         ...entries.map((e) {
           final info = e.value as Map<String, dynamic>;
@@ -369,8 +505,13 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ExpansionTile(
-              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('$branchName • $className • P: $present  A: $absent  L: $leave'),
+              title: Text(
+                name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                '$branchName • $className • P: $present  A: $absent  L: $leave',
+              ),
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -384,13 +525,23 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
                       if (status == 'absent') c = Colors.red;
                       if (status == 'leave') c = Colors.amber;
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: c.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: c.withValues(alpha: 0.3)),
                         ),
-                        child: Text('${_formatDate(dk)}: ${status.toString().toUpperCase()}', style: TextStyle(fontSize: 12, color: c, fontWeight: FontWeight.w500)),
+                        child: Text(
+                          '${_formatDate(dk)}: ${status.toString().toUpperCase()}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: c,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
@@ -412,6 +563,180 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
     }
     return s;
   }
+
+  Widget _buildStaffAttendanceTab() {
+    return RefreshIndicator(
+      onRefresh: _loadStaffAttendance,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _filterBranchId,
+                    decoration: const InputDecoration(
+                      labelText: 'Branch',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('All Branches'),
+                      ),
+                      ..._branches.map(
+                        (b) => DropdownMenuItem(
+                          value: b['id'] as String?,
+                          child: Text(b['name'] as String? ?? '—'),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) async {
+                      setState(() => _filterBranchId = v);
+                      await _loadStaffAttendance();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _loading
+                        ? null
+                        : () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 1),
+                              ),
+                            );
+                            if (d != null) setState(() => _selectedDate = d);
+                            await _loadStaffAttendance();
+                          },
+                    icon: const Icon(Icons.calendar_today, size: 18),
+                    label: Text(_formatDate(_selectedDate)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_loading && _staffAttendanceData == null)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_staffAttendanceData == null)
+              const Center(child: Text('Failed to load'))
+            else
+              _buildStaffByBranchContent(
+                _staffAttendanceData!['by_branch'] as List? ?? [],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStaffByBranchContent(List<dynamic> list) {
+    if (list.isEmpty) {
+      return const Center(child: Text('No staff attendance data'));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: list.map((item) {
+        final m = item as Map<String, dynamic>;
+        final branchName = m['branch_name'] as String? ?? '—';
+        final staff = List<Map<String, dynamic>>.from(
+          m['staff'] as List? ?? [],
+        );
+        final summary = m['summary'] as Map<String, dynamic>? ?? {};
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.business, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      branchName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _Chip(
+                      label: 'Total: ${summary['total'] ?? 0}',
+                      color: AppColors.primary,
+                    ),
+                    _Chip(
+                      label: 'P: ${summary['present'] ?? 0}',
+                      color: Colors.green,
+                    ),
+                    _Chip(
+                      label: 'A: ${summary['absent'] ?? 0}',
+                      color: Colors.red,
+                    ),
+                    _Chip(
+                      label: 'L: ${summary['leave'] ?? 0}',
+                      color: Colors.amber,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...staff
+                    .take(15)
+                    .map(
+                      (s) => ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 16,
+                          child: Text(
+                            (s['full_name'] as String? ?? '?')
+                                .substring(0, 1)
+                                .toUpperCase(),
+                          ),
+                        ),
+                        title: Text(s['full_name'] as String? ?? '—'),
+                        subtitle: s['class_name'] != null
+                            ? Text(s['class_name'] as String)
+                            : null,
+                        trailing: _statusChip(
+                          s['status'] as String? ?? 'present',
+                        ),
+                      ),
+                    ),
+                if (staff.length > 15)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '+ ${staff.length - 15} more',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 }
 
 class _Chip extends StatelessWidget {
@@ -424,8 +749,18 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 }

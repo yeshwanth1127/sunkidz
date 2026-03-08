@@ -1,10 +1,9 @@
 from uuid import UUID
-from datetime import date, timedelta
-from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from datetime import date, timedelta, datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from pydantic import BaseModel
+from collections import defaultdict
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_admin
@@ -14,9 +13,9 @@ from app.models.user import User
 from app.models.branch import Branch, Class, BranchAssignment
 from app.models.student import Student
 from app.models.attendance import Attendance
-from app.models.fees import FeeStructure, FeePayment
-from app.models.marks_card import MarksCard
+from app.models.staff_attendance import StaffAttendance
 from app.models.enquiry import Enquiry
+from app.models.fees import FeeStructure, FeePayment
 from app.schemas.admin import (
     BranchCreate,
     BranchUpdate,
@@ -31,13 +30,6 @@ from app.schemas.admin import (
     AssignmentUpdate,
     AssignmentResponse,
 )
-from app.schemas.fee import (
-    FeeStructureCreate,
-    FeeStructureResponse,
-    FeePaymentCreate,
-    FeePaymentResponse,
-    FeesDetailResponse,
-)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -48,6 +40,28 @@ def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
         if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == name).first():
             db.add(Class(branch_id=branch_id, name=name, academic_year="2024-25"))
     db.commit()
+
+
+def _generate_admission_number_for_branch(
+    db: Session,
+    branch: Branch,
+    admission_date: date,
+    exclude_student_id: UUID | None = None,
+) -> str:
+    """Generate admission number format: skz(branch_code)(year)(date)[nn]."""
+    code = (branch.code or "main").lower()[:10]
+    year = admission_date.strftime("%Y")
+    day = admission_date.strftime("%m%d")
+    base = f"skz{code}{year}{day}"
+
+    q = db.query(Student).filter(Student.admission_number.like(f"{base}%"))
+    if exclude_student_id is not None:
+        q = q.filter(Student.id != exclude_student_id)
+    existing = q.count()
+
+    if existing > 0:
+        return f"{base}{existing + 1:02d}"
+    return base
 
 
 # --- Branches ---
@@ -421,6 +435,76 @@ def toggle_bus_opt(
     return {"ok": True, "bus_opted": student.bus_opted}
 
 
+@router.put("/students/{student_id}/branch")
+def shift_student_branch(
+    student_id: UUID,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Shift student to another branch and optionally assign class."""
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    branch_id_raw = data.get("branch_id")
+    class_id_raw = data.get("class_id")
+    if not branch_id_raw:
+        raise HTTPException(status_code=400, detail="branch_id is required")
+
+    try:
+        branch_id = UUID(str(branch_id_raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid branch_id")
+
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    cls = None
+    if class_id_raw:
+        try:
+            class_id = UUID(str(class_id_raw))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid class_id")
+        cls = db.query(Class).filter(Class.id == class_id, Class.branch_id == branch_id).first()
+        if not cls:
+            raise HTTPException(status_code=400, detail="Class not found in target branch")
+    else:
+        # Keep assignment valid by defaulting to first class of the selected branch when available.
+        cls = db.query(Class).filter(Class.branch_id == branch_id).order_by(Class.name.asc()).first()
+
+    old_branch_id = student.branch_id
+
+    student.branch_id = branch.id
+    student.class_id = cls.id if cls else None
+
+    if old_branch_id != branch.id:
+        admission_dt = student.created_at.date() if student.created_at else date.today()
+        student.admission_number = _generate_admission_number_for_branch(
+            db,
+            branch,
+            admission_dt,
+            exclude_student_id=student.id,
+        )
+
+    db.commit()
+    db.refresh(student)
+
+    return {
+        "ok": True,
+        "student_id": str(student.id),
+        "branch_id": str(branch.id),
+        "branch_name": branch.name,
+        "class_id": str(cls.id) if cls else None,
+        "class_name": cls.name if cls else None,
+        "admission_number": student.admission_number,
+    }
+
+
 @router.delete("/students/{student_id}")
 def delete_student(
     student_id: UUID,
@@ -759,436 +843,465 @@ def update_student_attendance(
     }
 
 
-# --- Fee Management ---
-@router.get("/students/{student_id}/fees", response_model=FeesDetailResponse)
+# --- Staff Attendance (View) ---
+
+@router.get("/staff-attendance")
+def get_staff_attendance(
+    att_date: date,
+    branch_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get staff attendance for all branches (or filter by branch_id) on a given date."""
+    branches = db.query(Branch).all()
+    if branch_id:
+        branches = [b for b in branches if b.id == branch_id]
+    
+    by_branch: dict[str, dict] = {}
+    
+    for branch in branches:
+        # Get all teachers assigned to this branch
+        assignments = (
+            db.query(BranchAssignment)
+            .join(BranchAssignment.user)
+            .filter(
+                BranchAssignment.branch_id == branch.id,
+                User.role == "teacher",
+            )
+            .all()
+        )
+        
+        user_ids = [a.user_id for a in assignments]
+        att_map = {a.user_id: a for a in db.query(StaffAttendance).filter(
+            StaffAttendance.date == att_date,
+            StaffAttendance.user_id.in_(user_ids),
+        ).all()} if user_ids else {}
+        
+        staff_list = []
+        for a in assignments:
+            att = att_map.get(a.user_id)
+            cls_name = None
+            if a.class_id:
+                c = db.query(Class).filter(Class.id == a.class_id).first()
+                cls_name = c.name if c else None
+            staff_list.append({
+                "user_id": str(a.user_id),
+                "full_name": a.user.full_name,
+                "email": a.user.email,
+                "class_name": cls_name,
+                "status": att.status if att else "present",
+            })
+        
+        if staff_list:  # Only include branches with staff
+            by_branch[branch.name] = {
+                "branch_id": str(branch.id),
+                "branch_name": branch.name,
+                "staff": staff_list,
+                "summary": {
+                    "total": len(staff_list),
+                    "present": sum(1 for s in staff_list if s["status"] == "present"),
+                    "absent": sum(1 for s in staff_list if s["status"] == "absent"),
+                    "leave": sum(1 for s in staff_list if s["status"] == "leave"),
+                }
+            }
+    
+    return {
+        "date": att_date.isoformat(),
+        "by_branch": list(by_branch.values()),
+    }
+
+
+@router.get("/staff-attendance/history")
+def get_staff_attendance_history(
+    period: str = "week",
+    branch_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get staff attendance history. period=week or month. Optional branch_id filter."""
+    branches = db.query(Branch).all()
+    if branch_id:
+        branches = [b for b in branches if b.id == branch_id]
+    
+    all_assignments = []
+    for branch in branches:
+        assignments = (
+            db.query(BranchAssignment)
+            .join(BranchAssignment.user)
+            .filter(
+                BranchAssignment.branch_id == branch.id,
+                User.role == "teacher",
+            )
+            .all()
+        )
+        all_assignments.extend(assignments)
+    
+    user_ids = [a.user_id for a in all_assignments]
+    if not user_ids:
+        return {"period": period, "start": date.today().isoformat(), "end": date.today().isoformat(), "dates": [], "by_branch": []}
+    
+    end_d = date.today()
+    start_d = end_d - timedelta(days=7 if period == "week" else 30)
+    atts = db.query(StaffAttendance).filter(
+        StaffAttendance.user_id.in_(user_ids),
+        StaffAttendance.date >= start_d,
+        StaffAttendance.date <= end_d,
+    ).all()
+    
+    by_date: dict[str, list] = {}
+    by_branch: dict[str, dict] = {}
+    
+    for a in all_assignments:
+        branch_name = "—"
+        if a.branch_id:
+            b = db.query(Branch).filter(Branch.id == a.branch_id).first()
+            branch_name = b.name if b else "—"
+        
+        if branch_name not in by_branch:
+            by_branch[branch_name] = {
+                "branch_id": str(a.branch_id) if a.branch_id else None,
+                "branch_name": branch_name,
+                "staff": {}
+            }
+        
+        cls_name = None
+        if a.class_id:
+            c = db.query(Class).filter(Class.id == a.class_id).first()
+            cls_name = c.name if c else None
+        
+        by_branch[branch_name]["staff"][str(a.user_id)] = {
+            "full_name": a.user.full_name,
+            "class_name": cls_name,
+            "dates": {}
+        }
+    
+    for att in atts:
+        dk = att.date.isoformat()
+        if dk not in by_date:
+            by_date[dk] = []
+        by_date[dk].append({"user_id": str(att.user_id), "status": att.status})
+        
+        # Find the branch for this user and add to dates
+        assignment = next((a for a in all_assignments if a.user_id == att.user_id), None)
+        if assignment:
+            branch_name = "—"
+            if assignment.branch_id:
+                b = db.query(Branch).filter(Branch.id == assignment.branch_id).first()
+                branch_name = b.name if b else "—"
+            
+            if branch_name in by_branch and str(att.user_id) in by_branch[branch_name]["staff"]:
+                by_branch[branch_name]["staff"][str(att.user_id)]["dates"][dk] = att.status
+    
+    dates = sorted(by_date.keys())
+    return {
+        "period": period,
+        "start": start_d.isoformat(),
+        "end": end_d.isoformat(),
+        "dates": dates,
+        "by_date": by_date,
+        "by_branch": list(by_branch.values()),
+    }
+
+
+def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, payments: list[FeePayment]):
+    advance_fees = float(fee_structure.advance_fees) if fee_structure else 0.0
+    term_fee_1 = float(fee_structure.term_fee_1) if fee_structure else 0.0
+    term_fee_2 = float(fee_structure.term_fee_2) if fee_structure else 0.0
+    term_fee_3 = float(fee_structure.term_fee_3) if fee_structure else 0.0
+
+    paid = {
+        "advance_fees": 0.0,
+        "term_fee_1": 0.0,
+        "term_fee_2": 0.0,
+        "term_fee_3": 0.0,
+    }
+    for p in payments:
+        if p.component in paid:
+            paid[p.component] += float(p.amount_paid or 0.0)
+
+    total_due = advance_fees + term_fee_1 + term_fee_2 + term_fee_3
+    total_paid = sum(paid.values())
+
+    return {
+        "student_id": str(student.id),
+        "student_name": student.name,
+        "admission_number": student.admission_number,
+        "advance_fees": advance_fees,
+        "term_fee_1": term_fee_1,
+        "term_fee_2": term_fee_2,
+        "term_fee_3": term_fee_3,
+        "total_due": total_due,
+        "advance_fees_paid": paid["advance_fees"],
+        "term_fee_1_paid": paid["term_fee_1"],
+        "term_fee_2_paid": paid["term_fee_2"],
+        "term_fee_3_paid": paid["term_fee_3"],
+        "total_paid": total_paid,
+        "advance_fees_balance": max(advance_fees - paid["advance_fees"], 0.0),
+        "term_fee_1_balance": max(term_fee_1 - paid["term_fee_1"], 0.0),
+        "term_fee_2_balance": max(term_fee_2 - paid["term_fee_2"], 0.0),
+        "term_fee_3_balance": max(term_fee_3 - paid["term_fee_3"], 0.0),
+        "total_balance": max(total_due - total_paid, 0.0),
+        "payments": [
+            {
+                "id": str(p.id),
+                "component": p.component,
+                "amount_paid": float(p.amount_paid or 0.0),
+                "payment_mode": p.payment_mode,
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in payments
+        ],
+    }
+
+
+@router.get("/students/{student_id}/fees")
 def get_student_fees(
     student_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """Get fee structure and payment history for a specific student."""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
-    
-    # Get all payments for this student
-    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
-    
-    # Calculate paid amounts per component
-    paid_amounts = {}
-    for payment in payments:
-        if payment.component not in paid_amounts:
-            paid_amounts[payment.component] = 0.0
-        paid_amounts[payment.component] += payment.amount_paid
-    
-    # If no fee structure, return defaults with zero values
-    if not fee_struct:
-        return FeesDetailResponse(
-            student_id=str(student.id),
-            student_name=student.name,
-            admission_number=student.admission_number or "",
-            advance_fees=0.0,
-            term_fee_1=0.0,
-            term_fee_2=0.0,
-            term_fee_3=0.0,
-            total_due=0.0,
-            advance_fees_paid=0.0,
-            term_fee_1_paid=0.0,
-            term_fee_2_paid=0.0,
-            term_fee_3_paid=0.0,
-            total_paid=0.0,
-            advance_fees_balance=0.0,
-            term_fee_1_balance=0.0,
-            term_fee_2_balance=0.0,
-            term_fee_3_balance=0.0,
-            total_balance=0.0,
-            payments=[],
-        )
-    
-    # Calculate balances
-    advance_fees_paid = paid_amounts.get("advance_fees", 0.0)
-    term_fee_1_paid = paid_amounts.get("term_fee_1", 0.0)
-    term_fee_2_paid = paid_amounts.get("term_fee_2", 0.0)
-    term_fee_3_paid = paid_amounts.get("term_fee_3", 0.0)
-    total_paid = sum(paid_amounts.values())
-    
-    advance_fees_balance = fee_struct.advance_fees - advance_fees_paid
-    term_fee_1_balance = fee_struct.term_fee_1 - term_fee_1_paid
-    term_fee_2_balance = fee_struct.term_fee_2 - term_fee_2_paid
-    term_fee_3_balance = fee_struct.term_fee_3 - term_fee_3_paid
-    total_balance = (fee_struct.advance_fees + fee_struct.term_fee_1 + fee_struct.term_fee_2 + fee_struct.term_fee_3) - total_paid
-    
-    return FeesDetailResponse(
-        student_id=str(student.id),
-        student_name=student.name,
-        admission_number=student.admission_number or "",
-        advance_fees=fee_struct.advance_fees,
-        term_fee_1=fee_struct.term_fee_1,
-        term_fee_2=fee_struct.term_fee_2,
-        term_fee_3=fee_struct.term_fee_3,
-        total_due=fee_struct.advance_fees + fee_struct.term_fee_1 + fee_struct.term_fee_2 + fee_struct.term_fee_3,
-        advance_fees_paid=advance_fees_paid,
-        term_fee_1_paid=term_fee_1_paid,
-        term_fee_2_paid=term_fee_2_paid,
-        term_fee_3_paid=term_fee_3_paid,
-        total_paid=total_paid,
-        advance_fees_balance=advance_fees_balance,
-        term_fee_1_balance=term_fee_1_balance,
-        term_fee_2_balance=term_fee_2_balance,
-        term_fee_3_balance=term_fee_3_balance,
-        total_balance=total_balance,
-        payments=[
-            FeePaymentResponse(
-                id=str(p.id),
-                component=p.component,
-                amount_paid=p.amount_paid,
-                payment_mode=p.payment_mode,
-                payment_date=p.payment_date,
-                created_at=p.created_at,
-            )
-            for p in payments
-        ],
-    )
+
+    fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.payment_date.desc()).all()
+    return _build_fees_detail(student, fee_structure, payments)
 
 
-@router.post("/students/{student_id}/fees", response_model=FeeStructureResponse)
-def save_student_fees(
+@router.put("/students/{student_id}/fees")
+def upsert_student_fees(
     student_id: UUID,
-    data: FeeStructureCreate,
+    body: dict,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """Create or update fee structure for a student."""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
-    
-    if fee_struct:
-        # Update existing fee structure
-        fee_struct.advance_fees = data.advance_fees
-        fee_struct.term_fee_1 = data.term_fee_1
-        fee_struct.term_fee_2 = data.term_fee_2
-        fee_struct.term_fee_3 = data.term_fee_3
-    else:
-        # Create new fee structure
-        fee_struct = FeeStructure(
-            student_id=student_id,
-            branch_id=student.branch_id,
-            advance_fees=data.advance_fees,
-            term_fee_1=data.term_fee_1,
-            term_fee_2=data.term_fee_2,
-            term_fee_3=data.term_fee_3,
-        )
-        db.add(fee_struct)
-    
+    if not student.branch_id:
+        raise HTTPException(status_code=400, detail="Student branch not set")
+
+    fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    if not fee_structure:
+        fee_structure = FeeStructure(student_id=student_id, branch_id=student.branch_id)
+        db.add(fee_structure)
+
+    fee_structure.advance_fees = float(body.get("advance_fees", fee_structure.advance_fees or 0.0))
+    fee_structure.term_fee_1 = float(body.get("term_fee_1", fee_structure.term_fee_1 or 0.0))
+    fee_structure.term_fee_2 = float(body.get("term_fee_2", fee_structure.term_fee_2 or 0.0))
+    fee_structure.term_fee_3 = float(body.get("term_fee_3", fee_structure.term_fee_3 or 0.0))
+
     db.commit()
-    db.refresh(fee_struct)
-    
-    return FeeStructureResponse(
-        id=str(fee_struct.id),
-        student_id=str(fee_struct.student_id),
-        branch_id=str(fee_struct.branch_id),
-        advance_fees=fee_struct.advance_fees,
-        term_fee_1=fee_struct.term_fee_1,
-        term_fee_2=fee_struct.term_fee_2,
-        term_fee_3=fee_struct.term_fee_3,
-        created_at=fee_struct.created_at,
-        updated_at=fee_struct.updated_at,
-    )
+    db.refresh(fee_structure)
+    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.payment_date.desc()).all()
+    return _build_fees_detail(student, fee_structure, payments)
 
 
-@router.post("/students/{student_id}/fees/payment")
-def record_fee_payment(
+@router.post("/students/{student_id}/fees/payments")
+def record_student_fee_payment(
     student_id: UUID,
-    data: FeePaymentCreate,
+    body: dict,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """Record a fee payment for a student."""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
-    
-    if not fee_struct:
-        raise HTTPException(status_code=404, detail="Fee structure not found for this student")
-    
-    # Validate component
-    valid_components = ["advance_fees", "term_fee_1", "term_fee_2", "term_fee_3"]
-    if data.component not in valid_components:
-        raise HTTPException(status_code=400, detail=f"Invalid component. Must be one of: {', '.join(valid_components)}")
-    
-    # Validate payment_mode
-    valid_modes = ["cash", "upi", "net_banking", "cheque", "bank_transfer"]
-    if data.payment_mode not in valid_modes:
-        raise HTTPException(status_code=400, detail=f"Invalid payment_mode. Must be one of: {', '.join(valid_modes)}")
-    
-    # Create payment record
+    if not student.branch_id:
+        raise HTTPException(status_code=400, detail="Student branch not set")
+
+    component = str(body.get("component", "")).strip()
+    amount_paid = body.get("amount_paid")
+    payment_mode = str(body.get("payment_mode", "")).strip()
+
+    allowed_components = {"advance_fees", "term_fee_1", "term_fee_2", "term_fee_3"}
+    if component not in allowed_components:
+        raise HTTPException(status_code=400, detail="Invalid fee component")
+    try:
+        amount_paid = float(amount_paid)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid amount_paid")
+    if amount_paid <= 0:
+        raise HTTPException(status_code=400, detail="amount_paid must be > 0")
+    if not payment_mode:
+        raise HTTPException(status_code=400, detail="payment_mode is required")
+
+    fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    if not fee_structure:
+        fee_structure = FeeStructure(student_id=student_id, branch_id=student.branch_id)
+        db.add(fee_structure)
+        db.flush()
+
     payment = FeePayment(
-        fee_structure_id=fee_struct.id,
+        fee_structure_id=fee_structure.id,
         student_id=student_id,
-        component=data.component,
-        amount_paid=data.amount_paid,
-        payment_mode=data.payment_mode,
+        component=component,
+        amount_paid=amount_paid,
+        payment_mode=payment_mode,
+        marked_by=_.id,
     )
     db.add(payment)
     db.commit()
     db.refresh(payment)
-    
-    return FeePaymentResponse(
-        id=str(payment.id),
-        component=payment.component,
-        amount_paid=payment.amount_paid,
-        payment_mode=payment.payment_mode,
-        payment_date=payment.payment_date,
-        created_at=payment.created_at,
-    )
+
+    return {
+        "id": str(payment.id),
+        "component": payment.component,
+        "amount_paid": float(payment.amount_paid or 0.0),
+        "payment_mode": payment.payment_mode,
+        "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
+        "created_at": payment.created_at.isoformat() if payment.created_at else None,
+    }
 
 
-@router.get("/students/{student_id}/fees/payments", response_model=list[FeePaymentResponse])
+@router.get("/students/{student_id}/fees/payments")
 def get_student_fee_payments(
     student_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """Get all fee payment records for a student."""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.created_at.desc()).all()
-    
-    return [
-        FeePaymentResponse(
-            id=str(p.id),
-            component=p.component,
-            amount_paid=p.amount_paid,
-            payment_mode=p.payment_mode,
-            payment_date=p.payment_date,
-            created_at=p.created_at,
-        )
-        for p in payments
-    ]
 
-
-# --- Marks Cards ---
-class MarksCardUpsert(BaseModel):
-    academic_year: str = "2024-25"
-    data: dict[str, Any] = {}
-
-
-@router.get("/marks/{student_id}")
-def get_marks(
-    student_id: UUID,
-    academic_year: str = Query("2024-25"),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Get marks for a student."""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    card = db.query(MarksCard).filter(
-        MarksCard.student_id == student_id,
-        MarksCard.academic_year == academic_year
-    ).first()
-    
-    if not card:
-        return {
-            "student_id": str(student_id),
-            "academic_year": academic_year,
-            "data": {},
-            "sent_to_parent_at": None
-        }
-    
+    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.payment_date.desc()).all()
     return {
-        "id": str(card.id),
-        "student_id": str(card.student_id),
-        "academic_year": card.academic_year,
-        "data": card.data or {},
-        "sent_to_parent_at": card.sent_to_parent_at.isoformat() if card.sent_to_parent_at else None,
+        "payments": [
+            {
+                "id": str(p.id),
+                "component": p.component,
+                "amount_paid": float(p.amount_paid or 0.0),
+                "payment_mode": p.payment_mode,
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in payments
+        ]
     }
 
-
-@router.put("/marks/{student_id}")
-def upsert_marks(
-    student_id: UUID,
-    body: MarksCardUpsert,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Update marks for a student."""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    card = db.query(MarksCard).filter(
-        MarksCard.student_id == student_id,
-        MarksCard.academic_year == body.academic_year
-    ).first()
-    
-    if card:
-        card.data = body.data
-    else:
-        card = MarksCard(
-            student_id=student_id,
-            academic_year=body.academic_year,
-            data=body.data
-        )
-        db.add(card)
-    
-    db.commit()
-    db.refresh(card)
-    
-    return {
-        "id": str(card.id),
-        "student_id": str(card.student_id),
-        "academic_year": card.academic_year,
-        "data": card.data or {},
-    }
-
-
-@router.post("/marks/{student_id}/send-to-parent")
-def send_marks_to_parent(
-    student_id: UUID,
-    academic_year: str = Query("2024-25"),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Mark marks card as sent to parent."""
-    card = db.query(MarksCard).filter(
-        MarksCard.student_id == student_id,
-        MarksCard.academic_year == academic_year
-    ).first()
-    
-    if not card:
-        raise HTTPException(status_code=404, detail="Marks card not found")
-    
-    from datetime import datetime, timezone
-    card.sent_to_parent_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(card)
-    
-    return {
-        "id": str(card.id),
-        "student_id": str(card.student_id),
-        "academic_year": card.academic_year,
-        "sent_to_parent_at": card.sent_to_parent_at.isoformat(),
-    }
-
-
-# --- Analytics & Reports ---
 
 @router.get("/analytics")
 def get_analytics(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """Get comprehensive analytics data for admin reports."""
-    from datetime import datetime, timedelta
-    from sqlalchemy import extract, and_
-    
-    # Students by grade/class
-    students_by_grade = []
-    classes = db.query(Class).all()
-    for cls in classes:
-        count = db.query(func.count(Student.id)).filter(
-            Student.class_id == cls.id,
-            Student.admission_number.isnot(None)
-        ).scalar() or 0
-        if count > 0:
-            students_by_grade.append({
-                "grade": cls.name,
-                "count": count,
-                "branch": db.query(Branch.name).filter(Branch.id == cls.branch_id).scalar() or "Unknown"
-            })
-    
-    # Enquiries and admissions by month (last 6 months)
-    today = datetime.now()
-    
-    enquiries_by_month = []
-    admissions_by_month = []
-    
-    for i in range(6):
-        month_start = today - timedelta(days=30 * (5 - i))
-        month_end = month_start + timedelta(days=30)
-        month_name = month_start.strftime("%b %Y")
-        
-        # Count enquiries created in this month
-        enq_count = db.query(func.count(Enquiry.id)).filter(
-            and_(
-                Enquiry.created_at >= month_start,
-                Enquiry.created_at < month_end
-            )
-        ).scalar() or 0
-        
-        # Count admissions (students admitted) in this month
-        adm_count = db.query(func.count(Student.id)).filter(
-            and_(
-                Student.created_at >= month_start,
-                Student.created_at < month_end,
-                Student.admission_number.isnot(None)
-            )
-        ).scalar() or 0
-        
-        enquiries_by_month.append({"month": month_name, "count": enq_count})
-        admissions_by_month.append({"month": month_name, "count": adm_count})
-    
-    # Revenue collected
-    total_fees_paid = db.query(func.sum(FeePayment.amount_paid)).scalar() or 0.0
-    total_fees_due = 0.0
-    
-    # Calculate total due from fee structures
+    """Return analytics payload used by admin reports and dashboard fee metrics."""
+    now = datetime.utcnow()
+
+    # Revenue (fees)
     fee_structures = db.query(FeeStructure).all()
-    for fs in fee_structures:
-        if fs.advance_fees:
-            total_fees_due += float(fs.advance_fees)
-        if fs.term_fee_1:
-            total_fees_due += float(fs.term_fee_1)
-        if fs.term_fee_2:
-            total_fees_due += float(fs.term_fee_2)
-        if fs.term_fee_3:
-            total_fees_due += float(fs.term_fee_3)
-    
-    outstanding = total_fees_due - total_fees_paid
-    
-    # Enquiry conversion stats
-    total_enquiries = db.query(func.count(Enquiry.id)).scalar() or 0
-    converted_enquiries = db.query(func.count(Enquiry.id)).filter(
-        Enquiry.status == "converted"
-    ).scalar() or 0
-    pending_enquiries = db.query(func.count(Enquiry.id)).filter(
-        Enquiry.status == "pending"
-    ).scalar() or 0
-    rejected_enquiries = db.query(func.count(Enquiry.id)).filter(
-        Enquiry.status == "rejected"
-    ).scalar() or 0
-    
+    total_due = sum(
+        (fs.advance_fees or 0.0)
+        + (fs.term_fee_1 or 0.0)
+        + (fs.term_fee_2 or 0.0)
+        + (fs.term_fee_3 or 0.0)
+        for fs in fee_structures
+    )
+    total_collected = db.query(func.coalesce(func.sum(FeePayment.amount_paid), 0.0)).scalar() or 0.0
+    outstanding = max(total_due - total_collected, 0.0)
+    collection_rate = (total_collected / total_due * 100.0) if total_due > 0 else 0.0
+
+    # Students by grade (branch-aware for disambiguating repeated grade names)
+    # Include all branches so empty branches are still visible in analytics.
+    students_by_grade = []
+    branches = db.query(Branch).order_by(Branch.name.asc()).all()
+    for branch in branches:
+        branch_classes = sorted(branch.classes or [], key=lambda c: (c.name or ""))
+        if not branch_classes:
+            students_by_grade.append(
+                {
+                    "branch": branch.name,
+                    "grade": "(no classes)",
+                    "count": 0,
+                }
+            )
+            continue
+
+        for cls in branch_classes:
+            count = (
+                db.query(func.count(Student.id))
+                .filter(Student.class_id == cls.id, Student.admission_number.isnot(None))
+                .scalar()
+                or 0
+            )
+            students_by_grade.append(
+                {
+                    "branch": branch.name,
+                    "grade": cls.name,
+                    "count": int(count),
+                }
+            )
+
+    # Last 6 months trend buckets
+    month_keys: list[tuple[int, int, str]] = []
+    for i in range(5, -1, -1):
+        y = now.year
+        m = now.month - i
+        while m <= 0:
+            y -= 1
+            m += 12
+        label = datetime(y, m, 1).strftime("%b %Y")
+        month_keys.append((y, m, label))
+
+    enquiries = db.query(Enquiry).all()
+    admissions = db.query(Student).filter(Student.admission_number.isnot(None)).all()
+
+    enq_counts: dict[tuple[int, int], int] = defaultdict(int)
+    for e in enquiries:
+        if e.created_at is None:
+            continue
+        enq_counts[(e.created_at.year, e.created_at.month)] += 1
+
+    adm_counts: dict[tuple[int, int], int] = defaultdict(int)
+    for s in admissions:
+        if s.created_at is None:
+            continue
+        adm_counts[(s.created_at.year, s.created_at.month)] += 1
+
+    enquiries_by_month = [
+        {"month": label, "count": int(enq_counts.get((y, m), 0))}
+        for y, m, label in month_keys
+    ]
+    admissions_by_month = [
+        {"month": label, "count": int(adm_counts.get((y, m), 0))}
+        for y, m, label in month_keys
+    ]
+
+    total_enquiries = len(enquiries)
+    converted = sum(1 for e in enquiries if (e.status or "").lower() == "converted")
+    rejected = sum(1 for e in enquiries if (e.status or "").lower() == "rejected")
+    pending = sum(1 for e in enquiries if (e.status or "").lower() in {"pending", "new"})
+    conversion_rate = (converted / total_enquiries * 100.0) if total_enquiries > 0 else 0.0
+
     return {
+        "revenue": {
+            "total_collected": float(total_collected),
+            "total_due": float(total_due),
+            "outstanding": float(outstanding),
+            "collection_rate": round(collection_rate, 1),
+        },
         "students_by_grade": students_by_grade,
         "enquiries_by_month": enquiries_by_month,
         "admissions_by_month": admissions_by_month,
-        "revenue": {
-            "total_collected": float(total_fees_paid),
-            "total_due": float(total_fees_due),
-            "outstanding": float(outstanding),
-            "collection_rate": round((total_fees_paid / total_fees_due * 100), 2) if total_fees_due > 0 else 0.0
-        },
         "enquiry_stats": {
             "total": total_enquiries,
-            "converted": converted_enquiries,
-            "pending": pending_enquiries,
-            "rejected": rejected_enquiries,
-            "conversion_rate": round((converted_enquiries / total_enquiries * 100), 2) if total_enquiries > 0 else 0.0
-        }
+            "converted": converted,
+            "pending": pending,
+            "rejected": rejected,
+            "conversion_rate": round(conversion_rate, 1),
+        },
     }

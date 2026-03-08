@@ -59,47 +59,48 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics & Reports'),
-        elevation: 0,
-      ),
+      backgroundColor: const Color(0xFFFFF4E0),
+      appBar: AppBar(title: const Text('Analytics & Reports'), elevation: 0),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                      const SizedBox(height: 16),
-                      Text('Error: $_error', style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadAnalytics,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: $_error',
+                    style: const TextStyle(color: Colors.red),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadAnalytics,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildRevenueCard(),
-                        const SizedBox(height: 24),
-                        _buildStudentsByGradeChart(),
-                        const SizedBox(height: 24),
-                        _buildEnquiriesAdmissionsChart(),
-                        const SizedBox(height: 24),
-                        _buildEnquiryStatsCard(),
-                      ],
-                    ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadAnalytics,
+                    child: const Text('Retry'),
                   ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadAnalytics,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildRevenueCard(),
+                    const SizedBox(height: 24),
+                    _buildStudentsByGradeChart(),
+                    const SizedBox(height: 24),
+                    _buildEnquiriesAdmissionsChart(),
+                    const SizedBox(height: 24),
+                    _buildEnquiryStatsCard(),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
@@ -107,10 +108,12 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     final revenue = _analyticsData?['revenue'] as Map<String, dynamic>?;
     if (revenue == null) return const SizedBox();
 
-    final totalCollected = (revenue['total_collected'] as num?)?.toDouble() ?? 0.0;
+    final totalCollected =
+        (revenue['total_collected'] as num?)?.toDouble() ?? 0.0;
     final totalDue = (revenue['total_due'] as num?)?.toDouble() ?? 0.0;
     final outstanding = (revenue['outstanding'] as num?)?.toDouble() ?? 0.0;
-    final collectionRate = (revenue['collection_rate'] as num?)?.toDouble() ?? 0.0;
+    final collectionRate =
+        (revenue['collection_rate'] as num?)?.toDouble() ?? 0.0;
 
     return Card(
       elevation: 2,
@@ -127,7 +130,11 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                     color: Colors.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.account_balance_wallet, color: Colors.green, size: 28),
+                  child: const Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.green,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -136,7 +143,10 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                     children: [
                       const Text(
                         'Revenue Overview',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         '${collectionRate.toStringAsFixed(1)}% collected',
@@ -186,12 +196,18 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
   }
 
   Widget _buildStudentsByGradeChart() {
-    final studentsByGrade = _analyticsData?['students_by_grade'] as List<dynamic>?;
+    final studentsByGrade =
+        _analyticsData?['students_by_grade'] as List<dynamic>?;
     if (studentsByGrade == null || studentsByGrade.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Center(child: Text('No student data available', style: TextStyle(color: Colors.grey[600]))),
+          child: Center(
+            child: Text(
+              'No student data available',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
         ),
       );
     }
@@ -215,7 +231,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Students by Grade',
+              'Students by Grade and Branch',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
@@ -227,14 +243,20 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                     flex: 3,
                     child: PieChart(
                       PieChartData(
-                        sections: List.generate(studentsByGrade.length, (index) {
-                          final item = studentsByGrade[index] as Map<String, dynamic>;
+                        sections: List.generate(studentsByGrade.length, (
+                          index,
+                        ) {
+                          final item =
+                              studentsByGrade[index] as Map<String, dynamic>;
                           final count = (item['count'] as num?)?.toInt() ?? 0;
                           final total = studentsByGrade.fold<int>(
                             0,
-                            (sum, e) => sum + ((e['count'] as num?)?.toInt() ?? 0),
+                            (sum, e) =>
+                                sum + ((e['count'] as num?)?.toInt() ?? 0),
                           );
-                          final percentage = total > 0 ? (count / total * 100) : 0.0;
+                          final percentage = total > 0
+                              ? (count / total * 100)
+                              : 0.0;
 
                           return PieChartSectionData(
                             color: colors[index % colors.length],
@@ -256,37 +278,66 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                   const SizedBox(width: 20),
                   Expanded(
                     flex: 2,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: List.generate(studentsByGrade.length, (index) {
-                        final item = studentsByGrade[index] as Map<String, dynamic>;
+                    child: ListView.builder(
+                      itemCount: studentsByGrade.length,
+                      itemBuilder: (context, index) {
+                        final item =
+                            studentsByGrade[index] as Map<String, dynamic>;
+                        final branch = item['branch'] as String? ?? 'Unknown';
                         final grade = item['grade'] as String? ?? '—';
                         final count = (item['count'] as num?)?.toInt() ?? 0;
+                        final previousBranch = index > 0
+                            ? ((studentsByGrade[index - 1]
+                                          as Map<String, dynamic>)['branch']
+                                      as String? ??
+                                  'Unknown')
+                            : null;
+                        final showBranchHeader = previousBranch != branch;
 
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: colors[index % colors.length],
-                                  shape: BoxShape.circle,
+                              if (showBranchHeader)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 6,
+                                    bottom: 4,
+                                  ),
+                                  child: Text(
+                                    branch,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '$grade: $count',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
+                              Row(
+                                children: [
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: colors[index % colors.length],
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '$grade: $count',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         );
-                      }),
+                      },
                     ),
                   ),
                 ],
@@ -329,8 +380,10 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                 BarChartData(
                   maxY: maxValue + 5,
                   barGroups: List.generate(enquiries.length, (index) {
-                    final enqCount = (enquiries[index]['count'] as num?)?.toDouble() ?? 0.0;
-                    final admCount = (admissions[index]['count'] as num?)?.toDouble() ?? 0.0;
+                    final enqCount =
+                        (enquiries[index]['count'] as num?)?.toDouble() ?? 0.0;
+                    final admCount =
+                        (admissions[index]['count'] as num?)?.toDouble() ?? 0.0;
 
                     return BarChartGroupData(
                       x: index,
@@ -339,13 +392,17 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                           toY: enqCount,
                           color: Colors.blue,
                           width: 16,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
                         ),
                         BarChartRodData(
                           toY: admCount,
                           color: Colors.green,
                           width: 16,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
                         ),
                       ],
                       barsSpace: 4,
@@ -368,22 +425,31 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() < 0 || value.toInt() >= enquiries.length) {
+                          if (value.toInt() < 0 ||
+                              value.toInt() >= enquiries.length) {
                             return const SizedBox();
                           }
-                          final month = enquiries[value.toInt()]['month'] as String? ?? '';
+                          final month =
+                              enquiries[value.toInt()]['month'] as String? ??
+                              '';
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              month.split(' ')[0], // Show only month abbreviation
+                              month.split(
+                                ' ',
+                              )[0], // Show only month abbreviation
                               style: const TextStyle(fontSize: 11),
                             ),
                           );
                         },
                       ),
                     ),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                   ),
                   borderData: FlBorderData(show: false),
                   gridData: FlGridData(
@@ -410,14 +476,16 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
   }
 
   Widget _buildEnquiryStatsCard() {
-    final enquiryStats = _analyticsData?['enquiry_stats'] as Map<String, dynamic>?;
+    final enquiryStats =
+        _analyticsData?['enquiry_stats'] as Map<String, dynamic>?;
     if (enquiryStats == null) return const SizedBox();
 
     final total = (enquiryStats['total'] as num?)?.toInt() ?? 0;
     final converted = (enquiryStats['converted'] as num?)?.toInt() ?? 0;
     final pending = (enquiryStats['pending'] as num?)?.toInt() ?? 0;
     final rejected = (enquiryStats['rejected'] as num?)?.toInt() ?? 0;
-    final conversionRate = (enquiryStats['conversion_rate'] as num?)?.toDouble() ?? 0.0;
+    final conversionRate =
+        (enquiryStats['conversion_rate'] as num?)?.toDouble() ?? 0.0;
 
     return Card(
       elevation: 2,
@@ -431,47 +499,110 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _EnquiryStatItem(
-                    label: 'Total',
-                    value: total,
-                    color: Colors.blue,
-                    icon: Icons.people,
+            // Pie chart + stats side by side
+            if (total > 0) ...[
+              Row(
+                children: [
+                  // Pie chart
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: 200,
+                      child: PieChart(
+                        PieChartData(
+                          sections: [
+                            if (converted > 0)
+                              PieChartSectionData(
+                                value: converted.toDouble(),
+                                title: '$converted',
+                                color: Colors.green,
+                                radius: 60,
+                                titleStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            if (pending > 0)
+                              PieChartSectionData(
+                                value: pending.toDouble(),
+                                title: '$pending',
+                                color: Colors.orange,
+                                radius: 60,
+                                titleStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            if (rejected > 0)
+                              PieChartSectionData(
+                                value: rejected.toDouble(),
+                                title: '$rejected',
+                                color: Colors.red,
+                                radius: 60,
+                                titleStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                          ],
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 40,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  // Legend
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      children: [
+                        _EnquiryStatItem(
+                          label: 'Total Enquiries',
+                          value: total,
+                          color: Colors.blue,
+                          icon: Icons.people,
+                        ),
+                        const SizedBox(height: 12),
+                        _EnquiryStatItem(
+                          label: 'Converted',
+                          value: converted,
+                          color: Colors.green,
+                          icon: Icons.check_circle,
+                        ),
+                        const SizedBox(height: 12),
+                        _EnquiryStatItem(
+                          label: 'Pending',
+                          value: pending,
+                          color: Colors.orange,
+                          icon: Icons.pending,
+                        ),
+                        const SizedBox(height: 12),
+                        _EnquiryStatItem(
+                          label: 'Rejected',
+                          value: rejected,
+                          color: Colors.red,
+                          icon: Icons.cancel,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No enquiry data available',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ),
-                Expanded(
-                  child: _EnquiryStatItem(
-                    label: 'Converted',
-                    value: converted,
-                    color: Colors.green,
-                    icon: Icons.check_circle,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _EnquiryStatItem(
-                    label: 'Pending',
-                    value: pending,
-                    color: Colors.orange,
-                    icon: Icons.pending,
-                  ),
-                ),
-                Expanded(
-                  child: _EnquiryStatItem(
-                    label: 'Rejected',
-                    value: rejected,
-                    color: Colors.red,
-                    icon: Icons.cancel,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
@@ -521,10 +652,7 @@ class _RevenueStatItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 4),
         Text(
           formatter.format(amount),
@@ -574,10 +702,7 @@ class _EnquiryStatItem extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-          ),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
         ],
       ),
     );

@@ -53,10 +53,7 @@ class StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           if (trend != null) ...[
             const SizedBox(height: 4),
@@ -68,12 +65,16 @@ class StatCard extends StatelessWidget {
                   color: trendUp ? Colors.green : Colors.red,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  trend!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: trendUp ? Colors.green : Colors.red,
+                Expanded(
+                  child: Text(
+                    trend!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: trendUp ? Colors.green : Colors.red,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

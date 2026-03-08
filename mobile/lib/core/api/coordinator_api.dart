@@ -65,6 +65,14 @@ class CoordinatorApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> upsertAttendance({
+    required String date,
+    required List<Map<String, String>> records,
+  }) async {
+    final r = await _dio.post('/coordinator/attendance/upsert', data: {'date': date, 'records': records});
+    return r.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getStaffAttendance({required String date}) async {
     final r = await _dio.get('/coordinator/staff-attendance', queryParameters: {'att_date': date});
     return r.data as Map<String, dynamic>;
@@ -89,29 +97,28 @@ class CoordinatorApi {
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
-  Future<Map<String, dynamic>> createEnquiry(Map<String, dynamic> data) async {
-    final r = await _dio.post('/coordinator/enquiries', data: data);
-    return r.data as Map<String, dynamic>;
-  }
-
-  // Fee Management
   Future<Map<String, dynamic>> getStudentFees(String studentId) async {
     final r = await _dio.get('/coordinator/students/$studentId/fees');
     return r.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> updateStudentFees(String studentId, Map<String, dynamic> data) async {
-    final r = await _dio.post('/coordinator/students/$studentId/fees', data: data);
+    final r = await _dio.put('/coordinator/students/$studentId/fees', data: data);
     return r.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> recordFeePayment(String studentId, Map<String, dynamic> data) async {
-    final r = await _dio.post('/coordinator/students/$studentId/fees/payment', data: data);
+    final r = await _dio.post('/coordinator/students/$studentId/fees/payments', data: data);
     return r.data as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> getStudentFeePayments(String studentId) async {
+  Future<Map<String, dynamic>> getStudentFeePayments(String studentId) async {
     final r = await _dio.get('/coordinator/students/$studentId/fees/payments');
-    return List<Map<String, dynamic>>.from(r.data as List);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createEnquiry(Map<String, dynamic> data) async {
+    final r = await _dio.post('/coordinator/enquiries', data: data);
+    return r.data as Map<String, dynamic>;
   }
 }

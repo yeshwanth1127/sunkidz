@@ -5,7 +5,9 @@ class DashboardData {
   final int branchesCount;
   final int studentsCount;
   final int staffCount;
-  final double collectedFees;
+  final double feesTotalDue;
+  final double feesPending;
+  final double feesCollected;
   final List<Map<String, dynamic>> recentEnquiries;
   final int newEnquiries;
   final int convertedEnquiries;
@@ -16,7 +18,9 @@ class DashboardData {
     required this.branchesCount,
     required this.studentsCount,
     required this.staffCount,
-    required this.collectedFees,
+    required this.feesTotalDue,
+    required this.feesPending,
+    required this.feesCollected,
     required this.recentEnquiries,
     required this.newEnquiries,
     required this.convertedEnquiries,
@@ -33,22 +37,41 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
     final admissions = await api.getAdmissions();
     final users = await api.getUsers();
     final enquiries = await api.getEnquiries();
-    final analytics = await api.getAnalytics();
-    final revenue = analytics['revenue'] as Map<String, dynamic>?;
-    final collectedFees = (revenue?['total_collected'] as num?)?.toDouble() ?? 0.0;
-    
-    // Count enquiry statuses
+    double feesTotalDue = 0.0;
+    double feesPending = 0.0;
+    double feesCollected = 0.0;
+
+    // Get analytics including enquiry stats
     int newEnquiries = 0;
     int convertedEnquiries = 0;
     int rejectedEnquiries = 0;
-    
-    for (var enquiry in enquiries) {
-      final status = enquiry['status']?.toString().toLowerCase() ?? 'new';
-      if (status == 'new') newEnquiries++;
-      else if (status == 'converted') convertedEnquiries++;
-      else if (status == 'rejected') rejectedEnquiries++;
+
+    try {
+      final analytics = await api.getAnalytics();
+      final revenue = analytics['revenue'] as Map<String, dynamic>? ?? {};
+      feesTotalDue = (revenue['total_due'] as num?)?.toDouble() ?? 0.0;
+      feesPending = (revenue['outstanding'] as num?)?.toDouble() ?? 0.0;
+      feesCollected = (revenue['total_collected'] as num?)?.toDouble() ?? 0.0;
+
+      // Use enquiry_stats from analytics for accurate counts
+      final enquiryStats =
+          analytics['enquiry_stats'] as Map<String, dynamic>? ?? {};
+      newEnquiries = (enquiryStats['pending'] as num?)?.toInt() ?? 0;
+      convertedEnquiries = (enquiryStats['converted'] as num?)?.toInt() ?? 0;
+      rejectedEnquiries = (enquiryStats['rejected'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      // Fallback: count from enquiry list if analytics fails
+      for (var enquiry in enquiries) {
+        final status = enquiry['status']?.toString().toLowerCase() ?? 'new';
+        if (status == 'new' || status == 'pending')
+          newEnquiries++;
+        else if (status == 'converted')
+          convertedEnquiries++;
+        else if (status == 'rejected')
+          rejectedEnquiries++;
+      }
     }
-    
+
     // Get admissions from this month
     final now = DateTime.now();
     final thisMonth = admissions.where((a) {
@@ -61,12 +84,14 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
         return false;
       }
     }).toList();
-    
+
     return DashboardData(
       branchesCount: branches.length,
       studentsCount: admissions.length,
       staffCount: users.length,
-      collectedFees: collectedFees,
+      feesTotalDue: feesTotalDue,
+      feesPending: feesPending,
+      feesCollected: feesCollected,
       recentEnquiries: enquiries.take(5).toList(),
       newEnquiries: newEnquiries,
       convertedEnquiries: convertedEnquiries,

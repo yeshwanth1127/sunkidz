@@ -4,13 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import logging
 
 from app.core.database import get_db
 from app.core.auth import require_coordinator
-from app.models import User, Branch, Class, Student, BranchAssignment, Attendance, StaffAttendance, Enquiry, FeeStructure, FeePayment
+from app.models import User, Branch, Class, Student, BranchAssignment, Attendance, StaffAttendance, Enquiry
 from app.schemas.student import StudentUpdate
 from app.schemas.enquiry import EnquiryCreate
-from app.schemas.fee import FeeStructureCreate, FeeStructureResponse, FeePaymentCreate, FeePaymentResponse, FeesDetailResponse
+from app.services.notification_service import send_enquiry_notification
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/coordinator", tags=["coordinator"])
 
@@ -539,6 +542,71 @@ def update_student_attendance(
     }
 
 
+# Attendance Upsert Models
+class StudentAttendanceRecord(BaseModel):
+    student_id: str
+    status: str  # present, absent, leave
+
+
+class StudentAttendanceUpsert(BaseModel):
+    date: date
+    records: list[StudentAttendanceRecord]
+
+
+@router.post("/attendance/upsert")
+def upsert_attendance(
+    body: StudentAttendanceUpsert,
+    user: User = Depends(require_coordinator),
+    db: Session = Depends(get_db),
+):
+    """Mark attendance for multiple students in coordinate's branch on a given date."""
+    branch_id = _coordinator_branch_id(user, db)
+    if not branch_id:
+        raise HTTPException(status_code=403, detail="No branch assigned")
+    
+    # Validate date - coordinators can mark attendance for today and past dates (unlike teachers)
+    today = date.today()
+    if body.date > today:
+        raise HTTPException(status_code=400, detail="Cannot mark attendance for future dates")
+    
+    updated_count = 0
+    for rec in body.records:
+        try:
+            sid = UUID(rec.student_id)
+        except Exception:
+            continue
+        
+        # Verify student is in coordinator's branch
+        student = db.query(Student).filter(
+            Student.id == sid,
+            Student.branch_id == branch_id,
+            Student.admission_number.isnot(None),
+        ).first()
+        
+        if not student:
+            continue
+        
+        # Validate status
+        status = rec.status if rec.status in ("present", "absent", "leave") else "present"
+        
+        # Find or create attendance record
+        existing = db.query(Attendance).filter(
+            Attendance.student_id == sid,
+            Attendance.date == body.date,
+        ).first()
+        
+        if existing:
+            existing.status = status
+            existing.marked_by = user.id
+        else:
+            db.add(Attendance(student_id=sid, date=body.date, status=status, marked_by=user.id))
+        
+        updated_count += 1
+    
+    db.commit()
+    return {"date": body.date.isoformat(), "count": updated_count}
+
+
 # --- Staff (Teacher) Attendance ---
 class StaffAttendanceRecord(BaseModel):
     user_id: str
@@ -551,8 +619,6 @@ class StaffAttendanceUpsert(BaseModel):
 
 
 def _staff_attendance_response(att_date: date, branch_id: UUID, db: Session) -> dict:
-    from datetime import date as date_class
-    
     assignments = (
         db.query(BranchAssignment)
         .join(BranchAssignment.user)
@@ -567,14 +633,6 @@ def _staff_attendance_response(att_date: date, branch_id: UUID, db: Session) -> 
         StaffAttendance.date == att_date,
         StaffAttendance.user_id.in_(user_ids),
     ).all()}
-    
-    # Check if date is in the past or already submitted
-    today = date_class.today()
-    is_past = att_date < today
-    submitted_count = sum(1 for a in att_map.values() if a.submitted)
-    is_submitted = submitted_count > 0
-    is_locked = is_submitted or is_past
-    
     result = []
     for a in assignments:
         att = att_map.get(a.user_id)
@@ -589,7 +647,7 @@ def _staff_attendance_response(att_date: date, branch_id: UUID, db: Session) -> 
             "class_name": cls_name,
             "status": att.status if att else "present",
         })
-    return {"date": att_date.isoformat(), "branch_id": str(branch_id), "locked": is_locked, "staff": result}
+    return {"date": att_date.isoformat(), "branch_id": str(branch_id), "staff": result}
 
 
 @router.get("/staff-attendance")
@@ -611,27 +669,10 @@ def upsert_staff_attendance(
     user: User = Depends(require_coordinator),
     db: Session = Depends(get_db),
 ):
-    """Mark staff attendance for coordinator's branch on a given date. Locks attendance once submitted."""
-    from datetime import date as date_class
-    
+    """Mark staff attendance for coordinator's branch on a given date."""
     branch_id = _coordinator_branch_id(user, db)
     if not branch_id:
         raise HTTPException(status_code=403, detail="No branch assigned")
-    
-    # Prevent editing past days
-    today = date_class.today()
-    if body.date < today:
-        raise HTTPException(status_code=400, detail="Cannot edit attendance for past dates")
-    
-    # Check if attendance for this date is already submitted
-    existing_records = db.query(StaffAttendance).filter(
-        StaffAttendance.date == body.date,
-        StaffAttendance.user_id.in_([UUID(rec.user_id) for rec in body.records]),
-    ).all()
-    
-    if any(a.submitted for a in existing_records):
-        raise HTTPException(status_code=400, detail="Attendance for this date is already submitted and locked")
-    
     assignments = (
         db.query(BranchAssignment)
         .join(BranchAssignment.user)
@@ -654,9 +695,8 @@ def upsert_staff_attendance(
         if existing:
             existing.status = status
             existing.marked_by = user.id
-            existing.submitted = True  # Mark as submitted
         else:
-            db.add(StaffAttendance(user_id=uid, date=body.date, status=status, marked_by=user.id, submitted=True))
+            db.add(StaffAttendance(user_id=uid, date=body.date, status=status, marked_by=user.id))
     db.commit()
     return _staff_attendance_response(body.date, branch_id, db)
 
@@ -786,6 +826,12 @@ def create_enquiry(
     db.commit()
     db.refresh(e)
     
+    # Send WhatsApp notification (non-blocking)
+    try:
+        send_enquiry_notification(e)
+    except Exception as ex:
+        logger.error(f"Failed to send WhatsApp notification for enquiry {e.id}: {str(ex)}")
+    
     branch_name = None
     branch = db.query(Branch).filter(Branch.id == branch_id).first()
     if branch:
@@ -808,223 +854,3 @@ def create_enquiry(
         "status": e.status or "pending",
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
-
-
-# --- Fee Management ---
-@router.get("/students/{student_id}/fees", response_model=FeesDetailResponse)
-def get_student_fees(
-    student_id: UUID,
-    user: User = Depends(require_coordinator),
-    db: Session = Depends(get_db),
-):
-    """Get fee structure and payment history for a specific student (coordinator's branch only)."""
-    # Verify student is in coordinator's branch
-    branch_id = _coordinator_branch_id(user, db)
-    if not branch_id:
-        raise HTTPException(status_code=403, detail="Coordinator not assigned to a branch")
-    
-    student = db.query(Student).filter(Student.id == student_id, Student.branch_id == branch_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found in your branch")
-    
-    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
-    
-    if not fee_struct:
-        raise HTTPException(status_code=404, detail="Fee structure not found for this student")
-    
-    # Get all payments for this student
-    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
-    
-    # Calculate paid amounts per component
-    paid_amounts = {}
-    for payment in payments:
-        if payment.component not in paid_amounts:
-            paid_amounts[payment.component] = 0.0
-        paid_amounts[payment.component] += payment.amount_paid
-    
-    # Calculate balances
-    advance_fees_paid = paid_amounts.get("advance_fees", 0.0)
-    term_fee_1_paid = paid_amounts.get("term_fee_1", 0.0)
-    term_fee_2_paid = paid_amounts.get("term_fee_2", 0.0)
-    term_fee_3_paid = paid_amounts.get("term_fee_3", 0.0)
-    total_paid = sum(paid_amounts.values())
-    
-    advance_fees_balance = fee_struct.advance_fees - advance_fees_paid
-    term_fee_1_balance = fee_struct.term_fee_1 - term_fee_1_paid
-    term_fee_2_balance = fee_struct.term_fee_2 - term_fee_2_paid
-    term_fee_3_balance = fee_struct.term_fee_3 - term_fee_3_paid
-    total_balance = (fee_struct.advance_fees + fee_struct.term_fee_1 + fee_struct.term_fee_2 + fee_struct.term_fee_3) - total_paid
-    
-    return FeesDetailResponse(
-        student_id=str(student.id),
-        student_name=student.name,
-        admission_number=student.admission_number or "",
-        advance_fees=fee_struct.advance_fees,
-        term_fee_1=fee_struct.term_fee_1,
-        term_fee_2=fee_struct.term_fee_2,
-        term_fee_3=fee_struct.term_fee_3,
-        total_due=fee_struct.advance_fees + fee_struct.term_fee_1 + fee_struct.term_fee_2 + fee_struct.term_fee_3,
-        advance_fees_paid=advance_fees_paid,
-        term_fee_1_paid=term_fee_1_paid,
-        term_fee_2_paid=term_fee_2_paid,
-        term_fee_3_paid=term_fee_3_paid,
-        total_paid=total_paid,
-        advance_fees_balance=advance_fees_balance,
-        term_fee_1_balance=term_fee_1_balance,
-        term_fee_2_balance=term_fee_2_balance,
-        term_fee_3_balance=term_fee_3_balance,
-        total_balance=total_balance,
-        payments=[
-            FeePaymentResponse(
-                id=str(p.id),
-                component=p.component,
-                amount_paid=p.amount_paid,
-                payment_mode=p.payment_mode,
-                payment_date=p.payment_date,
-                created_at=p.created_at,
-            )
-            for p in payments
-        ],
-    )
-
-
-@router.post("/students/{student_id}/fees", response_model=FeeStructureResponse)
-def save_student_fees(
-    student_id: UUID,
-    data: FeeStructureCreate,
-    user: User = Depends(require_coordinator),
-    db: Session = Depends(get_db),
-):
-    """Create or update fee structure for a student (coordinator's branch only)."""
-    # Verify student is in coordinator's branch
-    branch_id = _coordinator_branch_id(user, db)
-    if not branch_id:
-        raise HTTPException(status_code=403, detail="Coordinator not assigned to a branch")
-    
-    student = db.query(Student).filter(Student.id == student_id, Student.branch_id == branch_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found in your branch")
-    
-    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
-    
-    if fee_struct:
-        # Update existing fee structure
-        fee_struct.advance_fees = data.advance_fees
-        fee_struct.term_fee_1 = data.term_fee_1
-        fee_struct.term_fee_2 = data.term_fee_2
-        fee_struct.term_fee_3 = data.term_fee_3
-    else:
-        # Create new fee structure
-        fee_struct = FeeStructure(
-            student_id=student_id,
-            branch_id=student.branch_id,
-            advance_fees=data.advance_fees,
-            term_fee_1=data.term_fee_1,
-            term_fee_2=data.term_fee_2,
-            term_fee_3=data.term_fee_3,
-        )
-        db.add(fee_struct)
-    
-    db.commit()
-    db.refresh(fee_struct)
-    
-    return FeeStructureResponse(
-        id=str(fee_struct.id),
-        student_id=str(fee_struct.student_id),
-        branch_id=str(fee_struct.branch_id),
-        advance_fees=fee_struct.advance_fees,
-        term_fee_1=fee_struct.term_fee_1,
-        term_fee_2=fee_struct.term_fee_2,
-        term_fee_3=fee_struct.term_fee_3,
-        created_at=fee_struct.created_at,
-        updated_at=fee_struct.updated_at,
-    )
-
-
-@router.post("/students/{student_id}/fees/payment")
-def record_fee_payment(
-    student_id: UUID,
-    data: FeePaymentCreate,
-    user: User = Depends(require_coordinator),
-    db: Session = Depends(get_db),
-):
-    """Record a fee payment for a student (coordinator's branch only)."""
-    # Verify student is in coordinator's branch
-    branch_id = _coordinator_branch_id(user, db)
-    if not branch_id:
-        raise HTTPException(status_code=403, detail="Coordinator not assigned to a branch")
-    
-    student = db.query(Student).filter(Student.id == student_id, Student.branch_id == branch_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found in your branch")
-    
-    fee_struct = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
-    
-    if not fee_struct:
-        raise HTTPException(status_code=404, detail="Fee structure not found for this student")
-    
-    # Validate component
-    valid_components = ["advance_fees", "term_fee_1", "term_fee_2", "term_fee_3"]
-    if data.component not in valid_components:
-        raise HTTPException(status_code=400, detail=f"Invalid component. Must be one of: {', '.join(valid_components)}")
-    
-    # Validate payment_mode
-    valid_modes = ["cash", "upi", "net_banking", "cheque", "bank_transfer"]
-    if data.payment_mode not in valid_modes:
-        raise HTTPException(status_code=400, detail=f"Invalid payment_mode. Must be one of: {', '.join(valid_modes)}")
-    
-    # Create payment record
-    payment = FeePayment(
-        fee_structure_id=fee_struct.id,
-        student_id=student_id,
-        component=data.component,
-        amount_paid=data.amount_paid,
-        payment_mode=data.payment_mode,
-    )
-    db.add(payment)
-    db.commit()
-    db.refresh(payment)
-    
-    return FeePaymentResponse(
-        id=str(payment.id),
-        component=payment.component,
-        amount_paid=payment.amount_paid,
-        payment_mode=payment.payment_mode,
-        payment_date=payment.payment_date,
-        created_at=payment.created_at,
-    )
-
-
-@router.get("/students/{student_id}/fees/payments", response_model=list[FeePaymentResponse])
-def get_student_fee_payments(
-    student_id: UUID,
-    user: User = Depends(require_coordinator),
-    db: Session = Depends(get_db),
-):
-    """Get all fee payment records for a student (coordinator's branch only)."""
-    # Verify student is in coordinator's branch
-    branch_id = _coordinator_branch_id(user, db)
-    if not branch_id:
-        raise HTTPException(status_code=403, detail="Coordinator not assigned to a branch")
-    
-    student = db.query(Student).filter(Student.id == student_id, Student.branch_id == branch_id).first()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found in your branch")
-    
-    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.created_at.desc()).all()
-    
-    return [
-        FeePaymentResponse(
-            id=str(p.id),
-            component=p.component,
-            amount_paid=p.amount_paid,
-            payment_mode=p.payment_mode,
-            payment_date=p.payment_date,
-            created_at=p.created_at,
-        )
-        for p in payments
-    ]

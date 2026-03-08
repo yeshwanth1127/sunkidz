@@ -5,17 +5,18 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/api/bus_tracking_provider.dart';
 import '../../../core/providers/active_ride_provider.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/bottom_nav_bar.dart';
 import '../data/bus_staff_dashboard_provider.dart';
 
 class BusStaffDashboardScreen extends ConsumerStatefulWidget {
   const BusStaffDashboardScreen({super.key});
 
   @override
-  ConsumerState<BusStaffDashboardScreen> createState() => _BusStaffDashboardScreenState();
+  ConsumerState<BusStaffDashboardScreen> createState() =>
+      _BusStaffDashboardScreenState();
 }
 
-class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScreen> {
+class _BusStaffDashboardScreenState
+    extends ConsumerState<BusStaffDashboardScreen> {
   bool _showStartRideConfirm = false;
   Map<String, dynamic>? _existingRide;
   bool _isCheckingRide = true;
@@ -31,9 +32,11 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
 
   Future<void> _checkForExistingRide() async {
     if (!mounted) return;
-    
+
     try {
-      final rideData = await ref.read(activeRideProvider.notifier).checkForExistingRide();
+      final rideData = await ref
+          .read(activeRideProvider.notifier)
+          .checkForExistingRide();
       if (mounted) {
         setState(() {
           _existingRide = rideData;
@@ -54,7 +57,7 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
     final dataAsync = ref.watch(busStaffDashboardDataProvider);
     final data = dataAsync.valueOrNull ?? const BusStaffDashboardData();
     final activeRide = ref.watch(activeRideProvider);
-    
+
     final routeName = data.routeName ?? 'No route assigned';
     final branchName = data.branchName ?? '—';
     final studentsAssigned = data.studentsAssigned;
@@ -74,7 +77,11 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                 'images/new_logo.png',
                 height: 32,
                 errorBuilder: (context, error, stackTrace) {
-                  return Icon(Icons.directions_bus, color: AppColors.primary, size: 28);
+                  return Icon(
+                    Icons.directions_bus,
+                    color: AppColors.primary,
+                    size: 28,
+                  );
                 },
               ),
             ),
@@ -82,10 +89,16 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(activeRide.isTracking ? 'Live Tracking' : 'Bus Dashboard', 
-                  style: Theme.of(context).textTheme.titleMedium),
-                Text('$routeName • $branchName', 
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                Text(
+                  activeRide.isTracking ? 'Live Tracking' : 'Bus Dashboard',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  '$routeName • $branchName',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
               ],
             ),
           ],
@@ -134,7 +147,11 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 24),
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange.shade700,
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -158,13 +175,25 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildInfoRow('Ride ID:', _existingRide!['id'] ?? 'Unknown'),
+                            _buildInfoRow(
+                              'Ride ID:',
+                              _existingRide!['id'] ?? 'Unknown',
+                            ),
                             const SizedBox(height: 8),
-                            _buildInfoRow('Route:', _existingRide!['route_name'] ?? 'Unknown'),
+                            _buildInfoRow(
+                              'Route:',
+                              _existingRide!['route_name'] ?? 'Unknown',
+                            ),
                             const SizedBox(height: 8),
-                            _buildInfoRow('Started:', _formatStartTime(_existingRide!['start_time'])),
+                            _buildInfoRow(
+                              'Started:',
+                              _formatStartTime(_existingRide!['start_time']),
+                            ),
                             const SizedBox(height: 8),
-                            _buildInfoRow('Duration:', _calculateDuration(_existingRide!['start_time'])),
+                            _buildInfoRow(
+                              'Duration:',
+                              _calculateDuration(_existingRide!['start_time']),
+                            ),
                           ],
                         ),
                       ),
@@ -210,10 +239,14 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: activeRide.isTracking ? const Color(0xFFF0F4FF) : Theme.of(context).cardTheme.color,
+                  color: activeRide.isTracking
+                      ? const Color(0xFFF0F4FF)
+                      : Theme.of(context).cardTheme.color,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: activeRide.isTracking ? AppColors.primary : Theme.of(context).dividerColor,
+                    color: activeRide.isTracking
+                        ? AppColors.primary
+                        : Theme.of(context).dividerColor,
                   ),
                 ),
                 child: Column(
@@ -225,17 +258,23 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                           width: 12,
                           height: 12,
                           decoration: BoxDecoration(
-                            color: activeRide.isTracking ? Colors.green : Colors.grey,
+                            color: activeRide.isTracking
+                                ? Colors.green
+                                : Colors.grey,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          activeRide.isTracking ? 'Route Active - Live Tracking' : 'Ready to Start Route',
+                          activeRide.isTracking
+                              ? 'Route Active - Live Tracking'
+                              : 'Ready to Start Route',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: activeRide.isTracking ? Colors.green : Colors.grey,
+                            color: activeRide.isTracking
+                                ? Colors.green
+                                : Colors.grey,
                           ),
                         ),
                       ],
@@ -246,7 +285,9 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                         onPressed: () async {
                           print('Start Ride pressed');
                           try {
-                            await ref.read(activeRideProvider.notifier).startRide();
+                            await ref
+                                .read(activeRideProvider.notifier)
+                                .startRide();
                             print('Ride started successfully');
                           } catch (e) {
                             print('Error starting ride: $e');
@@ -271,22 +312,39 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Duration:', style: Theme.of(context).textTheme.bodySmall),
                                 Text(
-                                  _formatDuration(DateTime.now().difference(activeRide.startTime ?? DateTime.now())),
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                                  'Duration:',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text(
+                                  _formatDuration(
+                                    DateTime.now().difference(
+                                      activeRide.startTime ?? DateTime.now(),
+                                    ),
+                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
                             if (activeRide.currentLocation != null)
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Speed:', style: Theme.of(context).textTheme.bodySmall),
+                                  Text(
+                                    'Speed:',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
                                   Text(
                                     '${(activeRide.currentLocation!.speed * 3.6).toStringAsFixed(1)} km/h',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
@@ -319,7 +377,10 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                             Expanded(
                               child: Text(
                                 activeRide.error!,
-                                style: TextStyle(color: Colors.red, fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
@@ -347,16 +408,26 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(routeName, style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          routeName,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             '$studentsAssigned Students',
-                            style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -369,7 +440,10 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Students on Route', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                'Students on Route',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             const SizedBox(height: 8),
             Padding(
@@ -378,15 +452,20 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: Text('No students assigned',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+                        child: Text(
+                          'No students assigned',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                        ),
                       ),
                     )
                   : ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: students.length,
-                      itemBuilder: (_, i) => _StudentPickupTile(student: students[i]),
+                      itemBuilder: (_, i) =>
+                          _StudentPickupTile(student: students[i]),
                     ),
             ),
           ],
@@ -407,9 +486,14 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('End Ride?'),
-        content: const Text('Are you sure you want to end this ride? Location tracking will stop.'),
+        content: const Text(
+          'Are you sure you want to end this ride? Location tracking will stop.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
@@ -430,7 +514,10 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
         title: const Text('Logout?'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
@@ -459,10 +546,7 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -479,10 +563,10 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
       } else {
         return 'Unknown';
       }
-      
+
       final now = DateTime.now();
       final difference = now.difference(dateTime);
-      
+
       if (difference.inDays > 0) {
         return '${difference.inDays}d ago';
       } else if (difference.inHours > 0) {
@@ -508,7 +592,7 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
       } else {
         return '00:00:00';
       }
-      
+
       final duration = DateTime.now().difference(dateTime);
       return _formatDuration(duration);
     } catch (e) {
@@ -535,16 +619,18 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
     );
 
     try {
-      final success = await ref.read(activeRideProvider.notifier).endRideById(rideId);
-      
+      final success = await ref
+          .read(activeRideProvider.notifier)
+          .endRideById(rideId);
+
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        
+
         if (success) {
           setState(() {
             _existingRide = null;
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Ride ended successfully'),
@@ -566,10 +652,7 @@ class _BusStaffDashboardScreenState extends ConsumerState<BusStaffDashboardScree
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -593,7 +676,10 @@ class _StudentPickupTile extends StatelessWidget {
               backgroundColor: AppColors.pastelGreen,
               child: Text(
                 (student['name'] as String? ?? 'S')[0].toUpperCase(),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -607,7 +693,9 @@ class _StudentPickupTile extends StatelessWidget {
                   ),
                   Text(
                     student['pickup_address'] as String? ?? 'No address',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -628,7 +716,12 @@ class _PickupStudentRow extends StatelessWidget {
   final bool pickedUp;
   final bool isAbsent;
 
-  const _PickupStudentRow({required this.name, required this.parent, required this.pickedUp, this.isAbsent = false});
+  const _PickupStudentRow({
+    required this.name,
+    required this.parent,
+    required this.pickedUp,
+    this.isAbsent = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +730,9 @@ class _PickupStudentRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Row(
         children: [
@@ -646,8 +741,14 @@ class _PickupStudentRow extends StatelessWidget {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                backgroundImage: isAbsent ? null : const NetworkImage('https://lh3.googleusercontent.com/aida-public/AB6AXuBrrPy7opRzJ7ohLK8hGuv4FIYZfYb7SEhA3z6V4qJZX_a-4Uvf7FG4EOyWoS1P9acueQZfb2JJ4QoHFVCMbhE0XAvFGh_fFGovdtB0Vz6e57peh4Rb1U9q9ltlLZlDy-0Hl5MiC6Aek0CJYqB5Ja-BEte6n6EpEzM_itNZTSW2osnBzrnU6Wv0Hp7dFmoZOnFAHbXVKkO-bCJ2OxtUaHYaZqBWdL8W4HYCZFltc7Mb3iE-c2BnVvZB6G76G6fdEOPu93ZaeOyvDjc'),
-                child: isAbsent ? Icon(Icons.event_busy, color: Colors.grey) : null,
+                backgroundImage: isAbsent
+                    ? null
+                    : const NetworkImage(
+                        'https://lh3.googleusercontent.com/aida-public/AB6AXuBrrPy7opRzJ7ohLK8hGuv4FIYZfYb7SEhA3z6V4qJZX_a-4Uvf7FG4EOyWoS1P9acueQZfb2JJ4QoHFVCMbhE0XAvFGh_fFGovdtB0Vz6e57peh4Rb1U9q9ltlLZlDy-0Hl5MiC6Aek0CJYqB5Ja-BEte6n6EpEzM_itNZTSW2osnBzrnU6Wv0Hp7dFmoZOnFAHbXVKkO-bCJ2OxtUaHYaZqBWdL8W4HYCZFltc7Mb3iE-c2BnVvZB6G76G6fdEOPu93ZaeOyvDjc',
+                      ),
+                child: isAbsent
+                    ? Icon(Icons.event_busy, color: Colors.grey)
+                    : null,
               ),
               if (pickedUp)
                 Positioned(
@@ -656,7 +757,11 @@ class _PickupStudentRow extends StatelessWidget {
                   child: Container(
                     width: 16,
                     height: 16,
-                    decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
                   ),
                 ),
             ],
@@ -666,7 +771,14 @@ class _PickupStudentRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isAbsent ? Colors.grey : null)),
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isAbsent ? Colors.grey : null,
+                  ),
+                ),
                 if (parent.isNotEmpty)
                   Row(
                     children: [
@@ -675,24 +787,44 @@ class _PickupStudentRow extends StatelessWidget {
                         constraints: const BoxConstraints(),
                         iconSize: 18,
                         onPressed: () {},
-                        icon: Icon(Icons.call, color: AppColors.primary, size: 18),
+                        icon: Icon(
+                          Icons.call,
+                          color: AppColors.primary,
+                          size: 18,
+                        ),
                       ),
-                      Text(parent, style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(
+                        parent,
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
                     ],
                   ),
-                if (isAbsent) Text('Reported Absent', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                if (isAbsent)
+                  Text(
+                    'Reported Absent',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(isAbsent ? 'N/A' : (pickedUp ? 'Status: In' : 'Status: Waiting'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-              if (!isAbsent)
-                Switch(
-                  value: pickedUp,
-                  onChanged: (_) {},
+              Text(
+                isAbsent
+                    ? 'N/A'
+                    : (pickedUp ? 'Status: In' : 'Status: Waiting'),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
                 ),
+              ),
+              if (!isAbsent) Switch(value: pickedUp, onChanged: (_) {}),
             ],
           ),
         ],

@@ -9,22 +9,25 @@ class StudentProfileApi {
     this.updateStudent,
     required this.getStudentAttendance,
     this.updateStudentAttendance,
-    required this.getStudentFees,
+    this.getStudentFees,
     this.updateStudentFees,
     this.recordFeePayment,
-    required this.getStudentFeePayments,
+    this.getStudentFeePayments,
   });
 
   final Future<Map<String, dynamic>> Function(String) getStudent;
-  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)? updateStudent;
-  final Future<Map<String, dynamic>> Function(String, {int days}) getStudentAttendance;
-  final Future<Map<String, dynamic>> Function(String, String, String)? updateStudentAttendance;
-  
-  // Fee management
-  final Future<Map<String, dynamic>> Function(String) getStudentFees;
-  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)? updateStudentFees;
-  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)? recordFeePayment;
-  final Future<List<Map<String, dynamic>>> Function(String) getStudentFeePayments;
+  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)?
+  updateStudent;
+  final Future<Map<String, dynamic>> Function(String, {int days})
+  getStudentAttendance;
+  final Future<Map<String, dynamic>> Function(String, String, String)?
+  updateStudentAttendance;
+  final Future<Map<String, dynamic>> Function(String)? getStudentFees;
+  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)?
+  updateStudentFees;
+  final Future<Map<String, dynamic>> Function(String, Map<String, dynamic>)?
+  recordFeePayment;
+  final Future<Map<String, dynamic>> Function(String)? getStudentFeePayments;
 }
 
 /// Returns the API that can fetch a student profile for the current user.
@@ -32,7 +35,7 @@ class StudentProfileApi {
 final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
   final adminApi = ref.watch(adminApiProvider);
   final coordinatorApi = ref.watch(coordinatorApiProvider);
-  
+
   if (adminApi != null) {
     return StudentProfileApi(
       getStudent: adminApi.getStudent,
