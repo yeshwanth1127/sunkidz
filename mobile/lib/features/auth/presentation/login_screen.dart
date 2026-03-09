@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/api/auth_api.dart';
@@ -20,6 +21,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   bool _isParentLogin = false;
   String? _errorMessage;
+
+  String _extractLoginError(Object error) {
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      final responseData = error.response?.data;
+
+      if (responseData is Map && responseData['detail'] is String) {
+        return responseData['detail'] as String;
+      }
+
+      if (status == 401) {
+        return _isParentLogin
+            ? 'Invalid admission number or date of birth.'
+            : 'Invalid email or password.';
+      }
+      if (status == 403) {
+        return 'Account is inactive. Contact admin.';
+      }
+      if (status != null) {
+        return 'Server error ($status). Please try again.';
+      }
+
+      return 'Cannot reach server. Check internet and API URL.';
+    }
+
+    return _isParentLogin
+        ? 'Login failed. Check admission number and date of birth (YYYY-MM-DD).'
+        : 'Login failed. Check credentials and server.';
+  }
 
   @override
   void dispose() {
@@ -77,9 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = _isParentLogin
-              ? 'Login failed. Check admission number and date of birth (YYYY-MM-DD).'
-              : 'Login failed. Check credentials and server.';
+          _errorMessage = _extractLoginError(e);
         });
       }
     }

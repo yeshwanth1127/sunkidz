@@ -13,7 +13,7 @@ db = SessionLocal()
 try:
     u = db.query(User).filter(User.email == "admin@sunkidz.com").first()
     if u:
-        new_hash = get_password_hash("admin123")
+        new_hash = get_password_hash("principal_admin@123!")
         print(f"Old hash: {u.password_hash}")
         print(f"New hash: {new_hash}")
         u.password_hash = new_hash
@@ -22,7 +22,7 @@ try:
         
         # Verify it works
         u = db.query(User).filter(User.email == "admin@sunkidz.com").first()
-        check = verify_password("admin123", u.password_hash)
+        check = verify_password("principal_admin@123!", u.password_hash)
         print(f"Verification test: {check}")
     else:
         print("Admin user not found")

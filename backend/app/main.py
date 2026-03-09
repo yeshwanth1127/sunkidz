@@ -57,6 +57,11 @@ app.include_router(bus_tracking_api.router, prefix="/api/v1")
 app.include_router(syllabus_api.router, prefix="/api/v1")
 
 
+@app.get("/")
+def root():
+    return {"message": "Sunkidz LMS API", "docs": "/docs", "health": "/health"}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

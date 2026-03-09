@@ -16,26 +16,31 @@ FastAPI backend with PostgreSQL, JWT auth, and SQLAlchemy.
    pip install -r requirements.txt
    ```
 
-4. **Create tables**:
+4. **Create database if missing**:
+   ```bash
+   python -m scripts.create_db_if_missing
+   ```
+
+5. **Create tables**:
    ```bash
    python -m scripts.init_db
    ```
    (Or use `python -m scripts.migrate` if alembic is installed)
 
-5. **Seed admin user**:
+6. **Seed admin user**:
    ```bash
    python -m scripts.seed_admin
    ```
 
-6. **Start server**:
+7. **Start server**:
    ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 9995
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 9889
    ```
 
 ## API
 
-- **Docs**: http://localhost:9995/docs
-- **Health**: http://localhost:9995/health
+- **Docs**: http://localhost:9889/docs
+- **Health**: http://localhost:9889/health
 
 ## Auth
 
