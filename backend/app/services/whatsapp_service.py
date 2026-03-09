@@ -1,5 +1,5 @@
 """
-WhatsApp Business API service for sending messages via Meta Cloud API.
+WhatsApp service for sending messages via UltraMsg API.
 """
 
 import logging
@@ -13,16 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 class WhatsAppService:
-    """Service for interacting with WhatsApp Business API."""
+    """Service for interacting with UltraMsg WhatsApp API."""
     
-    BASE_URL = "https://graph.facebook.com/v18.0"
     MAX_RETRIES = 3
     RETRY_DELAYS = [1, 2, 4]  # Exponential backoff in seconds
     
     def __init__(self):
-        self.api_token = settings.whatsapp_api_token
-        self.phone_number_id = settings.whatsapp_phone_number_id
-        self.business_account_id = settings.whatsapp_business_account_id
+        self.api_url = settings.ultramsg_api_url
+        self.instance_id = settings.ultramsg_instance_id
+        self.auth_token = settings.ultramsg_auth_token
         
     def _format_phone_number(self, phone: str) -> str:
         """
@@ -71,7 +70,7 @@ Sunkidz Team"""
     
     def _send_message_request(self, phone_number: str, message: str) -> bool:
         """
-        Make a single API request to send WhatsApp message.
+        Make a single API request to send WhatsApp message via UltraMsg.
         
         Args:
             phone_number: Formatted phone number with country code
@@ -80,41 +79,36 @@ Sunkidz Team"""
         Returns:
             True if successful, False otherwise
         """
-        if not self.api_token or not self.phone_number_id:
-            logger.error("WhatsApp API credentials not configured")
+        if not self.instance_id or not self.auth_token:
+            logger.error("UltraMsg credentials not configured")
             return False
         
-        url = f"{self.BASE_URL}/{self.phone_number_id}/messages"
-        headers = {
-            "Authorization": f"Bearer {self.api_token}",
-            "Content-Type": "application/json"
+        url = f"{self.api_url}/{self.instance_id}/messages/chat"
+        params = {
+            "token": self.auth_token
         }
         payload = {
-            "messaging_product": "whatsapp",
-            "to": phone_number,
-            "type": "text",
-            "text": {
-                "body": message
-            }
+            "phone": phone_number,
+            "body": message
         }
         
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response = requests.post(url, json=payload, params=params, timeout=10)
             
             if response.status_code == 200:
                 logger.info(f"WhatsApp message sent successfully to {phone_number}")
                 return True
             else:
                 logger.warning(
-                    f"WhatsApp API returned status {response.status_code} for {phone_number}: {response.text}"
+                    f"UltraMsg API returned status {response.status_code} for {phone_number}: {response.text}"
                 )
                 return False
                 
         except requests.exceptions.Timeout:
-            logger.error(f"WhatsApp API request timeout for {phone_number}")
+            logger.error(f"UltraMsg API request timeout for {phone_number}")
             return False
         except requests.exceptions.RequestException as e:
-            logger.error(f"WhatsApp API request failed for {phone_number}: {str(e)}")
+            logger.error(f"UltraMsg API request failed for {phone_number}: {str(e)}")
             return False
     
     def send_welcome_message(self, phone_number: str, child_name: str) -> bool:
@@ -152,6 +146,140 @@ Sunkidz Team"""
         logger.error(
             f"Failed to send WhatsApp message to {formatted_phone} after {self.MAX_RETRIES} attempts"
         )
+        return False
+    
+    def send_fee_notification(self, phone_number: str, student_name: str, child_name: str) -> bool:
+        """
+        Send fee setup/update notification to parent.
+        
+        Args:
+            phone_number: Parent's phone number
+            student_name: Student's name
+            child_name: Child's name (for personalization)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not phone_number:
+            logger.warning("No phone number provided for fee notification")
+            return False
+        
+        formatted_phone = self._format_phone_number(phone_number)
+        message = f"""Dear Parent,
+
+The fee structure for {child_name} has been updated in Sunkidz system.
+
+Please log in to the parent portal to view the complete fee breakdown and payment details.
+
+If you have any questions regarding the fees, please contact the school office.
+
+Best regards,
+Sunkidz Management"""
+        
+        logger.info(f"Attempting to send fee notification to {formatted_phone} for {child_name}")
+        
+        # Try sending with retry logic
+        for attempt in range(self.MAX_RETRIES):
+            if attempt > 0:
+                delay = self.RETRY_DELAYS[attempt - 1]
+                time.sleep(delay)
+            
+            success = self._send_message_request(formatted_phone, message)
+            
+            if success:
+                return True
+        
+        return False
+    
+    def send_syllabus_notification(self, phone_number: str, teacher_name: str, class_name: str, syllabus_title: str) -> bool:
+        """
+        Send syllabus upload notification to staff.
+        
+        Args:
+            phone_number: Staff member's phone number
+            teacher_name: Staff member's name
+            class_name: Class name
+            syllabus_title: Title of the uploaded syllabus
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not phone_number:
+            logger.warning("No phone number provided for syllabus notification")
+            return False
+        
+        formatted_phone = self._format_phone_number(phone_number)
+        message = f"""Dear {teacher_name},
+
+A new syllabus has been uploaded for class {class_name}:
+
+📚 {syllabus_title}
+
+Please check the Sunkidz portal for more details.
+
+Best regards,
+Sunkidz System"""
+        
+        logger.info(f"Attempting to send syllabus notification to {formatted_phone}")
+        
+        # Try sending with retry logic
+        for attempt in range(self.MAX_RETRIES):
+            if attempt > 0:
+                delay = self.RETRY_DELAYS[attempt - 1]
+                time.sleep(delay)
+            
+            success = self._send_message_request(formatted_phone, message)
+            
+            if success:
+                return True
+        
+        return False
+    
+    def send_homework_notification(self, phone_number: str, child_name: str, class_name: str, homework_title: str, due_date: Optional[str] = None) -> bool:
+        """
+        Send homework upload notification to parent.
+        
+        Args:
+            phone_number: Parent's phone number
+            child_name: Child's name
+            class_name: Class name
+            homework_title: Title of the homework
+            due_date: Due date (if available)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not phone_number:
+            logger.warning("No phone number provided for homework notification")
+            return False
+        
+        formatted_phone = self._format_phone_number(phone_number)
+        
+        due_info = f"\n📅 Due Date: {due_date}" if due_date else ""
+        message = f"""Dear Parent,
+
+A new homework assignment has been posted for {child_name} ({class_name}):
+
+✏️ {homework_title}{due_info}
+
+Please log in to the parent portal to view the complete assignment.
+
+Best regards,
+Sunkidz Team"""
+        
+        logger.info(f"Attempting to send homework notification to {formatted_phone} for {child_name}")
+        
+        # Try sending with retry logic
+        for attempt in range(self.MAX_RETRIES):
+            if attempt > 0:
+                delay = self.RETRY_DELAYS[attempt - 1]
+                time.sleep(delay)
+            
+            success = self._send_message_request(formatted_phone, message)
+            
+            if success:
+                return True
+        
         return False
 
 

@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
@@ -21,8 +22,10 @@ from app.schemas.syllabus import (
     HomeworkUpdate,
     GalleryResponse,
 )
+from app.services.notification_service import send_syllabus_notification, send_homework_notification
 
 router = APIRouter(tags=["syllabus-homework"])
+logger = logging.getLogger(__name__)
 
 # Directory for file uploads
 UPLOAD_DIR = "uploads"
@@ -179,6 +182,12 @@ async def upload_syllabus(
     db.add(syllabus)
     db.commit()
     db.refresh(syllabus)
+    
+    # Send WhatsApp notification to staff (non-blocking)
+    try:
+        send_syllabus_notification(syllabus, db)
+    except Exception as ex:
+        logger.error(f"Failed to send syllabus notification for syllabus {syllabus.id}: {str(ex)}")
     
     return SyllabusResponse(
         id=syllabus.id,
@@ -449,6 +458,12 @@ async def upload_homework(
     db.add(homework)
     db.commit()
     db.refresh(homework)
+    
+    # Send WhatsApp notification to parents (non-blocking)
+    try:
+        send_homework_notification(homework, db)
+    except Exception as ex:
+        logger.error(f"Failed to send homework notification for homework {homework.id}: {str(ex)}")
     
     return HomeworkResponse(
         id=homework.id,
