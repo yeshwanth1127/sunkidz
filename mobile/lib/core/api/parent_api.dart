@@ -29,4 +29,9 @@ class ParentApi {
     final r = await _dio.get('/parent/student/$studentId/attendance', queryParameters: {'days': days});
     return r.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getStudentFees(String studentId) async {
+    final r = await _dio.get('/parent/students/$studentId/fees');
+    return r.data as Map<String, dynamic>;
+  }
 }

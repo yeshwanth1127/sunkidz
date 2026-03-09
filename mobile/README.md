@@ -16,8 +16,8 @@ flutter run -d windows
 ```bash
 flutter run -d android
 ```
-(Use `http://10.0.2.2:9995` for API on Android emulator - set via `--dart-define=API_BASE_URL=http://10.0.2.2:9995`)
+(Use `http://10.0.2.2:9889` for API on Android emulator - set via `--dart-define=API_BASE_URL=http://10.0.2.2:9889`)
 
 ## API
 
-Backend runs on **port 9995**. Default API URL: `http://localhost:9995`.
+Backend runs on **port 9889**. Default API URL: `https://sunkidz.org`.

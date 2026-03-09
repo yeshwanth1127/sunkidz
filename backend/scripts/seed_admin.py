@@ -19,7 +19,7 @@ def seed():
             return
         admin = User(
             email="admin@sunkidz.com",
-            password_hash=get_password_hash("admin123"),
+            password_hash=get_password_hash("principal_admin@123!"),
             full_name="Admin",
             role="admin",
             is_active="true",
@@ -27,7 +27,7 @@ def seed():
         db.add(admin)
         db.commit()
         db.refresh(admin)
-        print(f"Created admin user: {admin.email} (password: admin123)")
+        print(f"Created admin user: {admin.email} (password: principal_admin@123!)")
 
         # Create a sample branch and class
         branch = db.query(Branch).first()

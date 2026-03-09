@@ -1,7 +1,7 @@
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:9995',
+    defaultValue: 'https://sunkidz.org',
   );
   static const String apiPrefix = '/api/v1';
 }
