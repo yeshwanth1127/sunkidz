@@ -1,5 +1,6 @@
 from uuid import UUID
 from datetime import date, timedelta, datetime
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -16,6 +17,7 @@ from app.models.attendance import Attendance
 from app.models.staff_attendance import StaffAttendance
 from app.models.enquiry import Enquiry
 from app.models.fees import FeeStructure, FeePayment
+from app.services.notification_service import send_fee_notification
 from app.schemas.admin import (
     BranchCreate,
     BranchUpdate,
@@ -32,6 +34,7 @@ from app.schemas.admin import (
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
 
 
 def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
@@ -1101,6 +1104,13 @@ def upsert_student_fees(
 
     db.commit()
     db.refresh(fee_structure)
+    
+    # Send WhatsApp notification to parents (non-blocking)
+    try:
+        send_fee_notification(student_id, db)
+    except Exception as ex:
+        logger.error(f"Failed to send fee notification for student {student_id}: {str(ex)}")
+    
     payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.payment_date.desc()).all()
     return _build_fees_detail(student, fee_structure, payments)
 
