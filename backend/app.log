@@ -11,3 +11,9 @@
 2026-03-08 18:48:56,296 - app.services.whatsapp_service - INFO - Attempting to send WhatsApp message to 918095404788 for child: pp
 2026-03-08 18:48:57,794 - app.services.whatsapp_service - INFO - WhatsApp message sent successfully to 918095404788
 2026-03-08 18:48:57,795 - app.services.notification_service - INFO - Successfully sent enquiry notification for enquiry ID 7373d94e-4309-4b3b-b602-9354d5c87d55
+2026-03-10 10:42:40,034 - app.services.notification_service - INFO - Sending enquiry notification for yeshwanth to father's number: 8095404788
+2026-03-10 10:42:40,035 - app.services.whatsapp_service - INFO - Attempting to send WhatsApp message to 918095404788 for child: yeshwanth
+2026-03-10 10:42:41,164 - app.services.whatsapp_service - INFO - WhatsApp message sent successfully to 918095404788
+2026-03-10 10:42:41,233 - app.services.notification_service - INFO - Successfully sent enquiry notification for enquiry ID 5e560708-6ba7-4b3f-ba85-36e0ee089a0c
+2026-03-10 10:47:45,834 - app.services.notification_service - ERROR - Exception in send_syllabus_notification: Textual column expression 'Class' should be explicitly declared with text('Class'), or use column('Class') for more specificity
+2026-03-10 10:48:33,334 - app.services.notification_service - ERROR - Exception in send_fee_notification: 'User' object has no attribute 'phone_no'

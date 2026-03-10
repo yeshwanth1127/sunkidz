@@ -6,8 +6,61 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.auth import require_parent
 from app.models import User, Student, MarksCard, ParentStudentLink, Branch, Class, Attendance
+from app.models.fees import FeeStructure, FeePayment
 
 router = APIRouter(prefix="/parent", tags=["parent"])
+
+
+def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, payments: list[FeePayment]):
+    advance_fees = float(fee_structure.advance_fees) if fee_structure else 0.0
+    term_fee_1 = float(fee_structure.term_fee_1) if fee_structure else 0.0
+    term_fee_2 = float(fee_structure.term_fee_2) if fee_structure else 0.0
+    term_fee_3 = float(fee_structure.term_fee_3) if fee_structure else 0.0
+
+    paid = {
+        "advance_fees": 0.0,
+        "term_fee_1": 0.0,
+        "term_fee_2": 0.0,
+        "term_fee_3": 0.0,
+    }
+    for p in payments:
+        if p.component in paid:
+            paid[p.component] += float(p.amount_paid or 0.0)
+
+    total_due = advance_fees + term_fee_1 + term_fee_2 + term_fee_3
+    total_paid = sum(paid.values())
+
+    return {
+        "student_id": str(student.id),
+        "student_name": student.name,
+        "admission_number": student.admission_number,
+        "advance_fees": advance_fees,
+        "term_fee_1": term_fee_1,
+        "term_fee_2": term_fee_2,
+        "term_fee_3": term_fee_3,
+        "total_due": total_due,
+        "advance_fees_paid": paid["advance_fees"],
+        "term_fee_1_paid": paid["term_fee_1"],
+        "term_fee_2_paid": paid["term_fee_2"],
+        "term_fee_3_paid": paid["term_fee_3"],
+        "total_paid": total_paid,
+        "advance_fees_balance": max(advance_fees - paid["advance_fees"], 0.0),
+        "term_fee_1_balance": max(term_fee_1 - paid["term_fee_1"], 0.0),
+        "term_fee_2_balance": max(term_fee_2 - paid["term_fee_2"], 0.0),
+        "term_fee_3_balance": max(term_fee_3 - paid["term_fee_3"], 0.0),
+        "total_balance": max(total_due - total_paid, 0.0),
+        "payments": [
+            {
+                "id": str(p.id),
+                "component": p.component,
+                "amount_paid": float(p.amount_paid or 0.0),
+                "payment_mode": p.payment_mode,
+                "payment_date": p.payment_date.isoformat() if p.payment_date else None,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in payments
+        ],
+    }
 
 
 @router.get("/children")
@@ -148,4 +201,31 @@ def get_student_attendance(
             for a in attendance_records
         ],
     }
+
+
+@router.get("/students/{student_id}/fees")
+@router.get("/student/{student_id}/fees")
+def get_student_fees_for_parent(
+    student_id: UUID,
+    user: User = Depends(require_parent),
+    db: Session = Depends(get_db),
+):
+    """Get fee details for a linked child. Supports both /student and /students paths."""
+    link = db.query(ParentStudentLink).filter(
+        ParentStudentLink.user_id == user.id,
+        ParentStudentLink.student_id == student_id,
+    ).first()
+    if not link:
+        raise HTTPException(status_code=403, detail="This student is not linked to you")
+
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.payment_date.desc()).all()
+    return _build_fees_detail(student, fee_structure, payments)
 

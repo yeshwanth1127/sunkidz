@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'admin_provider.dart';
 import 'coordinator_provider.dart';
+import 'parent_provider.dart';
 
 /// API for student profile: get and optionally update.
 class StudentProfileApi {
@@ -35,6 +36,7 @@ class StudentProfileApi {
 final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
   final adminApi = ref.watch(adminApiProvider);
   final coordinatorApi = ref.watch(coordinatorApiProvider);
+  final parentApi = ref.watch(parentApiProvider);
 
   if (adminApi != null) {
     return StudentProfileApi(
@@ -58,6 +60,22 @@ final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
       updateStudentFees: coordinatorApi.updateStudentFees,
       recordFeePayment: coordinatorApi.recordFeePayment,
       getStudentFeePayments: coordinatorApi.getStudentFeePayments,
+    );
+  }
+  if (parentApi != null) {
+    return StudentProfileApi(
+      getStudent: (studentId) async {
+        final res = await parentApi.getChildren();
+        final children = (res['children'] as List?) ?? const [];
+        for (final c in children) {
+          if (c is Map<String, dynamic> && c['id']?.toString() == studentId) {
+            return c;
+          }
+        }
+        throw Exception('Student not found');
+      },
+      getStudentAttendance: parentApi.getStudentAttendance,
+      getStudentFees: parentApi.getStudentFees,
     );
   }
   return null;
