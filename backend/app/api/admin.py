@@ -16,6 +16,8 @@ from app.models.student import Student
 from app.models.attendance import Attendance
 from app.models.staff_attendance import StaffAttendance
 from app.models.enquiry import Enquiry
+from app.models.bus_route import BusRoute
+from app.models.syllabus import Syllabus, Homework, GalleryImage
 from app.models.fees import FeeStructure, FeePayment
 from app.services.notification_service import send_fee_notification
 from app.schemas.admin import (
@@ -181,6 +183,58 @@ def update_branch(
         coordinator_name=coord.user.full_name if coord else None,
         student_count=student_count,
     )
+
+
+@router.delete("/branches/{branch_id}")
+def delete_branch(
+    branch_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    class_ids = [c.id for c in db.query(Class.id).filter(Class.branch_id == branch_id).all()]
+
+    student_count = db.query(func.count(Student.id)).filter(Student.branch_id == branch_id).scalar() or 0
+    enquiry_count = db.query(func.count(Enquiry.id)).filter(Enquiry.branch_id == branch_id).scalar() or 0
+    bus_route_count = db.query(func.count(BusRoute.id)).filter(BusRoute.branch_id == branch_id).scalar() or 0
+
+    syllabus_count = 0
+    homework_count = 0
+    gallery_count = 0
+    if class_ids:
+        syllabus_count = db.query(func.count(Syllabus.id)).filter(Syllabus.class_id.in_(class_ids)).scalar() or 0
+        homework_count = db.query(func.count(Homework.id)).filter(Homework.class_id.in_(class_ids)).scalar() or 0
+        gallery_count = db.query(func.count(GalleryImage.id)).filter(GalleryImage.class_id.in_(class_ids)).scalar() or 0
+
+    blockers = []
+    if student_count:
+        blockers.append(f"{student_count} students")
+    if enquiry_count:
+        blockers.append(f"{enquiry_count} enquiries")
+    if bus_route_count:
+        blockers.append(f"{bus_route_count} bus routes")
+    if syllabus_count:
+        blockers.append(f"{syllabus_count} syllabus files")
+    if homework_count:
+        blockers.append(f"{homework_count} homework files")
+    if gallery_count:
+        blockers.append(f"{gallery_count} gallery images")
+
+    if blockers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete branch with existing linked data: {', '.join(blockers)}",
+        )
+
+    db.query(BranchAssignment).filter(BranchAssignment.branch_id == branch_id).delete()
+    if class_ids:
+        db.query(Class).filter(Class.branch_id == branch_id).delete()
+    db.delete(branch)
+    db.commit()
+    return {"ok": True}
 
 
 # --- Classes (Grades) ---
