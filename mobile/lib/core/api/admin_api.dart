@@ -396,6 +396,16 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> sendFeeReceipt(
+    String studentId,
+    String paymentId,
+  ) async {
+    final r = await _dio.post(
+      '/admin/students/$studentId/fees/payments/$paymentId/send-receipt',
+    );
+    return r.data as Map<String, dynamic>;
+  }
+
   // Analytics
   Future<Map<String, dynamic>> getAnalytics() async {
     final r = await _dio.get('/admin/analytics');

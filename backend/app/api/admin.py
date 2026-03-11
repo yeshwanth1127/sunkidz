@@ -1258,6 +1258,46 @@ def get_student_fee_payments(
     }
 
 
+@router.post("/students/{student_id}/fees/payments/{payment_id}/send-receipt")
+def send_fee_payment_receipt(
+    student_id: UUID,
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Send a WhatsApp fee receipt to all linked parents for a specific payment."""
+    from app.services.notification_service import send_fee_receipt_notification
+
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    payment = db.query(FeePayment).filter(
+        FeePayment.id == payment_id,
+        FeePayment.student_id == student_id,
+    ).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    all_payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
+    fees_detail = _build_fees_detail(student, fee_structure, all_payments)
+
+    try:
+        sent = send_fee_receipt_notification(student_id, payment, fees_detail, db)
+    except Exception as ex:
+        logger.error(f"Failed to send fee receipt for payment {payment_id}: {str(ex)}")
+        sent = False
+
+    return {
+        "sent": sent,
+        "message": "Receipt sent to parent(s) via WhatsApp" if sent else "No parents linked or send failed",
+    }
+
+
 @router.get("/analytics")
 def get_analytics(
     db: Session = Depends(get_db),
