@@ -261,3 +261,83 @@ def send_homework_notification(homework: Homework, db: Session) -> bool:
     except Exception as e:
         logger.error(f"Exception in send_homework_notification: {str(e)}")
         return False
+
+
+def send_fee_receipt_notification(student_id: UUID, payment, fees_detail: dict, db: Session) -> bool:
+    """
+    Send WhatsApp receipt notification to parent(s) after a fee payment is recorded.
+
+    Args:
+        student_id: Student UUID
+        payment: FeePayment ORM object
+        fees_detail: dict built by _build_fees_detail (contains total_balance, etc.)
+        db: Database session
+
+    Returns:
+        True if at least one receipt was sent, False otherwise
+    """
+    component_labels = {
+        'advance_fees': 'Advance Fees',
+        'term_fee_1': 'Term Fee 1',
+        'term_fee_2': 'Term Fee 2',
+        'term_fee_3': 'Term Fee 3',
+    }
+
+    try:
+        student = db.query(Student).filter(Student.id == student_id).first()
+        if not student:
+            logger.warning(f"Student not found: {student_id}")
+            return False
+
+        parent_links = db.query(ParentStudentLink).filter(
+            ParentStudentLink.student_id == student_id
+        ).all()
+
+        if not parent_links:
+            logger.warning(f"No parents linked to student {student_id}")
+            return False
+
+        component_label = component_labels.get(payment.component, payment.component)
+        amount_paid = float(payment.amount_paid or 0.0)
+        total_balance = float(fees_detail.get('total_balance', 0.0))
+        payment_date_str = (
+            payment.payment_date.strftime('%d %b %Y') if payment.payment_date else 'N/A'
+        )
+        receipt_ref = str(payment.id)[:8].upper()
+
+        message = (
+            f"*Fee Receipt — Sunkidz* 🌟\n\n"
+            f"*Student:* {student.name}\n"
+            f"*Receipt No:* #{receipt_ref}\n"
+            f"{'─' * 28}\n"
+            f"*Component:* {component_label}\n"
+            f"*Amount Paid:* ₹{amount_paid:,.2f}\n"
+            f"*Payment Mode:* {payment.payment_mode}\n"
+            f"*Date:* {payment_date_str}\n"
+            f"{'─' * 28}\n"
+            f"*Outstanding Balance:* ₹{total_balance:,.2f}\n\n"
+            f"Thank you for your payment!\nSunkidz Team 🎒"
+        )
+
+        success_count = 0
+        for link in parent_links:
+            parent = db.query(User).filter(User.id == link.user_id).first()
+            if not parent or not parent.phone_no:
+                continue
+            try:
+                formatted = whatsapp_service._format_phone_number(parent.phone_no)
+                success = whatsapp_service._send_message_request(formatted, message)
+                if success:
+                    success_count += 1
+                    logger.info(f"Fee receipt sent to {parent.phone_no}")
+                else:
+                    logger.warning(f"Failed to send receipt to {parent.phone_no}")
+            except Exception as e:
+                logger.error(f"Exception sending receipt to {parent.phone_no}: {str(e)}")
+
+        logger.info(f"Fee receipts sent to {success_count}/{len(parent_links)} parents")
+        return success_count > 0
+
+    except Exception as e:
+        logger.error(f"Exception in send_fee_receipt_notification: {str(e)}")
+        return False

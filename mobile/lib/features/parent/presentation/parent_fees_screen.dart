@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../core/api/student_profile_provider.dart';
+import '../../admin/presentation/fee_receipt_pdf.dart';
 
 class ParentFeesScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> student;
@@ -327,107 +329,133 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
     );
   }
 
+  static const _componentKeys = [
+    'advance_fees',
+    'term_fee_1',
+    'term_fee_2',
+    'term_fee_3',
+  ];
+
+  static const _componentLabels = {
+    'advance_fees': 'Advance Fees',
+    'term_fee_1': 'Term Fee 1',
+    'term_fee_2': 'Term Fee 2',
+    'term_fee_3': 'Term Fee 3',
+  };
+
+  static const _modeLabels = {
+    'cash': 'Cash',
+    'upi': 'UPI',
+    'net_banking': 'Net Banking',
+    'cheque': 'Cheque',
+    'bank_transfer': 'Bank Transfer',
+  };
+
   Widget _buildRecentPayments() {
-    final payments = _feeData!['payments'] as List? ?? [];
-    if (payments.isEmpty) {
+    final allPayments = (_feeData!['payments'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
+    if (allPayments.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    // Group by component
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final key in _componentKeys) {
+      grouped[key] =
+          allPayments.where((p) => p['component'] == key).toList();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Recent Payments',
+          'Payment History',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ...payments.take(5).map((payment) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _getComponentLabel(payment['component'] ?? ''),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _getModeLabel(payment['payment_mode'] ?? ''),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '₹${(payment['amount_paid'] ?? 0.0).toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      payment['payment_date'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        ..._componentKeys.map((comp) {
+          final compPayments = grouped[comp] ?? [];
+          if (compPayments.isEmpty) return const SizedBox.shrink();
+          final totalPaid = compPayments.fold<double>(
+            0.0,
+            (sum, p) =>
+                sum + ((p['amount_paid'] as num?)?.toDouble() ?? 0.0),
+          );
+          final label = _componentLabels[comp] ?? comp;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+            child: ExpansionTile(
+              leading: CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.green[100],
+                child:
+                    Icon(Icons.check, size: 16, color: Colors.green[700]),
+              ),
+              title: Text(
+                label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              subtitle: Text(
+                '${compPayments.length} transaction${compPayments.length != 1 ? 's' : ''}'
+                ' • ₹${totalPaid.toStringAsFixed(2)} paid',
+                style:
+                    TextStyle(color: Colors.green[800], fontSize: 12),
+              ),
+              children: compPayments
+                  .map((payment) => _buildPaymentRow(payment))
+                  .toList(),
             ),
           );
-        }).toList(),
-        if (payments.length > 5)
-          Align(
-            alignment: Alignment.center,
-            child: TextButton(
-              onPressed: () {
-                // Show all payments dialog
-              },
-              child: Text('View all ${payments.length} payments'),
-            ),
-          ),
+        }),
       ],
     );
   }
 
-  String _getComponentLabel(String component) {
-    const labels = {
-      'advance_fees': 'Advance Fees',
-      'term_fee_1': 'Term Fee 1',
-      'term_fee_2': 'Term Fee 2',
-      'term_fee_3': 'Term Fee 3',
-    };
-    return labels[component] ?? component;
+  Widget _buildPaymentRow(Map<String, dynamic> payment) {
+    final dateRaw = payment['payment_date'] as String?;
+    final dateStr = dateRaw != null
+        ? DateFormat('dd MMM yyyy').format(DateTime.parse(dateRaw))
+        : 'N/A';
+    final amount =
+        (payment['amount_paid'] as num?)?.toDouble() ?? 0.0;
+    final mode =
+        _modeLabels[payment['payment_mode']] ?? payment['payment_mode'] ?? 'N/A';
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+        color: Colors.white,
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+        leading: const Icon(Icons.receipt_long_outlined,
+            color: Colors.blueGrey, size: 20),
+        title: Text(
+          '₹${amount.toStringAsFixed(2)}',
+          style:
+              const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        subtitle: Text(
+          '$dateStr  •  $mode',
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.print_outlined,
+              color: Colors.indigo, size: 20),
+          tooltip: 'Print / Download Receipt',
+          onPressed: () => FeeReceiptPdf.printReceipt(
+            payment: payment,
+            feeData: _feeData!,
+            student: widget.student,
+          ),
+        ),
+      ),
+    );
   }
 
-  String _getModeLabel(String mode) {
-    const labels = {
-      'cash': '💵 Cash',
-      'upi': '📱 UPI',
-      'net_banking': '🏦 Net Banking',
-      'cheque': '📄 Cheque',
-      'bank_transfer': '🏧 Bank Transfer',
-    };
-    return labels[mode] ?? mode;
-  }
 }
