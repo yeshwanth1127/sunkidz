@@ -34,4 +34,9 @@ class ParentApi {
     final r = await _dio.get('/parent/students/$studentId/fees');
     return r.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getReceipts() async {
+    final r = await _dio.get('/parent/receipts');
+    return r.data as Map<String, dynamic>;
+  }
 }

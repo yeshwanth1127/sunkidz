@@ -537,7 +537,7 @@ class _AdminFeeManagementScreenState
             ),
             IconButton(
               icon: const Icon(Icons.send_outlined, color: Colors.green, size: 20),
-              tooltip: 'Send to Parent',
+              tooltip: 'Push to Parent Dashboard',
               onPressed: () => _sendReceiptToParent(payment),
             ),
           ],
@@ -568,7 +568,7 @@ class _AdminFeeManagementScreenState
             children: [
               SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
               SizedBox(width: 12),
-              Text('Sending receipt to parent...'),
+              Text('Pushing receipt to parent dashboard...'),
             ],
           ),
           duration: Duration(seconds: 10),

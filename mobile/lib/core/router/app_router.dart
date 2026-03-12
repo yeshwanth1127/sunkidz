@@ -37,6 +37,7 @@ import '../../features/admin/presentation/admin_attendance_screen.dart';
 import '../../features/admin/presentation/admin_fee_management_screen.dart';
 import '../../features/admin/presentation/admin_reports_screen.dart';
 import '../../features/parent/presentation/parent_fees_screen.dart';
+import '../../features/parent/presentation/parent_receipts_screen.dart';
 import '../../features/syllabus/presentation/syllabus_list_screen.dart';
 import '../../features/syllabus/presentation/homework_list_screen.dart';
 import '../../features/syllabus/presentation/gallery_upload_screen.dart';
@@ -238,6 +239,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'homework',
             builder: (_, __) => const HomeworkListScreen(),
+          ),
+          GoRoute(
+            path: 'receipts',
+            builder: (_, __) => const ParentReceiptsScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],

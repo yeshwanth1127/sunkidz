@@ -409,7 +409,7 @@ class AdminApi {
     String paymentId,
   ) async {
     final r = await _dio.post(
-      '/admin/students/$studentId/fees/payments/$paymentId/send-receipt',
+      '/admin/students/$studentId/fees/payments/$paymentId/push-receipt',
     );
     return r.data as Map<String, dynamic>;
   }

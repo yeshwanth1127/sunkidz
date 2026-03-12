@@ -26,6 +26,7 @@ class ParentDrawer extends ConsumerWidget {
             ),
           ),
           _DrawerTile(icon: Icons.dashboard, label: 'Home', onTap: () => _navigate(context, '/parent')),
+          _DrawerTile(icon: Icons.receipt_long, label: 'Fee Receipts', onTap: () => _navigate(context, '/parent/receipts')),
           _DrawerTile(icon: Icons.school, label: 'Homework', onTap: () => _navigate(context, '/parent/homework')),
           _DrawerTile(icon: Icons.directions_bus, label: 'Bus Tracking', onTap: () => _navigate(context, '/parent/bus-tracking')),
           _DrawerTile(icon: Icons.event_available, label: 'Attendance', onTap: () => _navigate(context, '/parent/attendance')),
