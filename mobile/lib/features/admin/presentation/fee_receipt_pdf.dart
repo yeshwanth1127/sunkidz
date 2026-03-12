@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:typed_data';
 
 class FeeReceiptPdf {
   static const _componentLabels = {
@@ -36,7 +37,7 @@ class FeeReceiptPdf {
     );
   }
 
-  static Future<List<int>> _buildPdf({
+  static Future<Uint8List> _buildPdf({
     required Map<String, dynamic> payment,
     required Map<String, dynamic> feeData,
     required Map<String, dynamic>? student,
@@ -105,33 +106,8 @@ class FeeReceiptPdf {
                 borderRadius: pw.BorderRadius.circular(8),
               ),
               padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: [
-                      pw.Text(
-                        'Sunkidz',
-                        style: pw.TextStyle(
-                          color: PdfColors.white,
-                          fontSize: 28,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        'Learning Management System',
-                        style: const pw.TextStyle(
-                          color: PdfColors.grey300,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  pw.Image(logoImage, width: 72, height: 72),
-                ],
+              child: pw.Center(
+                child: pw.Image(logoImage, width: 96, height: 96),
               ),
             ),
             pw.SizedBox(height: 6),
@@ -207,7 +183,7 @@ class FeeReceiptPdf {
                   _tableHeaderRow(['Component', 'Amount Paid', 'Payment Mode']),
                   _tableDataRow([
                     componentLabel,
-                    '₹${moneyFmt.format(amountPaid)}',
+                    'Rs. ${moneyFmt.format(amountPaid)}',
                     modeLabel,
                   ]),
                 ],
@@ -229,16 +205,16 @@ class FeeReceiptPdf {
                       3: pw.FlexColumnWidth(1),
                     },
                     children: [
-                      _tableHeaderRow(['Component', 'Due (₹)', 'Paid (₹)', 'Balance (₹)']),
+                      _tableHeaderRow(['Component', 'Due (Rs.)', 'Paid (Rs.)', 'Balance (Rs.)']),
                       ...rows,
                       // Total row
                       pw.TableRow(
                         decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                         children: [
                           _cell('TOTAL', bold: true),
-                          _cell('₹${moneyFmt.format(totalDue)}', bold: true),
-                          _cell('₹${moneyFmt.format(totalPaid)}', bold: true),
-                          _cell('₹${moneyFmt.format(totalBalance)}',
+                          _cell('Rs. ${moneyFmt.format(totalDue)}', bold: true),
+                          _cell('Rs. ${moneyFmt.format(totalPaid)}', bold: true),
+                          _cell('Rs. ${moneyFmt.format(totalBalance)}',
                               bold: true,
                               color: totalBalance > 0 ? PdfColors.red700 : PdfColors.green700),
                         ],
@@ -340,9 +316,9 @@ class FeeReceiptPdf {
     return pw.TableRow(
       children: [
         _cell(label),
-        _cell('₹${fmt.format(d)}'),
-        _cell('₹${fmt.format(p)}'),
-        _cell('₹${fmt.format(b)}',
+        _cell('Rs. ${fmt.format(d)}'),
+        _cell('Rs. ${fmt.format(p)}'),
+        _cell('Rs. ${fmt.format(b)}',
             color: b > 0 ? PdfColors.red700 : PdfColors.green700),
       ],
     );
