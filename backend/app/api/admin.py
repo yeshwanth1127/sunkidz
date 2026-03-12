@@ -1474,7 +1474,7 @@ def send_fee_payment_receipt(
     parents_without_phone = []
     for link in parent_links:
         parent_user = db.query(User).filter(User.id == link.user_id).first()
-        if parent_user and not parent_user.phone_no:
+        if parent_user and not parent_user.phone:
             parents_without_phone.append(parent_user.full_name or str(parent_user.id))
 
     if len(parents_without_phone) == len(parent_links):
