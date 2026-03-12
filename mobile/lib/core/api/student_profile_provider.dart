@@ -32,7 +32,7 @@ class StudentProfileApi {
 }
 
 /// Returns the API that can fetch a student profile for the current user.
-/// Admin uses admin API; coordinator uses coordinator API (with edit).
+/// Admin and coordinator can edit. Parent is read-only.
 final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
   final adminApi = ref.watch(adminApiProvider);
   final coordinatorApi = ref.watch(coordinatorApiProvider);
@@ -41,7 +41,7 @@ final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
   if (adminApi != null) {
     return StudentProfileApi(
       getStudent: adminApi.getStudent,
-      updateStudent: null,
+      updateStudent: adminApi.updateStudent,
       getStudentAttendance: adminApi.getStudentAttendance,
       updateStudentAttendance: adminApi.updateStudentAttendance,
       getStudentFees: adminApi.getStudentFees,

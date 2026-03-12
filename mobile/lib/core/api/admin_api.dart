@@ -258,6 +258,14 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateStudent(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final r = await _dio.put('/admin/students/$id', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
   // Admissions / Students (convert enquiry to admission)
   Future<List<Map<String, dynamic>>> getAdmissions({
     String? branchId,

@@ -560,21 +560,50 @@ class _AdminFeeManagementScreenState
     final paymentId = payment['id'] as String?;
     if (paymentId == null) return;
 
+    // Show loading indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              SizedBox(width: 12),
+              Text('Sending receipt to parent...'),
+            ],
+          ),
+          duration: Duration(seconds: 10),
+        ),
+      );
+    }
+
     try {
       final result = await api.sendFeeReceipt(_selectedStudentId!, paymentId);
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         final sent = result['sent'] == true;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? (sent ? 'Receipt sent' : 'Failed to send')),
             backgroundColor: sent ? Colors.green : Colors.orange,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
-    } catch (e) {
+    } on Exception catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        // Extract detail message from DioException if available
+        String msg = e.toString();
+        if (msg.contains('"detail"')) {
+          final match = RegExp(r'"detail"\s*:\s*"([^"]+)"').firstMatch(msg);
+          if (match != null) msg = match.group(1)!;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.red[700],
+            duration: const Duration(seconds: 8),
+          ),
         );
       }
     }

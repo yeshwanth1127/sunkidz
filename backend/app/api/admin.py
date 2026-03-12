@@ -34,6 +34,7 @@ from app.schemas.admin import (
     AssignmentUpdate,
     AssignmentResponse,
 )
+from app.schemas.student import StudentUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -472,6 +473,181 @@ def list_admissions(
             "bus_opted": s.bus_opted or False,
         })
     return result
+
+
+@router.get("/students/{student_id}")
+def get_student(
+    student_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Get full student profile for admin."""
+    s = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    branch_name = None
+    class_name = None
+    if s.branch_id:
+        branch = db.query(Branch).filter(Branch.id == s.branch_id).first()
+        branch_name = branch.name if branch else None
+    if s.class_id:
+        c = db.query(Class).filter(Class.id == s.class_id).first()
+        class_name = c.name if c else None
+
+    parent_name = None
+    parent_phone = None
+    if s.parent_links:
+        try:
+            parent_name = s.parent_links[0].user.full_name
+            parent_phone = s.parent_links[0].user.phone
+        except Exception:
+            pass
+
+    return {
+        "id": str(s.id),
+        "admission_number": s.admission_number,
+        "name": s.name,
+        "date_of_birth": s.date_of_birth.isoformat() if s.date_of_birth else None,
+        "age_years": s.age_years,
+        "age_months": s.age_months,
+        "gender": s.gender,
+        "place_of_birth": s.place_of_birth,
+        "nationality": s.nationality,
+        "religion": s.religion,
+        "mother_tongue": s.mother_tongue,
+        "blood_group": s.blood_group,
+        "medical_allergies": s.medical_allergies,
+        "medical_surgeries": s.medical_surgeries,
+        "medical_chronic_illness": s.medical_chronic_illness,
+        "branch_id": str(s.branch_id) if s.branch_id else None,
+        "branch_name": branch_name,
+        "class_id": str(s.class_id) if s.class_id else None,
+        "class_name": class_name,
+        "residential_address": s.residential_address,
+        "residential_contact_no": s.residential_contact_no,
+        "father_name": s.father_name,
+        "father_occupation": s.father_occupation,
+        "father_contact_no": s.father_contact_no,
+        "father_email": s.father_email,
+        "mother_name": s.mother_name,
+        "mother_occupation": s.mother_occupation,
+        "mother_contact_no": s.mother_contact_no,
+        "mother_email": s.mother_email,
+        "guardian_name": s.guardian_name,
+        "guardian_relation": s.guardian_relation,
+        "guardian_contact_no": s.guardian_contact_no,
+        "emergency_contact_name": s.emergency_contact_name,
+        "emergency_contact_phone": s.emergency_contact_phone,
+        "parent_name": parent_name or s.father_name or s.mother_name,
+        "parent_phone": parent_phone or s.father_contact_no or s.mother_contact_no or s.residential_contact_no,
+        "transport_required": s.transport_required,
+        "bus_opted": s.bus_opted,
+        "declaration_date": s.declaration_date.isoformat() if s.declaration_date else None,
+    }
+
+
+@router.put("/students/{student_id}")
+def update_student(
+    student_id: UUID,
+    body: StudentUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Update student details for admin."""
+    s = db.query(Student).filter(
+        Student.id == student_id,
+        Student.admission_number.isnot(None),
+    ).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    data = body.model_dump(exclude_unset=True)
+
+    if "date_of_birth" in data:
+        dob = data["date_of_birth"]
+        today = date.today()
+        s.age_years = today.year - dob.year
+        if (today.month, today.day) < (dob.month, dob.day):
+            s.age_years -= 1
+        s.age_months = s.age_years * 12 + (today.month - dob.month)
+
+    if "class_id" in data and data["class_id"]:
+        cls = db.query(Class).filter(
+            Class.id == data["class_id"],
+            Class.branch_id == s.branch_id,
+        ).first()
+        if not cls:
+            raise HTTPException(status_code=400, detail="Class not found in student's branch")
+
+    for k, v in data.items():
+        setattr(s, k, v)
+
+    db.commit()
+    db.refresh(s)
+
+    branch_name = None
+    class_name = None
+    if s.branch_id:
+        branch = db.query(Branch).filter(Branch.id == s.branch_id).first()
+        branch_name = branch.name if branch else None
+    if s.class_id:
+        c = db.query(Class).filter(Class.id == s.class_id).first()
+        class_name = c.name if c else None
+
+    parent_name = None
+    parent_phone = None
+    if s.parent_links:
+        try:
+            parent_name = s.parent_links[0].user.full_name
+            parent_phone = s.parent_links[0].user.phone
+        except Exception:
+            pass
+
+    return {
+        "id": str(s.id),
+        "admission_number": s.admission_number,
+        "name": s.name,
+        "date_of_birth": s.date_of_birth.isoformat() if s.date_of_birth else None,
+        "age_years": s.age_years,
+        "age_months": s.age_months,
+        "gender": s.gender,
+        "place_of_birth": s.place_of_birth,
+        "nationality": s.nationality,
+        "religion": s.religion,
+        "mother_tongue": s.mother_tongue,
+        "blood_group": s.blood_group,
+        "medical_allergies": s.medical_allergies,
+        "medical_surgeries": s.medical_surgeries,
+        "medical_chronic_illness": s.medical_chronic_illness,
+        "branch_id": str(s.branch_id) if s.branch_id else None,
+        "branch_name": branch_name,
+        "class_id": str(s.class_id) if s.class_id else None,
+        "class_name": class_name,
+        "residential_address": s.residential_address,
+        "residential_contact_no": s.residential_contact_no,
+        "father_name": s.father_name,
+        "father_occupation": s.father_occupation,
+        "father_contact_no": s.father_contact_no,
+        "father_email": s.father_email,
+        "mother_name": s.mother_name,
+        "mother_occupation": s.mother_occupation,
+        "mother_contact_no": s.mother_contact_no,
+        "mother_email": s.mother_email,
+        "guardian_name": s.guardian_name,
+        "guardian_relation": s.guardian_relation,
+        "guardian_contact_no": s.guardian_contact_no,
+        "emergency_contact_name": s.emergency_contact_name,
+        "emergency_contact_phone": s.emergency_contact_phone,
+        "parent_name": parent_name or s.father_name or s.mother_name,
+        "parent_phone": parent_phone or s.father_contact_no or s.mother_contact_no or s.residential_contact_no,
+        "transport_required": s.transport_required,
+        "bus_opted": s.bus_opted,
+        "declaration_date": s.declaration_date.isoformat() if s.declaration_date else None,
+    }
 
 
 @router.post("/students/{student_id}/toggle-bus-opt")
@@ -1266,6 +1442,7 @@ def send_fee_payment_receipt(
     _: User = Depends(require_admin),
 ):
     """Send a WhatsApp fee receipt to all linked parents for a specific payment."""
+    from app.models.student import ParentStudentLink
     from app.services.notification_service import send_fee_receipt_notification
 
     student = db.query(Student).filter(
@@ -1282,6 +1459,30 @@ def send_fee_payment_receipt(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
+    # Pre-flight: check parent links and phone numbers before attempting send
+    parent_links = db.query(ParentStudentLink).filter(
+        ParentStudentLink.student_id == student_id
+    ).all()
+
+    if not parent_links:
+        logger.warning(f"send-receipt: no parent_student_links found for student {student_id}")
+        raise HTTPException(
+            status_code=422,
+            detail="No parent account is linked to this student. Link a parent first via the admission process.",
+        )
+
+    parents_without_phone = []
+    for link in parent_links:
+        parent_user = db.query(User).filter(User.id == link.user_id).first()
+        if parent_user and not parent_user.phone_no:
+            parents_without_phone.append(parent_user.full_name or str(parent_user.id))
+
+    if len(parents_without_phone) == len(parent_links):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Parent account(s) found but none have a phone number set: {', '.join(parents_without_phone)}",
+        )
+
     fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
     all_payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
     fees_detail = _build_fees_detail(student, fee_structure, all_payments)
@@ -1290,11 +1491,11 @@ def send_fee_payment_receipt(
         sent = send_fee_receipt_notification(student_id, payment, fees_detail, db)
     except Exception as ex:
         logger.error(f"Failed to send fee receipt for payment {payment_id}: {str(ex)}")
-        sent = False
+        raise HTTPException(status_code=500, detail=f"Failed to send receipt: {str(ex)}")
 
     return {
         "sent": sent,
-        "message": "Receipt sent to parent(s) via WhatsApp" if sent else "No parents linked or send failed",
+        "message": f"Receipt sent to {len(parent_links)} parent(s) via WhatsApp" if sent else "WhatsApp delivery failed — check server logs",
     }
 
 
