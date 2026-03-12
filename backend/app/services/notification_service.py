@@ -322,18 +322,18 @@ def send_fee_receipt_notification(student_id: UUID, payment, fees_detail: dict, 
         success_count = 0
         for link in parent_links:
             parent = db.query(User).filter(User.id == link.user_id).first()
-            if not parent or not parent.phone_no:
+            if not parent or not parent.phone:
                 continue
             try:
-                formatted = whatsapp_service._format_phone_number(parent.phone_no)
+                formatted = whatsapp_service._format_phone_number(parent.phone)
                 success = whatsapp_service._send_message_request(formatted, message)
                 if success:
                     success_count += 1
-                    logger.info(f"Fee receipt sent to {parent.phone_no}")
+                    logger.info(f"Fee receipt sent to {parent.phone}")
                 else:
-                    logger.warning(f"Failed to send receipt to {parent.phone_no}")
+                    logger.warning(f"Failed to send receipt to {parent.phone}")
             except Exception as e:
-                logger.error(f"Exception sending receipt to {parent.phone_no}: {str(e)}")
+                logger.error(f"Exception sending receipt to {parent.phone}: {str(e)}")
 
         logger.info(f"Fee receipts sent to {success_count}/{len(parent_links)} parents")
         return success_count > 0

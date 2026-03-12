@@ -1459,30 +1459,6 @@ def send_fee_payment_receipt(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    # Pre-flight: check parent links and phone numbers before attempting send
-    parent_links = db.query(ParentStudentLink).filter(
-        ParentStudentLink.student_id == student_id
-    ).all()
-
-    if not parent_links:
-        logger.warning(f"send-receipt: no parent_student_links found for student {student_id}")
-        raise HTTPException(
-            status_code=422,
-            detail="No parent account is linked to this student. Link a parent first via the admission process.",
-        )
-
-    parents_without_phone = []
-    for link in parent_links:
-        parent_user = db.query(User).filter(User.id == link.user_id).first()
-        if parent_user and not parent_user.phone:
-            parents_without_phone.append(parent_user.full_name or str(parent_user.id))
-
-    if len(parents_without_phone) == len(parent_links):
-        raise HTTPException(
-            status_code=422,
-            detail=f"Parent account(s) found but none have a phone number set: {', '.join(parents_without_phone)}",
-        )
-
     fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
     all_payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
     fees_detail = _build_fees_detail(student, fee_structure, all_payments)
