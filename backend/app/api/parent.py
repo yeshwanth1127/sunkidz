@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.auth import require_parent
 from app.models import User, Student, MarksCard, ParentStudentLink, Branch, Class, Attendance
-from app.models.fees import FeeStructure, FeePayment
+from app.models.fees import FeeStructure, FeePayment, FeeReceipt
 
 router = APIRouter(prefix="/parent", tags=["parent"])
 
@@ -229,3 +229,46 @@ def get_student_fees_for_parent(
     payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).order_by(FeePayment.payment_date.desc()).all()
     return _build_fees_detail(student, fee_structure, payments)
 
+
+@router.get("/receipts")
+def get_my_receipts(
+    user: User = Depends(require_parent),
+    db: Session = Depends(get_db),
+):
+    """Get all fee receipts pushed to the parent for their linked children."""
+    import json
+    links = db.query(ParentStudentLink).filter(ParentStudentLink.user_id == user.id).all()
+    student_ids = [l.student_id for l in links]
+    if not student_ids:
+        return {"receipts": []}
+
+    receipts = (
+        db.query(FeeReceipt)
+        .filter(FeeReceipt.student_id.in_(student_ids))
+        .order_by(FeeReceipt.created_at.desc())
+        .all()
+    )
+    result = []
+    for r in receipts:
+        fee_data = {}
+        if r.fee_data_json:
+            try:
+                fee_data = json.loads(r.fee_data_json)
+            except Exception:
+                pass
+        result.append({
+            "id": str(r.id),
+            "student_id": str(r.student_id),
+            "payment_id": str(r.payment_id),
+            "student_name": r.student_name,
+            "admission_number": r.admission_number,
+            "component": r.component,
+            "component_label": r.component_label,
+            "amount_paid": r.amount_paid,
+            "payment_mode": r.payment_mode,
+            "payment_date": r.payment_date.isoformat() if r.payment_date else None,
+            "receipt_ref": r.receipt_ref,
+            "fee_data": fee_data,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        })
+    return {"receipts": result}

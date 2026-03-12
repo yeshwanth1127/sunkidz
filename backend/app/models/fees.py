@@ -47,3 +47,25 @@ class FeePayment(Base):
     # Relationships
     fee_structure = relationship("FeeStructure", back_populates="payments")
     student = relationship("Student")
+
+
+class FeeReceipt(Base):
+    """Receipt records pushed to a parent's dashboard by the admin."""
+    __tablename__ = "fee_receipts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    payment_id = Column(UUID(as_uuid=True), ForeignKey("fee_payments.id", ondelete="CASCADE"), nullable=False)
+
+    # Snapshot of all data needed to render/download the receipt without re-querying
+    student_name = Column(String(255), nullable=False)
+    admission_number = Column(String(100), nullable=True)
+    component = Column(String(50), nullable=False)
+    component_label = Column(String(100), nullable=False)
+    amount_paid = Column(Float, nullable=False)
+    payment_mode = Column(String(50), nullable=False)
+    payment_date = Column(DateTime, nullable=True)
+    receipt_ref = Column(String(20), nullable=False)  # first 8 chars of payment UUID
+    fee_data_json = Column(String(4000), nullable=True)  # JSON snapshot of fee summary
+
+    created_at = Column(DateTime, default=datetime.utcnow)

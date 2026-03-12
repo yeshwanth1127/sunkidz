@@ -1434,16 +1434,16 @@ def get_student_fee_payments(
     }
 
 
-@router.post("/students/{student_id}/fees/payments/{payment_id}/send-receipt")
-def send_fee_payment_receipt(
+@router.post("/students/{student_id}/fees/payments/{payment_id}/push-receipt")
+def push_fee_receipt_to_parent(
     student_id: UUID,
     payment_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """Send a WhatsApp fee receipt to all linked parents for a specific payment."""
-    from app.models.student import ParentStudentLink
-    from app.services.notification_service import send_fee_receipt_notification
+    """Push a fee receipt to the parent's dashboard (stores in fee_receipts table)."""
+    import json
+    from app.models.fees import FeeReceipt
 
     student = db.query(Student).filter(
         Student.id == student_id,
@@ -1459,20 +1459,50 @@ def send_fee_payment_receipt(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
+    _component_labels = {
+        'advance_fees': 'Advance Fees',
+        'term_fee_1': 'Term Fee 1',
+        'term_fee_2': 'Term Fee 2',
+        'term_fee_3': 'Term Fee 3',
+    }
+
     fee_structure = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
     all_payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
     fees_detail = _build_fees_detail(student, fee_structure, all_payments)
 
-    try:
-        sent = send_fee_receipt_notification(student_id, payment, fees_detail, db)
-    except Exception as ex:
-        logger.error(f"Failed to send fee receipt for payment {payment_id}: {str(ex)}")
-        raise HTTPException(status_code=500, detail=f"Failed to send receipt: {str(ex)}")
+    # Check if receipt already pushed for this payment
+    existing = db.query(FeeReceipt).filter(FeeReceipt.payment_id == payment_id).first()
+    if existing:
+        db.delete(existing)
+        db.flush()
 
-    return {
-        "sent": sent,
-        "message": f"Receipt sent to {len(parent_links)} parent(s) via WhatsApp" if sent else "WhatsApp delivery failed — check server logs",
-    }
+    receipt = FeeReceipt(
+        student_id=student_id,
+        payment_id=payment_id,
+        student_name=student.name,
+        admission_number=student.admission_number,
+        component=payment.component,
+        component_label=_component_labels.get(payment.component, payment.component),
+        amount_paid=float(payment.amount_paid or 0.0),
+        payment_mode=payment.payment_mode,
+        payment_date=payment.payment_date,
+        receipt_ref=str(payment.id)[:8].upper(),
+        fee_data_json=json.dumps({
+            k: fees_detail[k]
+            for k in (
+                'total_due', 'total_paid', 'total_balance',
+                'advance_fees', 'advance_fees_paid', 'advance_fees_balance',
+                'term_fee_1', 'term_fee_1_paid', 'term_fee_1_balance',
+                'term_fee_2', 'term_fee_2_paid', 'term_fee_2_balance',
+                'term_fee_3', 'term_fee_3_paid', 'term_fee_3_balance',
+            ) if k in fees_detail
+        }),
+    )
+    db.add(receipt)
+    db.commit()
+    db.refresh(receipt)
+
+    return {"ok": True, "receipt_id": str(receipt.id), "message": "Receipt pushed to parent dashboard"}
 
 
 @router.get("/analytics")
