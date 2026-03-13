@@ -1,3 +1,79 @@
+# --- Toddlers and Daycare User Creation ---
+from app.models.user import UserRole
+
+@router.post("/users/toddlers", response_model=UserResponse)
+def create_toddlers_user(
+    data: UserCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if data.role != UserRole.toddlers:
+        raise HTTPException(status_code=400, detail="Role must be 'toddlers' for this endpoint")
+    email = (data.email or "").strip() or None
+    phone = (data.phone or "").strip() or None
+    full_name = (data.full_name or "").strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Full name is required")
+    if not (data.password or "").strip():
+        raise HTTPException(status_code=400, detail="Password is required")
+    if email and db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(
+        email=email,
+        password_hash=get_password_hash(data.password),
+        full_name=full_name,
+        role=data.role,
+        phone=phone,
+        is_active="true",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        phone=user.phone,
+        is_active=user.is_active,
+    )
+
+@router.post("/users/daycare", response_model=UserResponse)
+def create_daycare_user(
+    data: UserCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if data.role != UserRole.daycare:
+        raise HTTPException(status_code=400, detail="Role must be 'daycare' for this endpoint")
+    email = (data.email or "").strip() or None
+    phone = (data.phone or "").strip() or None
+    full_name = (data.full_name or "").strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Full name is required")
+    if not (data.password or "").strip():
+        raise HTTPException(status_code=400, detail="Password is required")
+    if email and db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(
+        email=email,
+        password_hash=get_password_hash(data.password),
+        full_name=full_name,
+        role=data.role,
+        phone=phone,
+        is_active="true",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        phone=user.phone,
+        is_active=user.is_active,
+    )
 from uuid import UUID
 from datetime import date, timedelta, datetime
 import logging
@@ -54,20 +130,31 @@ def _generate_admission_number_for_branch(
     admission_date: date,
     exclude_student_id: UUID | None = None,
 ) -> str:
-    """Generate admission number format: skz(branch_code)(year)(date)[nn]."""
-    code = (branch.code or "main").lower()[:10]
+    """Generate admission number format: skzbranchcodeyear0001, incrementing per branch per year."""
+    code = (branch.code or "main").lower()
     year = admission_date.strftime("%Y")
-    day = admission_date.strftime("%m%d")
-    base = f"skz{code}{year}{day}"
+    base = f"skz{code}{year}"
 
-    q = db.query(Student).filter(Student.admission_number.like(f"{base}%"))
+    # Find all admission numbers for this branch and year
+    q = db.query(Student.admission_number).filter(
+        Student.admission_number.like(f"{base}%")
+    )
     if exclude_student_id is not None:
         q = q.filter(Student.id != exclude_student_id)
-    existing = q.count()
+    numbers = q.all()
 
-    if existing > 0:
-        return f"{base}{existing + 1:02d}"
-    return base
+    # Extract sequence numbers
+    max_seq = 0
+    for (admission_no,) in numbers:
+        try:
+            seq_part = admission_no[len(base):]
+            seq_num = int(seq_part)
+            if seq_num > max_seq:
+                max_seq = seq_num
+        except Exception:
+            continue
+    next_seq = max_seq + 1
+    return f"{base}{next_seq:04d}"
 
 
 # --- Branches ---
@@ -336,16 +423,24 @@ def create_user(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    if data.role not in ("teacher", "coordinator", "bus_staff"):
-        raise HTTPException(status_code=400, detail="Role must be teacher, coordinator, or bus_staff")
-    if data.email and db.query(User).filter(User.email == data.email).first():
+    if data.role not in ("teacher", "coordinator", "bus_staff", "toddlers", "daycare"):
+        raise HTTPException(status_code=400, detail="Role must be teacher, coordinator, bus_staff, toddlers, or daycare")
+    # Normalize empty strings to None to avoid unique constraint issues
+    email = (data.email or "").strip() or None
+    phone = (data.phone or "").strip() or None
+    full_name = (data.full_name or "").strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Full name is required")
+    if not (data.password or "").strip():
+        raise HTTPException(status_code=400, detail="Password is required")
+    if email and db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
-        email=data.email,
+        email=email,
         password_hash=get_password_hash(data.password),
-        full_name=data.full_name,
+        full_name=full_name,
         role=data.role,
-        phone=data.phone,
+        phone=phone,
         is_active="true",
     )
     db.add(user)

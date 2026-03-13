@@ -1,3 +1,4 @@
+
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 
@@ -17,7 +18,6 @@ class AdminApi {
     ),
   );
 
-  // Branches
   Future<List<Map<String, dynamic>>> getBranches() async {
     final r = await _dio.get('/admin/branches');
     return List<Map<String, dynamic>>.from(r.data as List);
@@ -142,6 +142,22 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateUser(
+    String id, {
+    String? email,
+    String? fullName,
+    String? phone,
+    String? isActive,
+  }) async {
+    final data = <String, dynamic>{};
+    if (email != null) data['email'] = email;
+    if (fullName != null) data['full_name'] = fullName;
+    if (phone != null) data['phone'] = phone;
+    if (isActive != null) data['is_active'] = isActive == 'true';
+    final r = await _dio.put('/admin/users/$id', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
   Future<void> deleteUser(String id) async {
     await _dio.delete('/admin/users/$id');
   }
@@ -167,23 +183,60 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateUser(
-    String id, {
+  Future<Map<String, dynamic>> createToddlersUser({
     String? email,
-    String? fullName,
+    required String password,
+    required String fullName,
     String? phone,
-    String? isActive,
   }) async {
-    final data = <String, dynamic>{};
-    if (email != null) data['email'] = email;
-    if (fullName != null) data['full_name'] = fullName;
-    if (phone != null) data['phone'] = phone;
-    if (isActive != null) data['is_active'] = isActive;
-    final r = await _dio.put('/admin/users/$id', data: data);
+    final r = await _dio.post(
+      '/admin/users/toddlers',
+      data: {
+        if (email != null) 'email': email,
+        'password': password,
+        'full_name': fullName,
+        'role': 'toddlers',
+        if (phone != null) 'phone': phone,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  // Assignments (Reassign)
+  Future<Map<String, dynamic>> createDaycareUser({
+    String? email,
+    required String password,
+    required String fullName,
+    String? phone,
+  }) async {
+    final r = await _dio.post(
+      '/admin/users/daycare',
+      data: {
+        if (email != null) 'email': email,
+        'password': password,
+        'full_name': fullName,
+        'role': 'daycare',
+        if (phone != null) 'phone': phone,
+      },
+    );
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateAssignment(
+    String id, {
+    String? branchId,
+    String? classId,
+  }) async {
+    final data = <String, dynamic>{};
+    if (branchId != null) data['branch_id'] = branchId;
+    if (classId != null) data['class_id'] = classId;
+    final r = await _dio.put('/admin/assignments/$id', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<void> deleteAssignment(String id) async {
+    await _dio.delete('/admin/assignments/$id');
+  }
+
   Future<List<Map<String, dynamic>>> getAssignments({String? branchId}) async {
     final q = branchId != null ? '?branch_id=$branchId' : '';
     final r = await _dio.get('/admin/assignments$q');
@@ -204,22 +257,6 @@ class AdminApi {
       },
     );
     return r.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> updateAssignment(
-    String id, {
-    String? branchId,
-    String? classId,
-  }) async {
-    final data = <String, dynamic>{};
-    if (branchId != null) data['branch_id'] = branchId;
-    if (classId != null) data['class_id'] = classId;
-    final r = await _dio.put('/admin/assignments/$id', data: data);
-    return r.data as Map<String, dynamic>;
-  }
-
-  Future<void> deleteAssignment(String id) async {
-    await _dio.delete('/admin/assignments/$id');
   }
 
   // Enquiries

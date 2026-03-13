@@ -142,6 +142,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return '/parent';
       case UserRole.busStaff:
         return '/bus-staff';
+      case UserRole.toddlers:
+        return '/admin/toddlers';
+      case UserRole.daycare:
+        return '/admin/daycare';
+      default:
+        return '/admin';
     }
   }
 

@@ -140,7 +140,7 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
       UserRole.coordinator => const CoordinatorDrawer(),
       UserRole.teacher => const TeacherDrawer(),
       UserRole.parent => const ParentDrawer(),
-      UserRole.busStaff || null => const SizedBox.shrink(),
+      UserRole.busStaff || UserRole.toddlers || UserRole.daycare || null => const SizedBox.shrink(),
     };
     final filter = HomeworkFilter(
       classId: _selectedClassId,
