@@ -493,8 +493,8 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     if user.role == "admin":
         raise HTTPException(status_code=403, detail="Cannot delete admin")
-    if user.role not in ("teacher", "coordinator", "bus_staff"):
-        raise HTTPException(status_code=403, detail="Can only delete teachers, coordinators, and bus staff")
+    if user.role not in ("teacher", "coordinator", "bus_staff", "toddlers", "daycare"):
+        raise HTTPException(status_code=403, detail="Can only delete teachers, coordinators, bus staff, toddlers, and daycare")
     # Delete branch assignments first
     db.query(BranchAssignment).filter(BranchAssignment.user_id == user_id).delete()
     db.delete(user)
@@ -525,6 +525,11 @@ def update_user(
         user.phone = data.phone
     if data.is_active is not None:
         user.is_active = data.is_active
+    if data.date_of_birth is not None and (data.date_of_birth or "").strip() and user.role in ("toddlers", "daycare"):
+        try:
+            user.date_of_birth = date.fromisoformat(data.date_of_birth.strip())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     db.commit()
     db.refresh(user)
     a = db.query(BranchAssignment).filter(BranchAssignment.user_id == user.id).first()

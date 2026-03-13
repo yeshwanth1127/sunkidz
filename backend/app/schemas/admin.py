@@ -43,6 +43,7 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     is_active: str | None = None
+    date_of_birth: str | None = None  # YYYY-MM-DD for toddlers/daycare
 
 
 class AssignmentCreate(BaseModel):

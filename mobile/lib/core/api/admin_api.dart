@@ -148,12 +148,14 @@ class AdminApi {
     String? fullName,
     String? phone,
     String? isActive,
+    String? dateOfBirth,
   }) async {
     final data = <String, dynamic>{};
     if (email != null) data['email'] = email;
     if (fullName != null) data['full_name'] = fullName;
     if (phone != null) data['phone'] = phone;
     if (isActive != null) data['is_active'] = isActive == 'true';
+    if (dateOfBirth != null) data['date_of_birth'] = dateOfBirth;
     final r = await _dio.put('/admin/users/$id', data: data);
     return r.data as Map<String, dynamic>;
   }
