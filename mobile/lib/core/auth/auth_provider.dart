@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-enum UserRole { admin, coordinator, teacher, parent, busStaff }
+enum UserRole { admin, coordinator, teacher, parent, busStaff, toddlers, daycare }
 
 class AuthState {
   final String? token;
@@ -100,6 +100,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return UserRole.parent;
       case 'busstaff':
         return UserRole.busStaff;
+      case 'toddlers':
+        return UserRole.toddlers;
+      case 'daycare':
+        return UserRole.daycare;
       default:
         return UserRole.values.firstWhere(
           (e) => e.name.toLowerCase() == normalized,

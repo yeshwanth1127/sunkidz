@@ -13,6 +13,8 @@ class UserRole(str, Enum):
     teacher = "teacher"
     parent = "parent"
     bus_staff = "bus_staff"
+    toddlers = "toddlers"
+    daycare = "daycare"
 
 
 class User(Base):

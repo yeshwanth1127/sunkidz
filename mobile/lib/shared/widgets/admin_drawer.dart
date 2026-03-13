@@ -34,6 +34,8 @@ class AdminDrawer extends ConsumerWidget {
           _DrawerTile(icon: Icons.event_available, label: 'Attendance', onTap: () => _navigate(context, '/admin/attendance')),
           _DrawerTile(icon: Icons.receipt, label: 'Fee Management', onTap: () => _navigate(context, '/admin/fees?branch_id=')),
           _DrawerTile(icon: Icons.groups, label: 'Staff', onTap: () => _navigate(context, '/staff')),
+          _DrawerTile(icon: Icons.child_care, label: 'Toddlers', onTap: () => _navigate(context, '/admin/toddlers')),
+          _DrawerTile(icon: Icons.child_friendly, label: 'Daycare', onTap: () => _navigate(context, '/admin/daycare')),
           _DrawerTile(icon: Icons.menu_book, label: 'Syllabus', onTap: () => _navigate(context, '/syllabus')),
           _DrawerTile(icon: Icons.assignment_turned_in, label: 'Homework', onTap: () => _navigate(context, '/homework')),
           _DrawerTile(icon: Icons.settings, label: 'Settings', onTap: () => _navigate(context, '/admin/settings')),

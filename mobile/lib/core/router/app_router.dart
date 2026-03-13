@@ -21,6 +21,8 @@ import '../../features/parent/presentation/parent_marks_cards_screen.dart';
 import '../../features/dashboard/presentation/bus_staff_dashboard_screen.dart';
 import '../../features/branches/presentation/branch_list_screen.dart';
 import '../../features/admin/presentation/staff_management_screen.dart';
+import '../../features/admin/presentation/toddlers_management_screen.dart';
+import '../../features/admin/presentation/daycare_management_screen.dart';
 import '../../features/admin/presentation/branch_detail_screen.dart';
 import '../../features/enquiries/presentation/enquiry_list_screen.dart';
 import '../../features/admissions/presentation/admission_list_screen.dart';
@@ -124,6 +126,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const AdminReportsScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'toddlers',
+            builder: (_, __) => const ToddlersManagementScreen(),
+          ),
+          GoRoute(
+            path: 'daycare',
+            builder: (_, __) => const DaycareManagementScreen(),
+          ),
         ],
       ),
       GoRoute(
