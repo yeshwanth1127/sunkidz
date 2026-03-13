@@ -52,22 +52,6 @@ class DaycareDrawer extends ConsumerWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.menu_book),
-            title: const Text('Syllabus'),
-            onTap: () {
-              Navigator.pop(context);
-              context.go('/daycare/syllabus');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.assignment),
-            title: const Text('Homework'),
-            onTap: () {
-              Navigator.pop(context);
-              context.go('/daycare/homework');
-            },
-          ),
-          ListTile(
             leading: const Icon(Icons.photo_library),
             title: const Text('Gallery'),
             onTap: () {

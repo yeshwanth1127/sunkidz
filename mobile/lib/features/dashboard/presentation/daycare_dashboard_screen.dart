@@ -72,35 +72,13 @@ class DaycareDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Welcome to the Daycare portal. Browse syllabus and homework here.',
+              'Welcome to the Daycare portal. Post daily updates and view gallery here.',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 24),
             Text(
               'Quick Actions',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _ActionCard(
-                    icon: Icons.menu_book,
-                    label: 'Syllabus',
-                    color: primaryColor,
-                    onTap: () => context.go('/daycare/syllabus'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _ActionCard(
-                    icon: Icons.assignment,
-                    label: 'Homework',
-                    color: Colors.teal,
-                    onTap: () => context.go('/daycare/homework'),
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: 12),
             Row(
@@ -168,7 +146,7 @@ class DaycareDashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Access syllabus, homework, and gallery content for daycare. Contact your branch for class-specific content.',
+                    'Post daily updates for students and view gallery content. Contact your branch for class-specific content.',
                     style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
                   ),
                 ],

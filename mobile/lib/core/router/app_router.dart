@@ -89,6 +89,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (loc.startsWith('/toddler') && role != UserRole.toddlers) return roleHome;
       if (loc.startsWith('/daycare') && role != UserRole.daycare) return roleHome;
 
+      // Toddlers and daycare cannot access syllabus/homework (upload is staff/coordinator/admin only)
+      if ((loc == '/syllabus' || loc == '/homework') &&
+          (role == UserRole.toddlers || role == UserRole.daycare)) {
+        return roleHome;
+      }
+
       // These top-level routes are admin-only in this app.
       const adminOnlyRoots = {
         '/branches',
@@ -277,14 +283,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ToddlerDashboardScreen(),
         routes: [
           GoRoute(
-            path: 'syllabus',
-            builder: (_, __) => const SyllabusListScreen(),
-          ),
-          GoRoute(
-            path: 'homework',
-            builder: (_, __) => const HomeworkListScreen(),
-          ),
-          GoRoute(
             path: 'gallery',
             builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: true),
           ),
@@ -298,14 +296,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/daycare',
         builder: (_, __) => const DaycareDashboardScreen(),
         routes: [
-          GoRoute(
-            path: 'syllabus',
-            builder: (_, __) => const SyllabusListScreen(),
-          ),
-          GoRoute(
-            path: 'homework',
-            builder: (_, __) => const HomeworkListScreen(),
-          ),
           GoRoute(
             path: 'gallery',
             builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: false),
