@@ -8,6 +8,8 @@ import '../../../core/auth/auth_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
+import '../../../shared/widgets/toddler_drawer.dart';
+import '../../../shared/widgets/daycare_drawer.dart';
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
@@ -148,7 +150,14 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: isAdmin ? const AdminDrawer() : (auth.role == UserRole.coordinator ? const CoordinatorDrawer() : const TeacherDrawer()),
+      drawer: switch (auth.role) {
+        UserRole.admin => const AdminDrawer(),
+        UserRole.coordinator => const CoordinatorDrawer(),
+        UserRole.teacher => const TeacherDrawer(),
+        UserRole.toddlers => const ToddlerDrawer(),
+        UserRole.daycare => const DaycareDrawer(),
+        _ => const TeacherDrawer(),
+      },
       appBar: AppBar(
         leading: Builder(
           builder: (ctx) => IconButton(

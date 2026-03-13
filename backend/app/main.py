@@ -19,6 +19,7 @@ from app.api import coordinator as coordinator_api
 from app.api import parent as parent_api
 from app.api import bus_tracking as bus_tracking_api
 from app.api import syllabus as syllabus_api
+from app.api import daycare as daycare_api
 
 # Configure logging
 logging.basicConfig(
@@ -55,6 +56,7 @@ app.include_router(coordinator_api.router, prefix="/api/v1")
 app.include_router(parent_api.router, prefix="/api/v1")
 app.include_router(bus_tracking_api.router, prefix="/api/v1")
 app.include_router(syllabus_api.router, prefix="/api/v1")
+app.include_router(daycare_api.router, prefix="/api/v1")
 
 
 @app.get("/")

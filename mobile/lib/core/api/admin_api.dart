@@ -485,4 +485,59 @@ class AdminApi {
     );
     return r.data as Map<String, dynamic>;
   }
+
+  // Daycare groups (admin creates groups, assigns daycare staff + students)
+  Future<List<Map<String, dynamic>>> getDaycareGroups({String? branchId}) async {
+    final q = branchId != null ? '?branch_id=$branchId' : '';
+    final r = await _dio.get('/daycare/admin/groups$q');
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
+
+  Future<Map<String, dynamic>> createDaycareGroup({
+    required String name,
+    required String branchId,
+    required String daycareStaffId,
+  }) async {
+    final r = await _dio.post(
+      '/daycare/admin/groups',
+      data: {
+        'name': name,
+        'branch_id': branchId,
+        'daycare_staff_id': daycareStaffId,
+      },
+    );
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getDaycareGroup(String id) async {
+    final r = await _dio.get('/daycare/admin/groups/$id');
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateDaycareGroup(
+    String id, {
+    String? name,
+    String? daycareStaffId,
+  }) async {
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (daycareStaffId != null) data['daycare_staff_id'] = daycareStaffId;
+    final r = await _dio.patch('/daycare/admin/groups/$id', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<void> deleteDaycareGroup(String id) async {
+    await _dio.delete('/daycare/admin/groups/$id');
+  }
+
+  Future<void> addStudentToDaycareGroup(String groupId, String studentId) async {
+    await _dio.post(
+      '/daycare/admin/groups/$groupId/students',
+      data: {'student_id': studentId},
+    );
+  }
+
+  Future<void> removeStudentFromDaycareGroup(String groupId, String studentId) async {
+    await _dio.delete('/daycare/admin/groups/$groupId/students/$studentId');
+  }
 }

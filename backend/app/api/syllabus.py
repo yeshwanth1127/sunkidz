@@ -82,7 +82,7 @@ def _can_upload_to_class(db: Session, user: User, class_id: UUID) -> bool:
 
 def _can_view_class(db: Session, user: User, class_id: UUID) -> bool:
     """Check if user can view content for a specific class."""
-    if user.role in ["admin", "coordinator"]:
+    if user.role in ["admin", "coordinator", "toddlers", "daycare"]:
         return True
 
     if user.role == "teacher":
@@ -231,6 +231,9 @@ def list_syllabus(
                 query = query.filter(Syllabus.class_id.in_(user_classes))
             else:
                 return []
+        # toddlers/daycare: no filter, see all syllabus
+        elif current_user.role in ["toddlers", "daycare"]:
+            pass  # query already has all syllabus
     
     # For teachers/coordinators, show only admin-uploaded syllabus
     if current_user.role in ["teacher", "coordinator"]:
@@ -521,6 +524,8 @@ def list_homework(
                     return []
             else:
                 return []
+        elif current_user.role in ["toddlers", "daycare"]:
+            pass  # see all homework
     
     # For coordinators/parents, show only admin-uploaded homework
     if current_user.role in ["coordinator", "parent"]:
@@ -806,6 +811,8 @@ def list_gallery(
             if not children_class_ids:
                 return []
             query = query.filter(GalleryImage.class_id.in_(children_class_ids))
+        elif current_user.role in ["toddlers", "daycare"]:
+            pass  # see all gallery
 
     if upload_date:
         query = query.filter(GalleryImage.upload_date == datetime.fromisoformat(upload_date).date())

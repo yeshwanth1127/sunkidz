@@ -7,6 +7,8 @@ import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../shared/widgets/parent_drawer.dart';
+import '../../../shared/widgets/toddler_drawer.dart';
+import '../../../shared/widgets/daycare_drawer.dart';
 import '../data/settings_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -189,6 +191,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return const TeacherDrawer();
       case UserRole.parent:
         return const ParentDrawer();
+      case UserRole.toddlers:
+        return const ToddlerDrawer();
+      case UserRole.daycare:
+        return const DaycareDrawer();
       default:
         return const AdminDrawer();
     }
