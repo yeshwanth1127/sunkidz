@@ -8,8 +8,6 @@ import '../../../core/auth/auth_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
-import '../../../shared/widgets/toddler_drawer.dart';
-import '../../../shared/widgets/daycare_drawer.dart';
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
@@ -142,6 +140,9 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final isAdmin = auth.role == UserRole.admin;
+    final canUpload = auth.role == UserRole.admin ||
+        auth.role == UserRole.teacher ||
+        auth.role == UserRole.coordinator;
 
     final filter = SyllabusFilter(
       classId: _selectedClassId,
@@ -154,8 +155,6 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
         UserRole.admin => const AdminDrawer(),
         UserRole.coordinator => const CoordinatorDrawer(),
         UserRole.teacher => const TeacherDrawer(),
-        UserRole.toddlers => const ToddlerDrawer(),
-        UserRole.daycare => const DaycareDrawer(),
         _ => const TeacherDrawer(),
       },
       appBar: AppBar(
@@ -168,7 +167,7 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
         title: const Text('Syllabus'),
         centerTitle: true,
         actions: [
-          if (isAdmin)
+          if (canUpload)
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: _navigateToUpload,

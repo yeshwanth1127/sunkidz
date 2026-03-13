@@ -72,35 +72,13 @@ class ToddlerDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Welcome to the Toddlers portal. Browse syllabus and homework here.',
+              'Welcome to the Toddlers portal. View gallery content here.',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 24),
             Text(
               'Quick Actions',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _ActionCard(
-                    icon: Icons.menu_book,
-                    label: 'Syllabus',
-                    color: primaryColor,
-                    onTap: () => context.go('/toddler/syllabus'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _ActionCard(
-                    icon: Icons.assignment,
-                    label: 'Homework',
-                    color: Colors.orange,
-                    onTap: () => context.go('/toddler/homework'),
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: 12),
             Row(
@@ -153,7 +131,7 @@ class ToddlerDashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Access syllabus, homework, and gallery content for toddlers. Contact your branch for class-specific content.',
+                    'View gallery content for toddlers. Contact your branch for class-specific content.',
                     style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
                   ),
                 ],

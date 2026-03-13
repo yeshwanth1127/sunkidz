@@ -9,8 +9,6 @@ import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../shared/widgets/parent_drawer.dart';
-import '../../../shared/widgets/toddler_drawer.dart';
-import '../../../shared/widgets/daycare_drawer.dart';
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
@@ -142,9 +140,8 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
       UserRole.coordinator => const CoordinatorDrawer(),
       UserRole.teacher => const TeacherDrawer(),
       UserRole.parent => const ParentDrawer(),
-      UserRole.toddlers => const ToddlerDrawer(),
-      UserRole.daycare => const DaycareDrawer(),
       UserRole.busStaff || null => const SizedBox.shrink(),
+      _ => const SizedBox.shrink(),
     };
     final filter = HomeworkFilter(
       classId: _selectedClassId,
