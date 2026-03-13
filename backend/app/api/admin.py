@@ -1,5 +1,47 @@
+from uuid import UUID
+from datetime import date, timedelta, datetime
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from collections import defaultdict
+
+from app.core.database import get_db
+from app.core.auth import get_current_user, require_admin
+from app.core.config import settings
+from app.core.security import get_password_hash
+from app.models.user import User, UserRole
+from app.models.branch import Branch, Class, BranchAssignment
+from app.models.student import Student
+from app.models.attendance import Attendance
+from app.models.staff_attendance import StaffAttendance
+from app.models.enquiry import Enquiry
+from app.models.bus_route import BusRoute
+from app.models.syllabus import Syllabus, Homework, GalleryImage
+from app.models.fees import FeeStructure, FeePayment
+from app.services.notification_service import send_fee_notification
+from app.schemas.admin import (
+    BranchCreate,
+    BranchUpdate,
+    BranchResponse,
+    ClassCreate,
+    ClassUpdate,
+    ClassResponse,
+    UserCreate,
+    UserUpdate,
+    UserResponse,
+    AssignmentCreate,
+    AssignmentUpdate,
+    AssignmentResponse,
+)
+from app.schemas.student import StudentUpdate
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
+
+
 # --- Toddlers and Daycare User Creation ---
-from app.models.user import UserRole
+
 
 @router.post("/users/toddlers", response_model=UserResponse)
 def create_toddlers_user(
@@ -38,6 +80,7 @@ def create_toddlers_user(
         is_active=user.is_active,
     )
 
+
 @router.post("/users/daycare", response_model=UserResponse)
 def create_daycare_user(
     data: UserCreate,
@@ -74,46 +117,6 @@ def create_daycare_user(
         phone=user.phone,
         is_active=user.is_active,
     )
-from uuid import UUID
-from datetime import date, timedelta, datetime
-import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from collections import defaultdict
-
-from app.core.database import get_db
-from app.core.auth import get_current_user, require_admin
-from app.core.config import settings
-from app.core.security import get_password_hash
-from app.models.user import User
-from app.models.branch import Branch, Class, BranchAssignment
-from app.models.student import Student
-from app.models.attendance import Attendance
-from app.models.staff_attendance import StaffAttendance
-from app.models.enquiry import Enquiry
-from app.models.bus_route import BusRoute
-from app.models.syllabus import Syllabus, Homework, GalleryImage
-from app.models.fees import FeeStructure, FeePayment
-from app.services.notification_service import send_fee_notification
-from app.schemas.admin import (
-    BranchCreate,
-    BranchUpdate,
-    BranchResponse,
-    ClassCreate,
-    ClassUpdate,
-    ClassResponse,
-    UserCreate,
-    UserUpdate,
-    UserResponse,
-    AssignmentCreate,
-    AssignmentUpdate,
-    AssignmentResponse,
-)
-from app.schemas.student import StudentUpdate
-
-router = APIRouter(prefix="/admin", tags=["admin"])
-logger = logging.getLogger(__name__)
 
 
 def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
