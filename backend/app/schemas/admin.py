@@ -31,10 +31,11 @@ class ClassUpdate(BaseModel):
 
 class UserCreate(BaseModel):
     email: str | None = None
-    password: str
+    password: str | None = None  # Optional for toddlers/daycare (they use email+DOB)
     full_name: str
-    role: str  # teacher, coordinator
+    role: str  # teacher, coordinator, bus_staff, toddlers, daycare
     phone: str | None = None
+    date_of_birth: str | None = None  # YYYY-MM-DD for toddlers/daycare
 
 
 class UserUpdate(BaseModel):
@@ -86,6 +87,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     phone: str | None
+    date_of_birth: str | None = None
     is_active: str
     branch_id: str | None = None
     branch_name: str | None = None

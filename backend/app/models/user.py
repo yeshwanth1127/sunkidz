@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -26,6 +26,7 @@ class User(Base):
     full_name = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False)
     phone = Column(String(50), nullable=True)
+    date_of_birth = Column(Date, nullable=True)  # For toddlers/daycare login
     profile_photo = Column(String(500), nullable=True)
     is_active = Column(String(10), default="true")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

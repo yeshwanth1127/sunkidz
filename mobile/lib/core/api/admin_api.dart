@@ -184,17 +184,17 @@ class AdminApi {
   }
 
   Future<Map<String, dynamic>> createToddlersUser({
-    String? email,
-    required String password,
+    required String email,
     required String fullName,
+    required String dateOfBirth,
     String? phone,
   }) async {
     final r = await _dio.post(
       '/admin/users/toddlers',
       data: {
-        if (email != null) 'email': email,
-        'password': password,
+        'email': email,
         'full_name': fullName,
+        'date_of_birth': dateOfBirth,
         'role': 'toddlers',
         if (phone != null) 'phone': phone,
       },
@@ -203,17 +203,17 @@ class AdminApi {
   }
 
   Future<Map<String, dynamic>> createDaycareUser({
-    String? email,
-    required String password,
+    required String email,
     required String fullName,
+    required String dateOfBirth,
     String? phone,
   }) async {
     final r = await _dio.post(
       '/admin/users/daycare',
       data: {
-        if (email != null) 'email': email,
-        'password': password,
+        'email': email,
         'full_name': fullName,
+        'date_of_birth': dateOfBirth,
         'role': 'daycare',
         if (phone != null) 'phone': phone,
       },

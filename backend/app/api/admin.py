@@ -56,16 +56,23 @@ def create_toddlers_user(
     full_name = (data.full_name or "").strip()
     if not full_name:
         raise HTTPException(status_code=400, detail="Full name is required")
-    if not (data.password or "").strip():
-        raise HTTPException(status_code=400, detail="Password is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required for toddlers login")
+    if not data.date_of_birth:
+        raise HTTPException(status_code=400, detail="Date of birth is required for toddlers login")
+    try:
+        dob = date.fromisoformat(data.date_of_birth.strip())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     if email and db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=email,
-        password_hash=get_password_hash(data.password),
+        password_hash=None,  # Toddlers use email+DOB for login
         full_name=full_name,
         role=data.role,
         phone=phone,
+        date_of_birth=dob,
         is_active="true",
     )
     db.add(user)
@@ -77,6 +84,7 @@ def create_toddlers_user(
         full_name=user.full_name,
         role=user.role,
         phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         is_active=user.is_active,
     )
 
@@ -94,16 +102,23 @@ def create_daycare_user(
     full_name = (data.full_name or "").strip()
     if not full_name:
         raise HTTPException(status_code=400, detail="Full name is required")
-    if not (data.password or "").strip():
-        raise HTTPException(status_code=400, detail="Password is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required for daycare login")
+    if not data.date_of_birth:
+        raise HTTPException(status_code=400, detail="Date of birth is required for daycare login")
+    try:
+        dob = date.fromisoformat(data.date_of_birth.strip())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     if email and db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=email,
-        password_hash=get_password_hash(data.password),
+        password_hash=None,  # Daycare use email+DOB for login
         full_name=full_name,
         role=data.role,
         phone=phone,
+        date_of_birth=dob,
         is_active="true",
     )
     db.add(user)
@@ -115,6 +130,7 @@ def create_daycare_user(
         full_name=user.full_name,
         role=user.role,
         phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         is_active=user.is_active,
     )
 
@@ -411,6 +427,7 @@ def list_users(
                 full_name=u.full_name,
                 role=u.role,
                 phone=u.phone,
+                date_of_birth=u.date_of_birth.isoformat() if u.date_of_birth else None,
                 is_active=u.is_active,
                 branch_id=str(a.branch_id) if a else None,
                 branch_name=branch.name if branch else None,
@@ -429,6 +446,9 @@ def create_user(
 ):
     if data.role not in ("teacher", "coordinator", "bus_staff", "toddlers", "daycare"):
         raise HTTPException(status_code=400, detail="Role must be teacher, coordinator, bus_staff, toddlers, or daycare")
+    # Toddlers/daycare use dedicated endpoints; this is for staff only
+    if data.role in ("toddlers", "daycare"):
+        raise HTTPException(status_code=400, detail="Use /admin/users/toddlers or /admin/users/daycare for these roles")
     # Normalize empty strings to None to avoid unique constraint issues
     email = (data.email or "").strip() or None
     phone = (data.phone or "").strip() or None
@@ -456,6 +476,7 @@ def create_user(
         full_name=user.full_name,
         role=user.role,
         phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         is_active=user.is_active,
     )
 
@@ -515,6 +536,7 @@ def update_user(
         full_name=user.full_name,
         role=user.role,
         phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         is_active=user.is_active,
         branch_id=str(a.branch_id) if a else None,
         branch_name=branch.name if branch else None,
