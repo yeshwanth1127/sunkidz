@@ -21,7 +21,7 @@ class FeeReceiptPdf {
     'bank_transfer': 'Bank Transfer',
   };
 
-  /// Build and show a printable/shareable PDF receipt for a single payment.
+  /// Build and download a PDF receipt for a single payment.
   static Future<void> printReceipt({
     required Map<String, dynamic> payment,
     required Map<String, dynamic> feeData,
@@ -31,9 +31,9 @@ class FeeReceiptPdf {
     final receiptRef = (payment['id']?.toString() ?? '').isNotEmpty
         ? payment['id'].toString().substring(0, 8).toUpperCase()
         : 'RECEIPT';
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdfDoc,
-      name: 'Sunkidz_Fee_Receipt_$receiptRef.pdf',
+    await Printing.sharePdf(
+      bytes: pdfDoc,
+      filename: 'Sunkidz_Fee_Receipt_$receiptRef.pdf',
     );
   }
 
@@ -50,7 +50,18 @@ class FeeReceiptPdf {
 
     // Derived values
     final component = payment['component'] as String? ?? '';
-    final componentLabel = _componentLabels[component] ?? component;
+    String componentLabel = _componentLabels[component] ?? '';
+    if (componentLabel.isEmpty) {
+      // Look up label from custom_fields in feeData snapshot
+      final customFields = feeData['custom_fields'] as List? ?? [];
+      for (final cf in customFields) {
+        if (cf['key'] == component) {
+          componentLabel = cf['label'] as String? ?? component;
+          break;
+        }
+      }
+      if (componentLabel.isEmpty) componentLabel = component;
+    }
     final modeLabel = _modeLabels[payment['payment_mode']] ?? payment['payment_mode'] ?? '';
     final amountPaid = (payment['amount_paid'] as num?)?.toDouble() ?? 0.0;
     final paymentDateRaw = payment['payment_date'] as String?;
@@ -77,13 +88,20 @@ class FeeReceiptPdf {
     // Per-component details for history table
     final rows = [
       _feeRow('Advance Fees', feeData['advance_fees'], feeData['advance_fees_paid'],
-          feeData['advance_fees_balance']),
+        feeData['advance_fees_balance']),
       _feeRow('Term Fee 1', feeData['term_fee_1'], feeData['term_fee_1_paid'],
-          feeData['term_fee_1_balance']),
+        feeData['term_fee_1_balance']),
       _feeRow('Term Fee 2', feeData['term_fee_2'], feeData['term_fee_2_paid'],
-          feeData['term_fee_2_balance']),
+        feeData['term_fee_2_balance']),
       _feeRow('Term Fee 3', feeData['term_fee_3'], feeData['term_fee_3_paid'],
-          feeData['term_fee_3_balance']),
+        feeData['term_fee_3_balance']),
+      for (final cf in (feeData['custom_fields'] as List? ?? []))
+      _feeRow(
+        cf['label'] as String? ?? cf['key'] as String,
+        cf['amount'],
+        cf['paid'],
+        cf['balance'],
+      ),
     ];
 
     // Brand colours

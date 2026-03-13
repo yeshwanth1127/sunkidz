@@ -1237,10 +1237,19 @@ def get_staff_attendance_history(
 
 
 def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, payments: list[FeePayment]):
+    import json as _json
     advance_fees = float(fee_structure.advance_fees) if fee_structure else 0.0
     term_fee_1 = float(fee_structure.term_fee_1) if fee_structure else 0.0
     term_fee_2 = float(fee_structure.term_fee_2) if fee_structure else 0.0
     term_fee_3 = float(fee_structure.term_fee_3) if fee_structure else 0.0
+
+    # Load custom fields for this student
+    custom_fields = []
+    if fee_structure and fee_structure.custom_fields_json:
+        try:
+            custom_fields = _json.loads(fee_structure.custom_fields_json)
+        except Exception:
+            custom_fields = []
 
     paid = {
         "advance_fees": 0.0,
@@ -1248,11 +1257,14 @@ def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, pay
         "term_fee_2": 0.0,
         "term_fee_3": 0.0,
     }
+    for cf in custom_fields:
+        paid[cf["key"]] = 0.0
     for p in payments:
         if p.component in paid:
             paid[p.component] += float(p.amount_paid or 0.0)
 
-    total_due = advance_fees + term_fee_1 + term_fee_2 + term_fee_3
+    custom_total = sum(float(cf.get("amount", 0)) for cf in custom_fields)
+    total_due = advance_fees + term_fee_1 + term_fee_2 + term_fee_3 + custom_total
     total_paid = sum(paid.values())
 
     return {
@@ -1274,6 +1286,16 @@ def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, pay
         "term_fee_2_balance": max(term_fee_2 - paid["term_fee_2"], 0.0),
         "term_fee_3_balance": max(term_fee_3 - paid["term_fee_3"], 0.0),
         "total_balance": max(total_due - total_paid, 0.0),
+        "custom_fields": [
+            {
+                "key": cf["key"],
+                "label": cf["label"],
+                "amount": float(cf.get("amount", 0)),
+                "paid": paid.get(cf["key"], 0.0),
+                "balance": max(float(cf.get("amount", 0)) - paid.get(cf["key"], 0.0), 0.0),
+            }
+            for cf in custom_fields
+        ],
         "payments": [
             {
                 "id": str(p.id),
@@ -1332,6 +1354,26 @@ def upsert_student_fees(
     fee_structure.term_fee_2 = float(body.get("term_fee_2", fee_structure.term_fee_2 or 0.0))
     fee_structure.term_fee_3 = float(body.get("term_fee_3", fee_structure.term_fee_3 or 0.0))
 
+    # Persist custom fields when provided
+    if "custom_fields" in body:
+        import json as _json, re as _re
+        raw_cf = body["custom_fields"] or []
+        reserved = {"advance_fees", "term_fee_1", "term_fee_2", "term_fee_3"}
+        validated = []
+        seen_keys = set()
+        for cf in raw_cf:
+            key = str(cf.get("key", "")).strip()
+            label = str(cf.get("label", "")).strip()
+            if not key or not label:
+                continue
+            if not _re.match(r'^[a-z0-9_]+$', key) or key in reserved:
+                continue
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            validated.append({"key": key, "label": label, "amount": float(cf.get("amount", 0))})
+        fee_structure.custom_fields_json = _json.dumps(validated)
+
     db.commit()
     db.refresh(fee_structure)
     
@@ -1366,6 +1408,15 @@ def record_student_fee_payment(
     payment_mode = str(body.get("payment_mode", "")).strip()
 
     allowed_components = {"advance_fees", "term_fee_1", "term_fee_2", "term_fee_3"}
+    # Also allow custom field keys for this student
+    _fee_struct_check = db.query(FeeStructure).filter(FeeStructure.student_id == student_id).first()
+    if _fee_struct_check and _fee_struct_check.custom_fields_json:
+        import json as _json
+        try:
+            _cfs = _json.loads(_fee_struct_check.custom_fields_json)
+            allowed_components = allowed_components | {cf["key"] for cf in _cfs}
+        except Exception:
+            pass
     if component not in allowed_components:
         raise HTTPException(status_code=400, detail="Invalid fee component")
     try:
@@ -1470,11 +1521,19 @@ def push_fee_receipt_to_parent(
     all_payments = db.query(FeePayment).filter(FeePayment.student_id == student_id).all()
     fees_detail = _build_fees_detail(student, fee_structure, all_payments)
 
+    # Add custom field labels so the receipt label is correct
+    for cf in fees_detail.get('custom_fields', []):
+        _component_labels[cf['key']] = cf['label']
+
     # Check if receipt already pushed for this payment
     existing = db.query(FeeReceipt).filter(FeeReceipt.payment_id == payment_id).first()
     if existing:
-        db.delete(existing)
-        db.flush()
+        return {
+            "ok": False,
+            "already_sent": True,
+            "receipt_id": str(existing.id),
+            "message": "Receipt has already been sent to the parent dashboard.",
+        }
 
     receipt = FeeReceipt(
         student_id=student_id,
@@ -1488,14 +1547,17 @@ def push_fee_receipt_to_parent(
         payment_date=payment.payment_date,
         receipt_ref=str(payment.id)[:8].upper(),
         fee_data_json=json.dumps({
-            k: fees_detail[k]
-            for k in (
-                'total_due', 'total_paid', 'total_balance',
-                'advance_fees', 'advance_fees_paid', 'advance_fees_balance',
-                'term_fee_1', 'term_fee_1_paid', 'term_fee_1_balance',
-                'term_fee_2', 'term_fee_2_paid', 'term_fee_2_balance',
-                'term_fee_3', 'term_fee_3_paid', 'term_fee_3_balance',
-            ) if k in fees_detail
+            **{
+                k: fees_detail[k]
+                for k in (
+                    'total_due', 'total_paid', 'total_balance',
+                    'advance_fees', 'advance_fees_paid', 'advance_fees_balance',
+                    'term_fee_1', 'term_fee_1_paid', 'term_fee_1_balance',
+                    'term_fee_2', 'term_fee_2_paid', 'term_fee_2_balance',
+                    'term_fee_3', 'term_fee_3_paid', 'term_fee_3_balance',
+                ) if k in fees_detail
+            },
+            'custom_fields': fees_detail.get('custom_fields', []),
         }),
     )
     db.add(receipt)

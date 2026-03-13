@@ -380,6 +380,16 @@ class _AdminFeeManagementScreenState
               _feeData!['term_fee_3'] ?? 0.0,
               _feeData!['term_fee_3_paid'] ?? 0.0,
             ),
+            ...(_feeData!['custom_fields'] as List? ?? []).map((cf) => Column(
+              children: [
+                const SizedBox(height: 16),
+                _buildFeeCard(
+                  cf['label'] as String? ?? cf['key'] as String,
+                  (cf['amount'] as num?)?.toDouble() ?? 0.0,
+                  (cf['paid'] as num?)?.toDouble() ?? 0.0,
+                ),
+              ],
+            )),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => _showSetupFeeStructure(),
@@ -428,8 +438,19 @@ class _AdminFeeManagementScreenState
         .cast<Map<String, dynamic>>();
 
     // Group by component
+    final customFields = (_feeData!['custom_fields'] as List? ?? []).cast<Map<String, dynamic>>();
+    final allComponentKeys = [
+      ..._componentKeys,
+      ...customFields.map((cf) => cf['key'] as String),
+    ];
+    final allLabels = {
+      ..._componentLabels,
+      for (final cf in customFields) cf['key'] as String: cf['label'] as String,
+    };
+
+    // Group by component
     final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final key in _componentKeys) {
+    for (final key in allComponentKeys) {
       grouped[key] = allPayments.where((p) => p['component'] == key).toList();
     }
 
@@ -449,13 +470,13 @@ class _AdminFeeManagementScreenState
               ),
         ),
         const SizedBox(height: 8),
-        ..._componentKeys.map((comp) {
+        ...allComponentKeys.map((comp) {
           final compPayments = grouped[comp] ?? [];
           final totalPaid = compPayments.fold<double>(
             0.0,
             (sum, p) => sum + ((p['amount_paid'] as num?)?.toDouble() ?? 0.0),
           );
-          final label = _componentLabels[comp] ?? comp;
+          final label = allLabels[comp] ?? comp;
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
             elevation: 2,
@@ -580,11 +601,12 @@ class _AdminFeeManagementScreenState
       final result = await api.sendFeeReceipt(_selectedStudentId!, paymentId);
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        final sent = result['sent'] == true;
+        final sent = result['ok'] == true && result['already_sent'] != true;
+        final alreadySent = result['already_sent'] == true;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? (sent ? 'Receipt sent' : 'Failed to send')),
-            backgroundColor: sent ? Colors.green : Colors.orange,
+            backgroundColor: sent ? Colors.green : (alreadySent ? Colors.orange[700] : Colors.orange),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -639,7 +661,7 @@ class _AdminFeeManagementScreenState
             const SizedBox(height: 4),
             Text(
               '₹${((payment['amount_paid'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)} — '
-              '${_componentLabels[payment['component']] ?? payment['component']}',
+              '${_getComponentLabel(payment['component'] as String? ?? '')}',
               style: TextStyle(color: Colors.grey[700], fontSize: 13),
             ),
             const Divider(height: 24),
@@ -741,10 +763,30 @@ class _AdminFeeManagementScreenState
               'Term Fee 3',
               _feeData!['term_fee_3_balance']?.toStringAsFixed(2) ?? '0.00',
             ),
+            ...(_feeData!['custom_fields'] as List? ?? []).map((cf) =>
+              _buildBalanceItem(
+                cf['label'] as String? ?? cf['key'] as String,
+                ((cf['balance'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+  String _getComponentLabel(String component) {
+    const standard = {
+      'advance_fees': 'Advance Fees',
+      'term_fee_1': 'Term Fee 1',
+      'term_fee_2': 'Term Fee 2',
+      'term_fee_3': 'Term Fee 3',
+    };
+    if (standard.containsKey(component)) return standard[component]!;
+    final custom = (_feeData?['custom_fields'] as List? ?? [])
+        .cast<Map<String, dynamic>>()
+        .where((cf) => cf['key'] == component)
+        .firstOrNull;
+    return custom?['label'] as String? ?? component;
   }
 
   Widget _buildFeeCard(String title, double amount, double paid) {
@@ -840,6 +882,7 @@ class _AdminFeeManagementScreenState
       context: context,
       builder: (dialogContext) => RecordPaymentDialog(
         studentId: _selectedStudentId!,
+        feeData: _feeData,
         onSaved: (savedPayment) async {
           await _loadFees();
           if (mounted) {
@@ -877,6 +920,12 @@ class _SetupFeeStructureDialogState
   late TextEditingController _term3Controller;
   bool _saving = false;
 
+  // Custom fields: each entry has {key, label, ctrl (TextEditingController)}
+  late List<Map<String, dynamic>> _customFields;
+  bool _addingField = false;
+  final _newLabelCtrl = TextEditingController();
+  final _newAmountCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -892,6 +941,17 @@ class _SetupFeeStructureDialogState
     _term3Controller = TextEditingController(
       text: (widget.existingData?['term_fee_3'] ?? 0.0).toStringAsFixed(2),
     );
+    final rawCustom = (widget.existingData?['custom_fields'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
+    _customFields = rawCustom.map((cf) {
+      return <String, dynamic>{
+        'key': cf['key'] as String,
+        'label': cf['label'] as String,
+        'ctrl': TextEditingController(
+          text: ((cf['amount'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
+        ),
+      };
+    }).toList();
   }
 
   @override
@@ -900,7 +960,42 @@ class _SetupFeeStructureDialogState
     _term1Controller.dispose();
     _term2Controller.dispose();
     _term3Controller.dispose();
+    _newLabelCtrl.dispose();
+    _newAmountCtrl.dispose();
+    for (final cf in _customFields) {
+      (cf['ctrl'] as TextEditingController).dispose();
+    }
     super.dispose();
+  }
+
+  void _addField() {
+    final label = _newLabelCtrl.text.trim();
+    if (label.isEmpty) return;
+    final key = label
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    if (key.isEmpty) return;
+    if (_customFields.any((cf) => cf['key'] == key)) return;
+    setState(() {
+      _customFields.add({
+        'key': key,
+        'label': label,
+        'ctrl': TextEditingController(
+          text: (double.tryParse(_newAmountCtrl.text) ?? 0.0).toStringAsFixed(2),
+        ),
+      });
+      _addingField = false;
+      _newLabelCtrl.clear();
+      _newAmountCtrl.clear();
+    });
+  }
+
+  void _removeField(int index) {
+    setState(() {
+      final cf = _customFields.removeAt(index);
+      (cf['ctrl'] as TextEditingController).dispose();
+    });
   }
 
   @override
@@ -910,42 +1005,115 @@ class _SetupFeeStructureDialogState
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              'Standard Fees',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _advanceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Advance Fees',
-                prefixText: '₹ ',
-              ),
+              decoration: const InputDecoration(labelText: 'Advance Fees', prefixText: '₹ '),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _term1Controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Term Fee 1',
-                prefixText: '₹ ',
-              ),
+              decoration: const InputDecoration(labelText: 'Term Fee 1', prefixText: '₹ '),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _term2Controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Term Fee 2',
-                prefixText: '₹ ',
-              ),
+              decoration: const InputDecoration(labelText: 'Term Fee 2', prefixText: '₹ '),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _term3Controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Term Fee 3',
-                prefixText: '₹ ',
-              ),
+              decoration: const InputDecoration(labelText: 'Term Fee 3', prefixText: '₹ '),
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Custom Fees',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() => _addingField = !_addingField),
+                  icon: Icon(_addingField ? Icons.close : Icons.add, size: 16),
+                  label: Text(_addingField ? 'Cancel' : 'Add Field'),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                ),
+              ],
+            ),
+            ..._customFields.asMap().entries.map((entry) {
+              final i = entry.key;
+              final cf = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(cf['label'] as String, style: const TextStyle(fontSize: 14)),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 100,
+                      child: TextField(
+                        controller: cf['ctrl'] as TextEditingController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          prefixText: '₹ ',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      onPressed: () => _removeField(i),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (_addingField) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _newLabelCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Field Name (e.g. Bus Fee)',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _newAmountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '₹ ',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _addField,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Add', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -979,13 +1147,19 @@ class _SetupFeeStructureDialogState
 
     setState(() => _saving = true);
     try {
+      final customPayload = _customFields.map((cf) => {
+        'key': cf['key'] as String,
+        'label': cf['label'] as String,
+        'amount': double.tryParse((cf['ctrl'] as TextEditingController).text) ?? 0.0,
+      }).toList();
       await api!.updateStudentFees!(
         widget.studentId,
         {
-          'advance_fees': double.parse(_advanceController.text),
-          'term_fee_1': double.parse(_term1Controller.text),
-          'term_fee_2': double.parse(_term2Controller.text),
-          'term_fee_3': double.parse(_term3Controller.text),
+          'advance_fees': double.tryParse(_advanceController.text) ?? 0.0,
+          'term_fee_1': double.tryParse(_term1Controller.text) ?? 0.0,
+          'term_fee_2': double.tryParse(_term2Controller.text) ?? 0.0,
+          'term_fee_3': double.tryParse(_term3Controller.text) ?? 0.0,
+          'custom_fields': customPayload,
         },
       );
       widget.onSaved();
@@ -996,14 +1170,10 @@ class _SetupFeeStructureDialogState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 }
@@ -1012,10 +1182,12 @@ class RecordPaymentDialog extends ConsumerStatefulWidget {
   const RecordPaymentDialog({
     super.key,
     required this.studentId,
+    this.feeData,
     required this.onSaved,
   });
 
   final String studentId;
+  final Map<String, dynamic>? feeData;
   final Future<void> Function(Map<String, dynamic> savedPayment) onSaved;
 
   @override
@@ -1028,6 +1200,22 @@ class _RecordPaymentDialogState extends ConsumerState<RecordPaymentDialog> {
   String _selectedComponent = 'advance_fees';
   String _selectedMode = 'cash';
   bool _saving = false;
+
+  List<DropdownMenuItem<String>> get _componentItems {
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(value: 'advance_fees', child: Text('Advance Fees')),
+      const DropdownMenuItem(value: 'term_fee_1', child: Text('Term Fee 1')),
+      const DropdownMenuItem(value: 'term_fee_2', child: Text('Term Fee 2')),
+      const DropdownMenuItem(value: 'term_fee_3', child: Text('Term Fee 3')),
+    ];
+    for (final cf in (widget.feeData?['custom_fields'] as List? ?? [])) {
+      items.add(DropdownMenuItem<String>(
+        value: cf['key'] as String,
+        child: Text(cf['label'] as String? ?? cf['key'] as String),
+      ));
+    }
+    return items;
+  }
 
   @override
   void initState() {
@@ -1051,16 +1239,9 @@ class _RecordPaymentDialogState extends ConsumerState<RecordPaymentDialog> {
           children: [
             DropdownButtonFormField<String>(
               value: _selectedComponent,
-              items: const [
-                DropdownMenuItem(value: 'advance_fees', child: Text('Advance Fees')),
-                DropdownMenuItem(value: 'term_fee_1', child: Text('Term Fee 1')),
-                DropdownMenuItem(value: 'term_fee_2', child: Text('Term Fee 2')),
-                DropdownMenuItem(value: 'term_fee_3', child: Text('Term Fee 3')),
-              ],
+              items: _componentItems,
               onChanged: (value) {
-                if (value != null) {
-                  setState(() => _selectedComponent = value);
-                }
+                if (value != null) setState(() => _selectedComponent = value);
               },
               decoration: const InputDecoration(labelText: 'Fee Component'),
             ),
