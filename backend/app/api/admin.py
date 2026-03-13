@@ -384,15 +384,16 @@ def update_class(
     return ClassResponse(id=str(cls.id), branch_id=str(cls.branch_id), name=cls.name, academic_year=cls.academic_year)
 
 
-# --- Users (Teachers, Coordinators, Bus Staff) ---
+# --- Users (Teachers, Coordinators, Bus Staff, Toddlers, Daycare) ---
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
-    role: str | None = Query(None, description="teacher, coordinator, bus_staff"),
+    role: str | None = Query(None, description="teacher, coordinator, bus_staff, toddlers, daycare"),
     branch_id: UUID | None = Query(None),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    q = db.query(User).filter(User.role.in_(["teacher", "coordinator", "bus_staff"]))
+    allowed_roles = ["teacher", "coordinator", "bus_staff", "toddlers", "daycare"]
+    q = db.query(User).filter(User.role.in_(allowed_roles))
     if role:
         q = q.filter(User.role == role)
     users = q.all()
