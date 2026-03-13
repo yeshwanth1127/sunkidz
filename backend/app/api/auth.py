@@ -13,6 +13,30 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=TokenResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
+    # Toddlers/Daycare login: email + date_of_birth (same toggle as parent, different field)
+    if request.email and request.date_of_birth and not (request.password or "").strip():
+        user = db.query(User).filter(User.email == request.email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or date of birth")
+        if user.role not in ("toddlers", "daycare"):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or date of birth")
+        try:
+            dob = date.fromisoformat(request.date_of_birth.strip())
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date format. Use YYYY-MM-DD")
+        if not user.date_of_birth or user.date_of_birth != dob:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or date of birth")
+        if user.is_active != "true":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account inactive")
+        token = create_access_token(data={"sub": str(user.id), "role": user.role})
+        return TokenResponse(
+            access_token=token,
+            user_id=str(user.id),
+            role=user.role,
+            branch_id=None,
+            class_id=None,
+        )
+
     # Parent login: admission_number + date_of_birth
     if request.admission_number and request.date_of_birth:
         student = db.query(Student).filter(

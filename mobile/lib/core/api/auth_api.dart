@@ -18,11 +18,15 @@ class AuthApi {
     if (admissionNumber != null && dateOfBirth != null) {
       body['admission_number'] = admissionNumber;
       body['date_of_birth'] = dateOfBirth;
+    } else if (email != null && dateOfBirth != null && (password == null || password.isEmpty)) {
+      // Toddlers/Daycare: email + DOB
+      body['email'] = email;
+      body['date_of_birth'] = dateOfBirth;
     } else if (email != null && password != null) {
       body['email'] = email;
       body['password'] = password;
     } else {
-      throw Exception('Provide either (email, password) or (admission_number, date_of_birth)');
+      throw Exception('Provide (email, password), (admission_number, date_of_birth), or (email, date_of_birth)');
     }
     final response = await _dio.post(
       '${ApiConfig.apiPrefix}/auth/login',

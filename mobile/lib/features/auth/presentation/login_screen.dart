@@ -33,7 +33,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (status == 401) {
         return _isParentLogin
-            ? 'Invalid admission number or date of birth.'
+            ? 'Invalid admission number/email or date of birth.'
             : 'Invalid email or password.';
       }
       if (status == 403) {
@@ -47,7 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     return _isParentLogin
-        ? 'Login failed. Check admission number and date of birth (YYYY-MM-DD).'
+        ? 'Login failed. Check admission number/email and date of birth (YYYY-MM-DD).'
         : 'Login failed. Check credentials and server.';
   }
 
@@ -69,13 +69,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       Map<String, dynamic> data;
 
       if (_isParentLogin) {
-        // Parent login: admission_number + date_of_birth
-        final admissionNumber = _emailController.text.trim();
+        // Parent or Toddlers/Daycare: first field = admission_number or email, second = date_of_birth
+        final field1 = _emailController.text.trim();
         final dateOfBirth = _passwordController.text.trim();
-        data = await api.login(
-          admissionNumber: admissionNumber,
-          dateOfBirth: dateOfBirth,
-        );
+        if (field1.contains('@')) {
+          // Toddlers/Daycare: email + DOB
+          data = await api.login(email: field1, dateOfBirth: dateOfBirth);
+        } else {
+          // Parent: admission_number + DOB
+          data = await api.login(admissionNumber: field1, dateOfBirth: dateOfBirth);
+        }
       } else {
         // Staff login: email + password
         final email = _emailController.text.trim();
@@ -125,6 +128,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return UserRole.parent;
       case 'bus_staff':
         return UserRole.busStaff;
+      case 'toddlers':
+        return UserRole.toddlers;
+      case 'daycare':
+        return UserRole.daycare;
       default:
         return UserRole.admin;
     }
@@ -255,7 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 : [],
                           ),
                           child: Text(
-                            'Parent',
+                            'Parent / Toddlers',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontWeight: _isParentLogin
@@ -290,7 +297,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
-                  labelText: _isParentLogin ? 'Admission Number' : 'Email',
+                  labelText: _isParentLogin ? 'Admission Number or Email' : 'Email',
                   prefixIcon: Icon(
                     _isParentLogin
                         ? Icons.badge_outlined

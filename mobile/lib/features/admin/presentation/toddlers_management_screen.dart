@@ -84,7 +84,7 @@ class _ToddlersManagementScreenState extends ConsumerState<ToddlersManagementScr
                     child: ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.child_care)),
                       title: Text(_users[i]['full_name'] ?? ''),
-                      subtitle: Text(_users[i]['email'] ?? ''),
+                      subtitle: Text('${_users[i]['email'] ?? ''}${(_users[i]['date_of_birth'] != null) ? ' • DOB: ${_users[i]['date_of_birth']}' : ''}'),
                     ),
                   ),
                 ),
@@ -104,18 +104,31 @@ class _AddToddlersUserSheet extends StatefulWidget {
 class _AddToddlersUserSheetState extends State<_AddToddlersUserSheet> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
+  final _dobCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
 
   Future<void> _save() async {
-    setState(() => _loading = true);
+    final email = _emailCtrl.text.trim();
+    final dob = _dobCtrl.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = 'Email is required for login');
+      return;
+    }
+    if (dob.isEmpty) {
+      setState(() => _error = 'Date of birth is required for login');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       await widget.api.createToddlersUser(
         fullName: _nameCtrl.text.trim(),
-        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
+        email: email,
+        dateOfBirth: dob,
         phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       );
       widget.onSaved();
@@ -139,11 +152,11 @@ class _AddToddlersUserSheetState extends State<_AddToddlersUserSheet> {
             children: [
               Text('Add Toddlers User', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
-              TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name')),
+              TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name *')),
               const SizedBox(height: 8),
-              TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
+              TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email * (login)'), keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 8),
-              TextField(controller: _passCtrl, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
+              TextField(controller: _dobCtrl, decoration: const InputDecoration(labelText: 'Date of Birth * (YYYY-MM-DD, for login)')),
               const SizedBox(height: 8),
               TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone')),
               const SizedBox(height: 16),
