@@ -39,4 +39,18 @@ class ParentApi {
     final r = await _dio.get('/parent/receipts');
     return r.data as Map<String, dynamic>;
   }
+
+  /// Daycare daily updates for parent's children
+  Future<List<Map<String, dynamic>>> getDaycareDailyUpdates({
+    String? studentId,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    final params = <String, String>{};
+    if (studentId != null) params['student_id'] = studentId;
+    if (fromDate != null) params['from_date'] = fromDate;
+    if (toDate != null) params['to_date'] = toDate;
+    final r = await _dio.get('/daycare/parent/updates', queryParameters: params);
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
 }

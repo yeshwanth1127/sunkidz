@@ -44,6 +44,7 @@ dependencies:
   latlong2: ^0.9.1
   permission_handler: ^11.0.0
   file_picker: ^8.0.0
+  image_picker: ^1.0.7
   url_launcher: ^6.3.1
   fl_chart: ^0.69.0
   lottie: ^3.1.0

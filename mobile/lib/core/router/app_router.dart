@@ -16,9 +16,14 @@ import '../../features/teacher/presentation/teacher_marks_screen.dart';
 import '../../features/teacher/presentation/teacher_marks_entry_screen.dart';
 import '../../features/dashboard/presentation/parent_dashboard_screen.dart';
 import '../../features/parent/presentation/parent_bus_tracking_screen.dart';
+import '../../features/parent/presentation/parent_daycare_updates_screen.dart';
 import '../../features/parent/presentation/parent_attendance_screen.dart';
 import '../../features/parent/presentation/parent_marks_cards_screen.dart';
 import '../../features/dashboard/presentation/bus_staff_dashboard_screen.dart';
+import '../../features/dashboard/presentation/toddler_dashboard_screen.dart';
+import '../../features/dashboard/presentation/daycare_dashboard_screen.dart';
+import '../../features/dashboard/presentation/toddler_daycare_gallery_screen.dart';
+import '../../features/daycare/presentation/daycare_daily_updates_screen.dart';
 import '../../features/branches/presentation/branch_list_screen.dart';
 import '../../features/admin/presentation/staff_management_screen.dart';
 import '../../features/admin/presentation/toddlers_management_screen.dart';
@@ -81,6 +86,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (loc.startsWith('/bus-staff') && role != UserRole.busStaff) {
         return roleHome;
       }
+      if (loc.startsWith('/toddler') && role != UserRole.toddlers) return roleHome;
+      if (loc.startsWith('/daycare') && role != UserRole.daycare) return roleHome;
 
       // These top-level routes are admin-only in this app.
       const adminOnlyRoots = {
@@ -226,6 +233,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ParentBusTrackingScreen(),
           ),
           GoRoute(
+            path: 'daycare-updates',
+            builder: (_, __) => const ParentDaycareUpdatesScreen(),
+          ),
+          GoRoute(
             path: 'attendance',
             builder: (_, state) {
               final extra = state.extra as Map<String, dynamic>?;
@@ -260,6 +271,54 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/bus-staff',
         builder: (_, __) => const BusStaffDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/toddler',
+        builder: (_, __) => const ToddlerDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'syllabus',
+            builder: (_, __) => const SyllabusListScreen(),
+          ),
+          GoRoute(
+            path: 'homework',
+            builder: (_, __) => const HomeworkListScreen(),
+          ),
+          GoRoute(
+            path: 'gallery',
+            builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: true),
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (_, __) => const SettingsScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/daycare',
+        builder: (_, __) => const DaycareDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'syllabus',
+            builder: (_, __) => const SyllabusListScreen(),
+          ),
+          GoRoute(
+            path: 'homework',
+            builder: (_, __) => const HomeworkListScreen(),
+          ),
+          GoRoute(
+            path: 'gallery',
+            builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: false),
+          ),
+          GoRoute(
+            path: 'daily-updates',
+            builder: (_, __) => const DaycareDailyUpdatesScreen(),
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (_, __) => const SettingsScreen(),
+          ),
+        ],
       ),
       GoRoute(path: '/branches', builder: (_, __) => const BranchListScreen()),
       GoRoute(
@@ -327,6 +386,10 @@ String _homeForRole(UserRole? role) {
       return '/parent';
     case UserRole.busStaff:
       return '/bus-staff';
+    case UserRole.toddlers:
+      return '/toddler';
+    case UserRole.daycare:
+      return '/daycare';
     default:
       return '/login';
   }
