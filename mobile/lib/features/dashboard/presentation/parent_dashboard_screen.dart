@@ -132,9 +132,20 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
         final children = List<Map<String, dynamic>>.from(
           res['children'] as List? ?? [],
         );
+        // Restore the previously selected child if still in the list, so
+        // navigating away and back doesn't flip to a different kid.
+        final savedId = ref.read(selectedChildProvider)?['id'] as String?;
+        Map<String, dynamic>? newSelection;
+        if (savedId != null) {
+          newSelection = children.where((c) => c['id'] == savedId).firstOrNull;
+        }
+        newSelection ??= children.isNotEmpty ? children[0] : null;
+        if (newSelection != null) {
+          ref.read(selectedChildProvider.notifier).state = newSelection;
+        }
         setState(() {
           _children = children;
-          _selectedChild = children.isNotEmpty ? children[0] : null;
+          _selectedChild = newSelection;
           _loadingChildren = false;
         });
         _loadHomework();
@@ -332,7 +343,6 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
         ],
       ),
       drawer: Drawer(
@@ -457,10 +467,21 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               title: const Text('Fees'),
               onTap: () {
                 Navigator.pop(context);
-                // Already on home showing fees
+                if (_selectedChild != null) {
+                  context.push(
+                    '/parent/fees',
+                    extra: {'student': _selectedChild, 'feeData': _feeData},
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select a student first'),
+                    ),
+                  );
+                }
               },
             ),
-            if (_hasBusAccess)
+              if (_hasBusAccess)
               ListTile(
                 leading: Icon(Icons.directions_bus, color: Colors.blue),
                 title: const Text('Bus Tracking'),
@@ -1091,73 +1112,53 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                                       hw.title,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                                        fontSize: 14,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    Text(
-                                      'Assigned: ${DateFormat('MMM dd, yyyy').format(hw.uploadDate)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
+                                    const SizedBox(height: 4),
+                                    if (hw.dueDate != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: hw.dueDate!.isBefore(DateTime.now())
+                                              ? Colors.red.withValues(alpha: 0.1)
+                                              : Colors.blue.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 12,
+                                              color: hw.dueDate!.isBefore(DateTime.now())
+                                                  ? Colors.red
+                                                  : Colors.blue,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Due: ${DateFormat('MMM dd').format(hw.dueDate!)}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: hw.dueDate!.isBefore(DateTime.now())
+                                                    ? Colors.red
+                                                    : Colors.blue,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
                                   ],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          if (hw.description != null &&
-                              hw.description!.isNotEmpty)
-                            Text(
-                              hw.description!,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade700,
-                              ),
-                            ),
-                          const Spacer(),
-                          if (hw.dueDate != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: hw.dueDate!.isBefore(DateTime.now())
-                                    ? Colors.red.withValues(alpha: 0.1)
-                                    : Colors.blue.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today,
-                                    size: 12,
-                                    color: hw.dueDate!.isBefore(DateTime.now())
-                                        ? Colors.red
-                                        : Colors.blue,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Due: ${DateFormat('MMM dd').format(hw.dueDate!)}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          hw.dueDate!.isBefore(DateTime.now())
-                                          ? Colors.red
-                                          : Colors.blue,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           const SizedBox(height: 8),
                           FilledButton.icon(
                             onPressed: () => context.push('/parent/homework'),

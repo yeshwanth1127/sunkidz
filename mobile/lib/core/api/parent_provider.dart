@@ -8,3 +8,6 @@ final parentApiProvider = Provider<ParentApi?>((ref) {
   if (auth.role != UserRole.parent) return null;
   return ParentApi(auth.token!);
 });
+
+/// Persists which child is selected in the parent dashboard across widget rebuilds.
+final selectedChildProvider = StateProvider<Map<String, dynamic>?>((ref) => null);

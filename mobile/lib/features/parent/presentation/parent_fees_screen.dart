@@ -237,6 +237,17 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
           _feeData!['term_fee_3_paid'] ?? 0.0,
           _feeData!['term_fee_3_balance'] ?? 0.0,
         ),
+        ...(_feeData!['custom_fields'] as List? ?? []).map((cf) => Column(
+          children: [
+            const SizedBox(height: 12),
+            _buildFeeComponentCard(
+              cf['label'] as String? ?? cf['key'] as String,
+              (cf['amount'] as num?)?.toDouble() ?? 0.0,
+              (cf['paid'] as num?)?.toDouble() ?? 0.0,
+              (cf['balance'] as num?)?.toDouble() ?? 0.0,
+            ),
+          ],
+        )),
       ],
     );
   }
@@ -359,10 +370,20 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
     }
 
     // Group by component
+    final customFields = (_feeData!['custom_fields'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
+    final allComponentKeys = [
+      ..._componentKeys,
+      ...customFields.map((cf) => cf['key'] as String),
+    ];
+    final allLabels = {
+      ..._componentLabels,
+      for (final cf in customFields) cf['key'] as String: cf['label'] as String,
+    };
+    // Group by component
     final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final key in _componentKeys) {
-      grouped[key] =
-          allPayments.where((p) => p['component'] == key).toList();
+    for (final key in allComponentKeys) {
+      grouped[key] = allPayments.where((p) => p['component'] == key).toList();
     }
 
     return Column(
@@ -373,7 +394,7 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ..._componentKeys.map((comp) {
+        ...allComponentKeys.map((comp) {
           final compPayments = grouped[comp] ?? [];
           if (compPayments.isEmpty) return const SizedBox.shrink();
           final totalPaid = compPayments.fold<double>(
@@ -381,7 +402,7 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
             (sum, p) =>
                 sum + ((p['amount_paid'] as num?)?.toDouble() ?? 0.0),
           );
-          final label = _componentLabels[comp] ?? comp;
+          final label = allLabels[comp] ?? comp;
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
             elevation: 1,

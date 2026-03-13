@@ -12,10 +12,18 @@ router = APIRouter(prefix="/parent", tags=["parent"])
 
 
 def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, payments: list[FeePayment]):
+    import json as _json
     advance_fees = float(fee_structure.advance_fees) if fee_structure else 0.0
     term_fee_1 = float(fee_structure.term_fee_1) if fee_structure else 0.0
     term_fee_2 = float(fee_structure.term_fee_2) if fee_structure else 0.0
     term_fee_3 = float(fee_structure.term_fee_3) if fee_structure else 0.0
+
+    custom_fields = []
+    if fee_structure and fee_structure.custom_fields_json:
+        try:
+            custom_fields = _json.loads(fee_structure.custom_fields_json)
+        except Exception:
+            custom_fields = []
 
     paid = {
         "advance_fees": 0.0,
@@ -23,11 +31,14 @@ def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, pay
         "term_fee_2": 0.0,
         "term_fee_3": 0.0,
     }
+    for cf in custom_fields:
+        paid[cf["key"]] = 0.0
     for p in payments:
         if p.component in paid:
             paid[p.component] += float(p.amount_paid or 0.0)
 
-    total_due = advance_fees + term_fee_1 + term_fee_2 + term_fee_3
+    custom_total = sum(float(cf.get("amount", 0)) for cf in custom_fields)
+    total_due = advance_fees + term_fee_1 + term_fee_2 + term_fee_3 + custom_total
     total_paid = sum(paid.values())
 
     return {
@@ -49,6 +60,16 @@ def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, pay
         "term_fee_2_balance": max(term_fee_2 - paid["term_fee_2"], 0.0),
         "term_fee_3_balance": max(term_fee_3 - paid["term_fee_3"], 0.0),
         "total_balance": max(total_due - total_paid, 0.0),
+        "custom_fields": [
+            {
+                "key": cf["key"],
+                "label": cf["label"],
+                "amount": float(cf.get("amount", 0)),
+                "paid": paid.get(cf["key"], 0.0),
+                "balance": max(float(cf.get("amount", 0)) - paid.get(cf["key"], 0.0), 0.0),
+            }
+            for cf in custom_fields
+        ],
         "payments": [
             {
                 "id": str(p.id),
@@ -74,7 +95,7 @@ def get_my_children(
     if not student_ids:
         return {"children": []}
     
-    students = db.query(Student).filter(Student.id.in_(student_ids)).all()
+    students = db.query(Student).filter(Student.id.in_(student_ids)).order_by(Student.name).all()
     result = []
     for s in students:
         branch_name = None
