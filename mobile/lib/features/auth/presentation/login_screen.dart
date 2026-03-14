@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/api/auth_api.dart';
 import '../../../shared/widgets/sunkidz_logo.dart';
+import '../../../shared/widgets/animated_starry_background.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -77,7 +78,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           data = await api.login(email: field1, dateOfBirth: dateOfBirth);
         } else {
           // Parent: admission_number + DOB
-          data = await api.login(admissionNumber: field1, dateOfBirth: dateOfBirth);
+          data = await api.login(
+            admissionNumber: field1,
+            dateOfBirth: dateOfBirth,
+          );
         }
       } else {
         // Staff login: email + password
@@ -161,193 +165,200 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(flex: 2),
-              const Center(child: SunkidzLogo(size: 120, showText: false)),
-              const SizedBox(height: 24),
-              Text(
-                'Sign in to continue',
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              // Login type selector
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+      backgroundColor: Colors.transparent,
+      body: AnimatedStarryBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Spacer(flex: 2),
+                const Center(child: SunkidzLogo(size: 120, showText: false)),
+                const SizedBox(height: 24),
+                Text(
+                  'Sign in to continue',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
                 ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isParentLogin = false;
-                            _emailController.clear();
-                            _passwordController.clear();
-                            _errorMessage = null;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: !_isParentLogin
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: !_isParentLogin
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          child: Text(
-                            'Staff',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: !_isParentLogin
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              color: !_isParentLogin
-                                  ? AppColors.primary
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isParentLogin = true;
-                            _emailController.clear();
-                            _passwordController.clear();
-                            _errorMessage = null;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _isParentLogin
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: _isParentLogin
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          child: Text(
-                            'Parent / Toddlers',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: _isParentLogin
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              color: _isParentLogin
-                                  ? AppColors.primary
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                // Login type selector
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red.shade700, fontSize: 14),
-                  ),
-                ),
-              ],
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: _isParentLogin ? 'Admission Number or Email' : 'Email',
-                  prefixIcon: Icon(
-                    _isParentLogin
-                        ? Icons.badge_outlined
-                        : Icons.person_outline,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: _isParentLogin ? 'Date of Birth' : 'Password',
-                  prefixIcon: Icon(
-                    _isParentLogin ? Icons.cake_outlined : Icons.lock_outline,
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: Colors.grey,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 52,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _login,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isParentLogin = false;
+                              _emailController.clear();
+                              _passwordController.clear();
+                              _errorMessage = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: !_isParentLogin
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: !_isParentLogin
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                            child: Text(
+                              'Staff',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontWeight: !_isParentLogin
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: !_isParentLogin
+                                    ? AppColors.primary
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
                           ),
-                        )
-                      : const Text('Sign In'),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isParentLogin = true;
+                              _emailController.clear();
+                              _passwordController.clear();
+                              _errorMessage = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _isParentLogin
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _isParentLogin
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                            child: Text(
+                              'Parent / Toddlers',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontWeight: _isParentLogin
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: _isParentLogin
+                                    ? AppColors.primary
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Spacer(flex: 2),
-            ],
+                const Spacer(),
+                if (_errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: _isParentLogin
+                        ? 'Admission Number or Email'
+                        : 'Email',
+                    prefixIcon: Icon(
+                      _isParentLogin
+                          ? Icons.badge_outlined
+                          : Icons.person_outline,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: _isParentLogin ? 'Date of Birth' : 'Password',
+                    prefixIcon: Icon(
+                      _isParentLogin ? Icons.cake_outlined : Icons.lock_outline,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: _isLoading ? null : _login,
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Sign In'),
+                  ),
+                ),
+                const Spacer(flex: 2),
+              ],
+            ),
           ),
         ),
       ),

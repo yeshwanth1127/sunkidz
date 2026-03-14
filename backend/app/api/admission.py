@@ -17,17 +17,9 @@ from app.schemas.admission import AdmissionCreate
 router = APIRouter(prefix="/admin/admissions", tags=["admissions"])
 
 
-def _generate_admission_number(db: Session, branch: Branch, admission_date: date) -> str:
-    """Format: skz(branch_code)(year)(date) e.g. skzmain20250304"""
-    code = (branch.code or "main").lower()[:10]
-    year = admission_date.strftime("%Y")
-    day = admission_date.strftime("%m%d")  # MMDD
-    base = f"skz{code}{year}{day}"
-    # Check for duplicates
-    existing = db.query(Student).filter(Student.admission_number.like(f"{base}%")).count()
-    if existing > 0:
-        return f"{base}{existing + 1:02d}"
-    return base
+from app.api.admin import _generate_admission_number_for_branch
+
+# Remove old _generate_admission_number, use new function
 
 
 @router.post("/from-enquiry")
@@ -50,7 +42,7 @@ def create_admission_from_enquiry(
         raise HTTPException(status_code=400, detail="Class not found or not in this branch")
 
     admission_date = date.today()
-    admission_number = _generate_admission_number(db, branch, admission_date)
+    admission_number = _generate_admission_number_for_branch(db, branch, admission_date)
 
     # Create parent user - password = DOB (YYYY-MM-DD)
     dob_str = data.date_of_birth.isoformat()
