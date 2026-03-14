@@ -67,10 +67,10 @@ This will:
 Flutter now defaults to:
 
 ```text
-https://sunkidz.org
+https://api.sunkidz.org
 ```
 
-So normal APK build already connects to your domain:
+So normal APK build already connects to your API domain:
 
 ```bash
 cd /var/www/sunkidz/mobile
@@ -80,5 +80,5 @@ flutter build apk --release
 Optional override at build time:
 
 ```bash
-flutter build apk --release --dart-define=API_BASE_URL=https://sunkidz.org
+flutter build apk --release --dart-define=API_BASE_URL=https://api.sunkidz.org
 ```
