@@ -10,19 +10,20 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const storage = FlutterSecureStorage();
 
-  // Initialize OneSignal (new API)
-  await OneSignal.shared.setAppId("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
+  // Initialize OneSignal (v5 API)
+  await OneSignal.initialize("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
 
-  // Request push notification permission (for iOS)
-  await OneSignal.shared.promptPushNotificationsWithUserResponse();
+  // Request push notification permission (for iOS and Android 13+)
+  await OneSignal.User.pushSubscription.optIn();
 
-  // Get Player ID and send to backend
-  final deviceState = await OneSignal.shared.getDeviceState();
-  final playerId = deviceState?.userId;
-  if (playerId != null) {
-    // TODO: Send playerId to backend via /device/register API
-    // Example: await registerDevice(userId, playerId);
-  }
+  // Get subscription ID and send to backend when available
+  OneSignal.User.pushSubscription.addObserver((state) {
+    final subscriptionId = state.current.id;
+    if (subscriptionId != null) {
+      // TODO: Send subscriptionId to backend via /device/register API
+      // Example: await registerDevice(userId, subscriptionId);
+    }
+  });
 
   runApp(
     ProviderScope(
