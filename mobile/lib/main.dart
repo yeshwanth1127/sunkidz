@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/auth/auth_provider.dart';
@@ -8,6 +9,19 @@ import 'core/auth/auth_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const storage = FlutterSecureStorage();
+
+  // Initialize OneSignal
+  OneSignal.initialize("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
+  OneSignal.Notifications.requestPermission(true);
+
+  // Get Player ID and send to backend
+  final deviceState = await OneSignal.shared.getDeviceState();
+  final playerId = deviceState?.userId;
+  if (playerId != null) {
+    // TODO: Send playerId to backend via /device/register API
+    // Example: await registerDevice(userId, playerId);
+  }
+
   runApp(
     ProviderScope(
       overrides: [

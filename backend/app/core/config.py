@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     ultramsg_instance_id: str = ""
     ultramsg_auth_token: str = ""
 
+    # OneSignal
+    onesignal_app_id: str = ""
+    onesignal_api_key: str = ""
+
     class Config:
         env_file = ".env"
         extra = "ignore"
