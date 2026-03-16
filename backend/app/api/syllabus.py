@@ -162,9 +162,21 @@ async def _save_file(file: UploadFile, directory: str) -> tuple[str, str, str]:
 
 # ========== SYLLABUS ENDPOINTS ==========
 
+@router.get("/syllabus/grades", response_model=List[str])
+def list_grade_names(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List unique class/grade names across all branches. Admin only."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+    rows = db.query(Class.name).distinct().order_by(Class.name).all()
+    return [r[0] for r in rows]
+
 @router.post("/syllabus/upload", response_model=SyllabusResponse)
 async def upload_syllabus(
-    class_id: UUID = Form(...),
+    class_id: Optional[UUID] = Form(None),
+    class_name: Optional[str] = Form(None),
     title: str = Form(...),
     school_day: int = Form(...),
     academic_year_start_str: Optional[str] = Form(None),
@@ -173,17 +185,14 @@ async def upload_syllabus(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Upload syllabus for a specific school day (1-180). Admin or teacher for their class."""
+    """Upload syllabus for a specific school day (1-180). Use class_id for single class, or class_name for all branches grade-wise (admin only)."""
     if school_day < 1 or school_day > 180:
         raise HTTPException(status_code=400, detail="school_day must be between 1 and 180")
-    if not _can_upload_to_class(db, current_user, class_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to upload syllabus for this class"
-        )
-    class_ = db.query(Class).filter(Class.id == class_id).first()
-    if not class_:
-        raise HTTPException(status_code=404, detail="Class not found")
+    if not class_id and not class_name:
+        raise HTTPException(status_code=400, detail="Provide class_id or class_name")
+    if class_id and class_name:
+        raise HTTPException(status_code=400, detail="Provide either class_id or class_name, not both")
+
     if academic_year_start_str:
         try:
             ay_start = datetime.fromisoformat(academic_year_start_str).date()
@@ -194,40 +203,68 @@ async def upload_syllabus(
     else:
         start_year, _ = get_academic_year_for_date(date.today())
         ay_start = academic_year_start(start_year)
+
+    if class_name:
+        if current_user.role != "admin":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Grade-wise upload for all branches is admin only")
+        target_classes = db.query(Class).filter(Class.name == class_name).all()
+        if not target_classes:
+            raise HTTPException(status_code=404, detail=f"No classes found with name '{class_name}'")
+        for c in target_classes:
+            if not _can_upload_to_class(db, current_user, c.id):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"You don't have permission to upload for {c.name}")
+    else:
+        if not _can_upload_to_class(db, current_user, class_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to upload syllabus for this class"
+            )
+        class_ = db.query(Class).filter(Class.id == class_id).first()
+        if not class_:
+            raise HTTPException(status_code=404, detail="Class not found")
+        target_classes = [class_]
+
     file_path, file_name, file_size = await _save_file(file, SYLLABUS_DIR)
-    syllabus = Syllabus(
-        class_id=class_id,
-        uploaded_by=current_user.id,
-        title=title,
-        description=description,
-        school_day=school_day,
-        academic_year_start=ay_start,
-        file_path=file_path,
-        file_name=file_name,
-        file_size=file_size,
-    )
-    db.add(syllabus)
+    syllabi_created = []
+    for class_ in target_classes:
+        syllabus = Syllabus(
+            class_id=class_.id,
+            uploaded_by=current_user.id,
+            title=title,
+            description=description,
+            school_day=school_day,
+            academic_year_start=ay_start,
+            file_path=file_path,
+            file_name=file_name,
+            file_size=file_size,
+        )
+        db.add(syllabus)
+        syllabi_created.append((syllabus, class_))
     db.commit()
-    db.refresh(syllabus)
-    try:
-        send_syllabus_notification(syllabus, db)
-    except Exception as ex:
-        logger.error(f"Failed to send syllabus notification for syllabus {syllabus.id}: {str(ex)}")
+
+    for syllabus, class_ in syllabi_created:
+        db.refresh(syllabus)
+        try:
+            send_syllabus_notification(syllabus, db)
+        except Exception as ex:
+            logger.error(f"Failed to send syllabus notification for syllabus {syllabus.id}: {str(ex)}")
+
+    last_syllabus, last_class = syllabi_created[-1]
     return SyllabusResponse(
-        id=syllabus.id,
-        class_id=syllabus.class_id,
-        uploaded_by=syllabus.uploaded_by,
+        id=last_syllabus.id,
+        class_id=last_syllabus.class_id,
+        uploaded_by=last_syllabus.uploaded_by,
         uploader_name=current_user.full_name,
-        title=syllabus.title,
-        description=syllabus.description,
+        title=last_syllabus.title,
+        description=last_syllabus.description,
         upload_date=None,
-        school_day=syllabus.school_day,
-        academic_year_start=syllabus.academic_year_start,
-        file_path=syllabus.file_path,
-        file_name=syllabus.file_name,
-        file_size=syllabus.file_size,
-        class_name=class_.name,
-        created_at=syllabus.created_at.isoformat() if syllabus.created_at else "",
+        school_day=last_syllabus.school_day,
+        academic_year_start=last_syllabus.academic_year_start,
+        file_path=last_syllabus.file_path,
+        file_name=last_syllabus.file_name,
+        file_size=last_syllabus.file_size,
+        class_name=last_class.name,
+        created_at=last_syllabus.created_at.isoformat() if last_syllabus.created_at else "",
     )
 
 

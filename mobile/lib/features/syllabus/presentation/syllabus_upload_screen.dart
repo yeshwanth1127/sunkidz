@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../core/api/coordinator_provider.dart';
-import '../../../core/api/teacher_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../dashboard/data/teacher_dashboard_provider.dart';
 import '../providers/syllabus_provider.dart';
@@ -24,12 +23,15 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
   final _descriptionController = TextEditingController();
 
   String? _selectedClassId;
+  String? _selectedClassName;
+  bool _uploadForAllBranches = false;
   int _schoolDay = 1;
   PlatformFile? _selectedFile;
   String? _selectedFileName;
   bool _uploading = false;
 
   List<Map<String, dynamic>> _classes = [];
+  List<String> _gradeNames = [];
   bool _loadingClasses = true;
 
   @override
@@ -85,6 +87,14 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
         }
       }
 
+      if (auth.role == UserRole.admin) {
+        try {
+          final service = ref.read(syllabusServiceProvider);
+          final grades = await service.fetchGradeNames();
+          setState(() => _gradeNames = grades);
+        } catch (_) {}
+      }
+
       setState(() {
         _classes = classes;
         _loadingClasses = false;
@@ -133,9 +143,15 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
 
   Future<void> _uploadSyllabus() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedClassId == null) {
+    if (!_uploadForAllBranches && _selectedClassId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a class')),
+      );
+      return;
+    }
+    if (_uploadForAllBranches && (_selectedClassName == null || _selectedClassName!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a grade')),
       );
       return;
     }
@@ -152,7 +168,8 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
       final file = await _buildMultipartFile();
       final service = ref.read(syllabusServiceProvider);
       await service.uploadSyllabus(
-        classId: _selectedClassId!,
+        classId: _uploadForAllBranches ? null : _selectedClassId,
+        className: _uploadForAllBranches ? _selectedClassName : null,
         title: _titleController.text,
         schoolDay: _schoolDay,
         description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
@@ -161,7 +178,13 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Syllabus uploaded successfully')),
+          SnackBar(
+            content: Text(
+              _uploadForAllBranches
+                  ? 'Syllabus uploaded to all branches for $_selectedClassName'
+                  : 'Syllabus uploaded successfully',
+            ),
+          ),
         );
         Navigator.pop(context);
       }
@@ -201,31 +224,68 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Class selector
-                    DropdownButtonFormField<String>(
-                      value: _selectedClassId,
-                      decoration: const InputDecoration(
-                        labelText: 'Select Class *',
-                        border: OutlineInputBorder(),
+                    // Upload for all branches (admin only)
+                    if (ref.read(authProvider).role == UserRole.admin) ...[
+                      SwitchListTile(
+                        title: const Text('Upload for all branches (grade-wise)'),
+                        subtitle: const Text('Same syllabus to all classes of this grade across branches'),
+                        value: _uploadForAllBranches,
+                        onChanged: (v) {
+                          setState(() {
+                            _uploadForAllBranches = v;
+                            if (v) {
+                              _selectedClassId = null;
+                            } else {
+                              _selectedClassName = null;
+                            }
+                          });
+                        },
                       ),
-                      items: _classes
-                          .map((cls) => DropdownMenuItem<String>(
-                                value: cls['id'] as String,
-                                child: Text(cls['name'] as String),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedClassId = value;
-                        });
-                      },
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Please select a class';
-                        }
-                        return null;
-                      },
-                    ),
+                      const SizedBox(height: 8),
+                    ],
+                    // Class or Grade selector
+                    if (_uploadForAllBranches && ref.read(authProvider).role == UserRole.admin)
+                      DropdownButtonFormField<String>(
+                        value: _selectedClassName,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Grade *',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _gradeNames
+                            .map((name) => DropdownMenuItem<String>(
+                                  value: name,
+                                  child: Text(name),
+                                ))
+                            .toList(),
+                        onChanged: (value) => setState(() => _selectedClassName = value),
+                        validator: (value) {
+                          if (_uploadForAllBranches && (value == null || value.isEmpty)) {
+                            return 'Please select a grade';
+                          }
+                          return null;
+                        },
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedClassId,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Class *',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _classes
+                            .map((cls) => DropdownMenuItem<String>(
+                                  value: cls['id'] as String,
+                                  child: Text(cls['name'] as String),
+                                ))
+                            .toList(),
+                        onChanged: (value) => setState(() => _selectedClassId = value),
+                        validator: (value) {
+                          if (!_uploadForAllBranches && value == null) {
+                            return 'Please select a class';
+                          }
+                          return null;
+                        },
+                      ),
                     const SizedBox(height: 16),
 
                     // Title
