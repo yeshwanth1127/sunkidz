@@ -34,31 +34,12 @@ def send_enquiry_notification(enquiry: Enquiry) -> bool:
     
     Args:
         enquiry: The enquiry object with parent contact information
-        
- # WhatsApp integration removed
+
+    Returns:
         True if notification was sent successfully, False otherwise
     """
-    # Determine which contact to use
-    contact_number: Optional[str] = None
-    contact_type: str = ""
- # WhatsApp notification logic removed
-
-        if success:
-            logger.info(
-                f"Successfully sent enquiry notification for enquiry ID {enquiry.id}"
-            )
-        else:
-            logger.error(
-                f"Failed to send enquiry notification for enquiry ID {enquiry.id}"
-            )
-        
-        return success
-        
-    except Exception as e:
-        logger.error(
-            f"Exception while sending enquiry notification for enquiry ID {enquiry.id}: {str(e)}"
-        )
-        return False
+    # WhatsApp integration removed - no notification sent
+    return False
 
 
 
