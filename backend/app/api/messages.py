@@ -192,11 +192,11 @@ def parent_send_message(
     if not title or not message:
         raise HTTPException(status_code=400, detail="Title and message are required")
 
-    recipient_ids = get_parent_recipients(db, user.id)
+    recipient_ids, err_msg = get_parent_recipients(db, user.id)
     if not recipient_ids:
         raise HTTPException(
             status_code=400,
-            detail="No teachers found for your child's grade. Ensure your child is linked and has a class assigned.",
+            detail=err_msg or "No teachers found for your child's grade.",
         )
 
     count = create_notifications_for_users(

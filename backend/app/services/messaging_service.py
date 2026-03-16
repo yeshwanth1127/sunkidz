@@ -6,6 +6,7 @@ from app.models.branch import BranchAssignment
 from app.models.student import Student
 from app.models.notification import Notification
 from app.models.student import ParentStudentLink
+from app.services.notification_service import send_onesignal_notification
 
 
 def _staff_roles() -> list[str]:
@@ -110,14 +111,21 @@ def get_coordinator_recipients(
 def get_parent_recipients(
     db: Session,
     parent_user_id: UUID,
-) -> list[UUID]:
-    """Resolve recipient user IDs for parent send: teachers of their child's grade(s)."""
+) -> tuple[list[UUID], str | None]:
+    """Resolve recipient user IDs for parent send: teachers of their child's grade(s).
+    Returns (user_ids, error_message). error_message is set when no recipients found."""
     user_ids: set[UUID] = set()
     links = db.query(ParentStudentLink).filter(ParentStudentLink.user_id == parent_user_id).all()
+    if not links:
+        return [], "No child linked to your account. Contact admin to link your child."
+    students_with_class = 0
     for link in links:
         student = db.query(Student).filter(Student.id == link.student_id).first()
-        if not student or not student.class_id:
+        if not student:
             continue
+        if not student.class_id:
+            continue
+        students_with_class += 1
         assignments = db.query(BranchAssignment).filter(
             BranchAssignment.class_id == student.class_id,
         ).all()
@@ -125,7 +133,11 @@ def get_parent_recipients(
             u = db.query(User).filter(User.id == a.user_id, User.is_active == "true").first()
             if u and u.role == "teacher":
                 user_ids.add(u.id)
-    return list(user_ids)
+    if not user_ids:
+        if students_with_class == 0:
+            return [], "Your child has no grade/class assigned. Contact admin."
+        return [], "No teachers assigned to your child's grade yet. Contact admin."
+    return list(user_ids), None
 
 
 def create_notifications_for_users(
@@ -135,8 +147,9 @@ def create_notifications_for_users(
     message: str,
     sender_id: UUID | None = None,
 ) -> int:
-    """Create one notification per recipient. Returns count created."""
+    """Create one notification per recipient and send push if they have OneSignal ID."""
     count = 0
+    subscription_ids: list[str] = []
     for uid in recipient_ids:
         n = Notification(
             user_id=uid,
@@ -146,5 +159,10 @@ def create_notifications_for_users(
         )
         db.add(n)
         count += 1
+        user = db.query(User).filter(User.id == uid).first()
+        if user and user.onesignal_player_id:
+            subscription_ids.append(user.onesignal_player_id)
     db.commit()
+    if subscription_ids:
+        send_onesignal_notification(subscription_ids, title, message)
     return count

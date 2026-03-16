@@ -9,6 +9,9 @@ import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../core/api/admin_provider.dart';
+import '../../../core/api/coordinator_provider.dart';
+import '../../../core/api/teacher_provider.dart';
+import '../../dashboard/data/teacher_dashboard_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
 import 'syllabus_upload_screen.dart';
@@ -22,8 +25,8 @@ class SyllabusListScreen extends ConsumerStatefulWidget {
 
 class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
   String? _selectedClassId;
-  DateTime? _selectedDate;
   List<Map<String, dynamic>> _classes = [];
+  int? _academicYear;
 
   @override
   void initState() {
@@ -33,36 +36,52 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
 
   Future<void> _loadClasses() async {
     final auth = ref.read(authProvider);
-    if (auth.role != UserRole.admin) {
-      setState(() {
-        _classes = [];
-      });
-      return;
-    }
+    final classes = <Map<String, dynamic>>[];
 
-    final api = ref.read(adminApiProvider);
-    if (api == null) {
-      return;
-    }
     try {
-      final branches = await api.getBranches();
-      final classes = <Map<String, dynamic>>[];
-      for (final branch in branches) {
-        if (branch['classes'] != null) {
-          for (final cls in branch['classes']) {
-            classes.add({
-              'id': cls['id'],
-              'name': '${cls['name']} - ${branch['name']}',
-            });
+      if (auth.role == UserRole.admin) {
+        final api = ref.read(adminApiProvider);
+        if (api == null) return;
+        final branches = await api.getBranches();
+        for (final branch in branches) {
+          if (branch['classes'] != null) {
+            for (final cls in branch['classes']) {
+              classes.add({
+                'id': cls['id'],
+                'name': '${cls['name']} - ${branch['name']}',
+              });
+            }
           }
         }
+      } else if (auth.role == UserRole.coordinator) {
+        final api = ref.read(coordinatorApiProvider);
+        if (api == null) return;
+        final dashboard = await api.getDashboard();
+        final branchClasses = dashboard['classes'] as List? ?? [];
+        final branchName = dashboard['branch_name'] ?? '';
+        for (final cls in branchClasses) {
+          classes.add({
+            'id': cls['id'],
+            'name': '${cls['name']} - $branchName',
+          });
+        }
+      } else if (auth.role == UserRole.teacher) {
+        final dashboardAsync = await ref.read(teacherDashboardDataProvider.future);
+        if (dashboardAsync != null && dashboardAsync.classId != null && dashboardAsync.className != null) {
+          classes.add({
+            'id': dashboardAsync.classId!,
+            'name': '${dashboardAsync.className!} - ${dashboardAsync.branchName ?? ""}',
+          });
+        }
       }
+
       setState(() {
         _classes = classes;
+        if (_selectedClassId == null && classes.isNotEmpty) {
+          _selectedClassId = classes.first['id'] as String;
+        }
       });
-    } catch (e) {
-      // Handle error silently
-    }
+    } catch (_) {}
   }
 
   Future<void> _viewSyllabusFile(String syllabusId) async {
@@ -76,7 +95,6 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
       }
       return;
     }
-
     final encodedToken = Uri.encodeQueryComponent(token);
     final url = '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/syllabus/$syllabusId/file?token=$encodedToken';
     final uri = Uri.parse(url);
@@ -104,50 +122,60 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
         title: const Text('Delete Syllabus'),
         content: const Text('Are you sure you want to delete this syllabus?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
-
     if (confirmed == true) {
       try {
         final service = ref.read(syllabusServiceProvider);
         await service.deleteSyllabus(syllabusId);
         setState(() {});
+        ref.invalidate(syllabusCalendarProvider(SyllabusCalendarFilter(classId: _selectedClassId!, academicYear: _academicYear)));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Syllabus deleted successfully')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Syllabus deleted successfully')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting syllabus: $e')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
+  }
+
+  void _showHolidayDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _HolidayMarkDialog(
+        onAdd: (startDate, numDays, reason) async {
+          try {
+            final service = ref.read(syllabusServiceProvider);
+            await service.addSyllabusHolidayRange(startDate: startDate, numDays: numDays, reason: reason);
+            ref.invalidate(syllabusCalendarProvider(SyllabusCalendarFilter(classId: _selectedClassId!, academicYear: _academicYear)));
+            if (mounted) {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Holiday marked for $numDays day(s). Syllabus dates will shift automatically.')),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          }
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final isAdmin = auth.role == UserRole.admin;
-    final canUpload = auth.role == UserRole.admin ||
-        auth.role == UserRole.teacher ||
-        auth.role == UserRole.coordinator;
+    final canUpload = auth.role == UserRole.admin || auth.role == UserRole.teacher || auth.role == UserRole.coordinator;
 
-    final filter = SyllabusFilter(
-      classId: _selectedClassId,
-      uploadDate: _selectedDate?.toIso8601String().split('T')[0],
-    );
+    final effectiveClassId = _selectedClassId ?? (_classes.isNotEmpty ? _classes.first['id'] as String? : null);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
@@ -167,6 +195,12 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
         title: const Text('Syllabus'),
         centerTitle: true,
         actions: [
+          if (isAdmin)
+            IconButton(
+              icon: const Icon(Icons.event_busy),
+              tooltip: 'Mark Holiday',
+              onPressed: _showHolidayDialog,
+            ),
           if (canUpload)
             IconButton(
               icon: const Icon(Icons.add),
@@ -176,108 +210,56 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
       ),
       body: Column(
         children: [
-          // Filters
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.grey[100],
             child: Column(
               children: [
-                if (isAdmin) ...[
+                if (_classes.length > 1)
                   DropdownButtonFormField<String>(
                     value: _selectedClassId,
                     decoration: const InputDecoration(
-                      labelText: 'Filter by Class',
+                      labelText: 'Class',
                       border: OutlineInputBorder(),
                       filled: true,
                       fillColor: Colors.white,
                     ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('All Classes'),
-                      ),
-                      ..._classes.map((cls) => DropdownMenuItem<String>(
-                            value: cls['id'] as String,
-                            child: Text(cls['name'] as String),
-                          )),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedClassId = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                // Date filter
-                InkWell(
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: _selectedDate ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030),
-                    );
-                    if (date != null) {
-                      setState(() {
-                        _selectedDate = date;
-                      });
-                    }
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Filter by Date',
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.white,
-                      suffixIcon: Icon(Icons.calendar_today),
-                    ),
-                    child: Text(
-                      _selectedDate != null
-                          ? DateFormat('MMM dd, yyyy').format(_selectedDate!)
-                          : 'All Dates',
-                    ),
-                  ),
-                ),
-                if (_selectedDate != null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => setState(() => _selectedDate = null),
-                      child: const Text('Clear Date'),
-                    ),
+                    items: _classes.map((cls) => DropdownMenuItem<String>(value: cls['id'] as String, child: Text(cls['name'] as String))).toList(),
+                    onChanged: (value) => setState(() => _selectedClassId = value),
+                  )
+                else if (_classes.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text('Class: ${_classes.first['name']}', style: const TextStyle(fontWeight: FontWeight.w500)),
                   ),
               ],
             ),
           ),
-          // List
           Expanded(
-            child: ref.watch(syllabusListProvider(filter)).when(
-                  data: (syllabusList) {
-                    if (syllabusList.isEmpty) {
-                      return const Center(
-                        child: Text('No syllabus found'),
-                      );
-                    }
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: syllabusList.length,
-                      itemBuilder: (context, index) {
-                        final syllabus = syllabusList[index];
-                        return _SyllabusCard(
-                          syllabus: syllabus,
-                          isAdmin: isAdmin,
-                          onView: () => _viewSyllabusFile(syllabus.id),
-                          onDelete: isAdmin ? () => _deleteSyllabus(syllabus.id) : null,
+            child: effectiveClassId == null
+                ? const Center(child: Text('Select a class to view syllabus'))
+                : ref.watch(syllabusCalendarProvider(SyllabusCalendarFilter(classId: effectiveClassId, academicYear: _academicYear))).when(
+                      data: (calendar) {
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: calendar.days.length,
+                          itemBuilder: (context, index) {
+                            final dayData = calendar.days[index];
+                            return _DayCard(
+                              day: dayData.day,
+                              date: dayData.date,
+                              syllabus: dayData.syllabus,
+                              academicYearStr: calendar.academicYearStr,
+                              isAdmin: isAdmin,
+                              onView: (id) => _viewSyllabusFile(id),
+                              onDelete: isAdmin ? (id) => _deleteSyllabus(id) : null,
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, stack) => Center(
-                    child: Text('Error: $error'),
-                  ),
-                ),
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, _) => Center(child: Text('Error: $err')),
+                    ),
           ),
         ],
       ),
@@ -285,14 +267,20 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
   }
 }
 
-class _SyllabusCard extends StatelessWidget {
-  final Syllabus syllabus;
+class _DayCard extends StatelessWidget {
+  final int day;
+  final String date;
+  final List<Map<String, dynamic>> syllabus;
+  final String academicYearStr;
   final bool isAdmin;
-  final VoidCallback onView;
-  final VoidCallback? onDelete;
+  final void Function(String id) onView;
+  final void Function(String id)? onDelete;
 
-  const _SyllabusCard({
+  const _DayCard({
+    required this.day,
+    required this.date,
     required this.syllabus,
+    required this.academicYearStr,
     required this.isAdmin,
     required this.onView,
     this.onDelete,
@@ -300,60 +288,112 @@ class _SyllabusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DateTime? parsedDate;
+    try {
+      parsedDate = DateTime.parse(date);
+    } catch (_) {}
+    final dateStr = parsedDate != null ? DateFormat('MMM dd, yyyy').format(parsedDate) : date;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
+      child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-          child: const Icon(Icons.description, color: AppColors.primary),
+          child: Text('$day', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
         ),
-        title: Text(
-          syllabus.title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Text('Day $day', style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(dateStr),
+        children: syllabus.isEmpty
+            ? [const ListTile(title: Text('No syllabus uploaded'))]
+            : syllabus.map((s) {
+                final id = s['id'] as String? ?? '';
+                final title = s['title'] as String? ?? '';
+                final fileName = s['file_name'] as String? ?? '';
+                return ListTile(
+                  leading: const Icon(Icons.description),
+                  title: Text(title),
+                  subtitle: Text(fileName),
+                  trailing: PopupMenuButton<String>(
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility), SizedBox(width: 8), Text('View')])),
+                      if (isAdmin && onDelete != null)
+                        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))])),
+                    ],
+                    onSelected: (v) {
+                      if (v == 'view') onView(id);
+                      if (v == 'delete' && onDelete != null) onDelete!(id);
+                    },
+                  ),
+                );
+              }).toList(),
+      ),
+    );
+  }
+}
+
+class _HolidayMarkDialog extends StatefulWidget {
+  final void Function(DateTime startDate, int numDays, String? reason) onAdd;
+
+  const _HolidayMarkDialog({required this.onAdd});
+
+  @override
+  State<_HolidayMarkDialog> createState() => _HolidayMarkDialogState();
+}
+
+class _HolidayMarkDialogState extends State<_HolidayMarkDialog> {
+  DateTime _startDate = DateTime.now().add(const Duration(days: 1));
+  int _numDays = 1;
+  final _reasonController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Mark Holiday'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Class: ${syllabus.className}'),
-            Text('Date: ${DateFormat('MMM dd, yyyy').format(syllabus.uploadDate)}'),
-            if (syllabus.uploaderName != null) Text('Uploaded by: ${syllabus.uploaderName}'),
-            if (syllabus.fileSize != null) Text('Size: ${syllabus.fileSize}'),
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          itemBuilder: (context) => [
-            const PopupMenuItem<String>(
-              value: 'view',
-              child: Row(
-                children: [
-                  Icon(Icons.visibility),
-                  SizedBox(width: 8),
-                  Text('View'),
-                ],
+            const Text('Select start date and number of days. Syllabus dates will shift automatically.'),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () async {
+                final d = await showDatePicker(context: context, initialDate: _startDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                if (d != null) setState(() => _startDate = d);
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: 'Start Date', border: OutlineInputBorder()),
+                child: Text(DateFormat('MMM dd, yyyy').format(_startDate)),
               ),
             ),
-            if (isAdmin)
-              const PopupMenuItem<String>(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              value: _numDays,
+              decoration: const InputDecoration(labelText: 'Number of days', border: OutlineInputBorder()),
+              items: [1, 2, 3, 4, 5, 6, 7].map((n) => DropdownMenuItem(value: n, child: Text('$n day${n > 1 ? 's' : ''}'))).toList(),
+              onChanged: (v) => setState(() => _numDays = v ?? 1),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reasonController,
+              decoration: const InputDecoration(labelText: 'Reason (optional)', border: OutlineInputBorder()),
+            ),
           ],
-          onSelected: (value) {
-            if (value == 'view') {
-              onView();
-            } else if (value == 'delete' && onDelete != null) {
-              onDelete!();
-            }
-          },
         ),
-        isThreeLine: true,
       ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () => widget.onAdd(_startDate, _numDays, _reasonController.text.isEmpty ? null : _reasonController.text),
+          child: const Text('Mark Holiday'),
+        ),
+      ],
     );
   }
 }

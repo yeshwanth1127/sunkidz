@@ -311,21 +311,33 @@ def send_fee_receipt_notification(student_id: UUID, payment, fees_detail: dict, 
 # --- OneSignal Notification ---
 ONESIGNAL_APP_ID = settings.onesignal_app_id
 ONESIGNAL_API_KEY = settings.onesignal_api_key
-ONESIGNAL_API_URL = "https://onesignal.com/api/v1/notifications"
+# OneSignal REST API (supports both v1 and newer - use include_subscription_ids for OneSignal v5)
+ONESIGNAL_API_URL = "https://api.onesignal.com/notifications"
 
-def send_onesignal_notification(player_ids: list[str], title: str, message: str):
+
+def send_onesignal_notification(subscription_ids: list[str], title: str, message: str) -> bool:
+    """Send push via OneSignal. subscription_ids can be subscription IDs (v5) or player IDs (legacy)."""
+    if not subscription_ids or not ONESIGNAL_APP_ID or not ONESIGNAL_API_KEY:
+        return False
     headers = {
-        "Authorization": f"Basic {ONESIGNAL_API_KEY}",
-        "Content-Type": "application/json"
+        "Authorization": f"Key {ONESIGNAL_API_KEY}",
+        "Content-Type": "application/json",
     }
+    # OneSignal v5 uses include_subscription_ids; legacy used include_player_ids
     payload = {
         "app_id": ONESIGNAL_APP_ID,
-        "include_player_ids": player_ids,
+        "include_subscription_ids": subscription_ids,
         "headings": {"en": title},
-        "contents": {"en": message}
+        "contents": {"en": message},
     }
-    response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers)
-    return response.status_code == 200
+    try:
+        response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=10)
+        if response.status_code != 200:
+            logger.warning(f"OneSignal API error: {response.status_code} {response.text}")
+        return response.status_code == 200
+    except Exception as e:
+        logger.error(f"OneSignal send failed: {e}")
+        return False
 
 
 def push_admin_notification(db: Session, admin_user_id: UUID, title: str, message: str, related_enquiry_id: UUID | None = None):
@@ -343,5 +355,5 @@ def push_admin_notification(db: Session, admin_user_id: UUID, title: str, messag
     # Send OneSignal push
     admin = db.query(User).filter(User.id == admin_user_id).first()
     if admin and admin.onesignal_player_id:
-        send_onesignal_notification([admin.onesignal_player_id], title, message)
+        send_onesignal_notification([admin.onesignal_player_id], title, message)  # stored subscription_id
     return notification
