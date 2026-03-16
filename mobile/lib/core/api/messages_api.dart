@@ -29,4 +29,8 @@ class MessagesApi {
   Future<void> markNotificationRead(String notificationId) async {
     await _dio.post('/me/notifications/mark_read/$notificationId');
   }
+
+  Future<void> markAllNotificationsRead() async {
+    await _dio.post('/me/notifications/mark_all_read');
+  }
 }
