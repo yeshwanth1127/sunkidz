@@ -46,7 +46,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_daycare_daily_updates_student_date", table_name="daycare_daily_updates")
+    op.drop_index("ix_daycare_daily_updates_student_date", table_name="daycare_daily_updates", if_exists=True)
     op.drop_table("daycare_daily_updates")
     op.drop_table("daycare_group_students")
     op.drop_table("daycare_groups")

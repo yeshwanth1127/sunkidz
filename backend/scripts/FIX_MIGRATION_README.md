@@ -1,6 +1,6 @@
-# Fix: index "ix_daycare_daily_updates_student_date" does not exist
+# Fix: index does not exist (migration drop_index errors)
 
-The migration `af3bdb199608` (OneSignal player_id) tries to drop an index that doesn't exist on your database.
+The migration `af3bdb199608` (OneSignal player_id) tries to drop indexes that don't exist on your database (e.g. `ix_daycare_daily_updates_student_date`, `ix_fee_receipts_student_id`).
 
 ## Option 1: Run the fix script (if migration file is in repo)
 
@@ -12,31 +12,22 @@ alembic upgrade head
 
 ## Option 2: Manual edit on server
 
-Edit the migration file on your server:
+Edit the migration file and add `, if_exists=True` to **every** `op.drop_index(...)` call:
 
 ```bash
 nano /root/sunkidz/sunkidz/backend/alembic/versions/af3bdb199608_add_onesignal_player_id_to_user_and_.py
 ```
 
-Find this line:
+Change each line like:
 ```python
-op.drop_index('ix_daycare_daily_updates_student_date', table_name='daycare_daily_updates')
+op.drop_index('ix_foo', table_name='bar')
 ```
-
-Change it to:
+To:
 ```python
-op.drop_index('ix_daycare_daily_updates_student_date', table_name='daycare_daily_updates', if_exists=True)
+op.drop_index('ix_foo', table_name='bar', if_exists=True)
 ```
 
 Then run:
 ```bash
-alembic upgrade head
-```
-
-## Option 3: sed one-liner on server
-
-```bash
-cd /root/sunkidz/sunkidz/backend
-sed -i "s/op.drop_index('ix_daycare_daily_updates_student_date', table_name='daycare_daily_updates')/op.drop_index('ix_daycare_daily_updates_student_date', table_name='daycare_daily_updates', if_exists=True)/" alembic/versions/af3bdb199608_add_onesignal_player_id_to_user_and_.py
 alembic upgrade head
 ```
