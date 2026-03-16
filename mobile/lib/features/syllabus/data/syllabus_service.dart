@@ -65,8 +65,21 @@ class SyllabusService {
     }
   }
 
+  Future<List<String>> fetchGradeNames() async {
+    try {
+      final response = await _apiClient.dio.get('/syllabus/grades');
+      if (response.statusCode == 200) {
+        return (response.data as List).map((e) => e.toString()).toList();
+      }
+      throw Exception('Failed to fetch grades');
+    } catch (e) {
+      throw Exception('Error fetching grades: $e');
+    }
+  }
+
   Future<Syllabus> uploadSyllabus({
-    required String classId,
+    String? classId,
+    String? className,
     required String title,
     required int schoolDay,
     String? academicYearStart,
@@ -75,7 +88,8 @@ class SyllabusService {
   }) async {
     try {
       final formData = FormData.fromMap({
-        'class_id': classId,
+        if (classId != null) 'class_id': classId,
+        if (className != null) 'class_name': className,
         'title': title,
         'school_day': schoolDay,
         if (academicYearStart != null) 'academic_year_start_str': academicYearStart,
