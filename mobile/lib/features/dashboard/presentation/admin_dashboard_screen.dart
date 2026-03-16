@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
-import '../../../core/config/app_config.dart';
 import '../../../shared/widgets/stat_card.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/admissions_chart.dart';
 import '../data/dashboard_provider.dart';
+import '../../../features/messages/data/messages_provider.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -75,7 +76,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          NotificationBell(unreadCount: 5),
+          NotificationBell(notificationsRoute: '/admin/notifications'),
           CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.primary.withValues(alpha: 0.2),
@@ -95,6 +96,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(currentUserProvider);
           ref.invalidate(dashboardDataProvider);
+          ref.invalidate(unreadCountProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -116,6 +118,26 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ).textTheme.bodySmall?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AdminQuickActionCard(
+                      icon: Icons.send,
+                      label: 'Send Message',
+                      onTap: () => context.push('/admin/send-message'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AdminQuickActionCard(
+                      icon: Icons.notifications,
+                      label: 'View Messages',
+                      onTap: () => context.push('/admin/notifications'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -374,6 +396,49 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 }
 
+class _AdminQuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _AdminQuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 32, color: AppColors.primary),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Color(0xFF1a1a1a),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EnquiryTile extends StatelessWidget {
   final String name;
   final String branch;
@@ -458,36 +523,3 @@ class _EnquiryTile extends StatelessWidget {
   }
 }
 
-class NotificationBell extends StatelessWidget {
-  final int unreadCount;
-  const NotificationBell({required this.unreadCount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Icon(Icons.notifications, size: 32),
-        if (unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                unreadCount.toString(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}

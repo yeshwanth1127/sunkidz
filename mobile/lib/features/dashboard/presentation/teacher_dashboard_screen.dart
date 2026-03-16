@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../data/teacher_dashboard_provider.dart';
 
 class TeacherDashboardScreen extends ConsumerWidget {
@@ -71,6 +72,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          NotificationBell(notificationsRoute: '/teacher/notifications'),
           CircleAvatar(
             radius: 20,
             backgroundColor: teacherPrimary.withValues(alpha: 0.2),

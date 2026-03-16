@@ -13,6 +13,7 @@ class NotificationCreate(NotificationBase):
 class NotificationResponse(NotificationBase):
     id: UUID
     user_id: UUID
+    sender_id: UUID | None = None
     is_read: bool
     created_at: datetime
     updated_at: datetime | None = None

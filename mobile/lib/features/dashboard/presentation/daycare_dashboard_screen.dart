@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class DaycareDashboardScreen extends ConsumerWidget {
   const DaycareDashboardScreen({super.key});
@@ -43,6 +44,7 @@ class DaycareDashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          NotificationBell(notificationsRoute: '/daycare/notifications'),
           CircleAvatar(
             radius: 18,
             backgroundColor: primaryColor.withValues(alpha: 0.2),

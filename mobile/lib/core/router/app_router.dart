@@ -43,6 +43,10 @@ import '../../features/coordinator/presentation/coordinator_gallery_screen.dart'
 import '../../features/admin/presentation/admin_attendance_screen.dart';
 import '../../features/admin/presentation/admin_fee_management_screen.dart';
 import '../../features/admin/presentation/admin_reports_screen.dart';
+import '../../features/messages/presentation/notifications_screen.dart';
+import '../../features/messages/presentation/admin_send_message_screen.dart';
+import '../../features/messages/presentation/coordinator_send_message_screen.dart';
+import '../../features/messages/presentation/parent_send_message_screen.dart';
 import '../../features/parent/presentation/parent_fees_screen.dart';
 import '../../features/parent/presentation/parent_receipts_screen.dart';
 import '../../features/syllabus/presentation/syllabus_list_screen.dart';
@@ -147,6 +151,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'daycare',
             builder: (_, __) => const DaycareManagementScreen(),
           ),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const AdminSendMessageScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -186,6 +198,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const GalleryUploadScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const CoordinatorSendMessageScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -228,6 +248,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -272,16 +296,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ParentReceiptsScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const ParentSendMessageScreen(),
+          ),
         ],
       ),
       GoRoute(
         path: '/bus-staff',
         builder: (_, __) => const BusStaffDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: '/toddler',
         builder: (_, __) => const ToddlerDashboardScreen(),
         routes: [
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
           GoRoute(
             path: 'gallery',
             builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: true),
@@ -296,6 +338,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/daycare',
         builder: (_, __) => const DaycareDashboardScreen(),
         routes: [
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
           GoRoute(
             path: 'gallery',
             builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: false),
