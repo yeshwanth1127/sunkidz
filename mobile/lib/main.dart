@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -10,20 +11,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const storage = FlutterSecureStorage();
 
-  // Initialize OneSignal (v5 API)
-  await OneSignal.initialize("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
-
-  // Request push notification permission (for iOS and Android 13+)
-  await OneSignal.User.pushSubscription.optIn();
-
-  // Get subscription ID and send to backend when available
-  OneSignal.User.pushSubscription.addObserver((state) {
-    final subscriptionId = state.current.id;
-    if (subscriptionId != null) {
-      // TODO: Send subscriptionId to backend via /device/register API
-      // Example: await registerDevice(userId, subscriptionId);
-    }
-  });
+  // OneSignal is mobile-only (iOS/Android) - skip on web to avoid MissingPluginException
+  if (!kIsWeb) {
+    await OneSignal.initialize("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
+    await OneSignal.User.pushSubscription.optIn();
+    OneSignal.User.pushSubscription.addObserver((state) {
+      final subscriptionId = state.current.id;
+      if (subscriptionId != null) {
+        // TODO: Send subscriptionId to backend via /device/register API
+      }
+    });
+  }
 
   runApp(
     ProviderScope(

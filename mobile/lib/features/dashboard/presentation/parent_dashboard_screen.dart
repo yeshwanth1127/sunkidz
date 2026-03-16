@@ -345,186 +345,6 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
           ),
         ],
       ),
-      drawer: Drawer(
-        child: Column(
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(color: AppColors.primary),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'images/new_logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                Icons.school,
-                                size: 28,
-                                color: AppColors.primary,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              userName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Parent Portal',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (!_loadingChildren && _children.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'No children linked',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              )
-            else
-              const Divider(),
-            ListTile(
-              leading: Icon(Icons.home, color: AppColors.primary),
-              title: const Text('Home'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.event_available, color: AppColors.primary),
-              title: const Text('Attendance'),
-              onTap: () {
-                Navigator.pop(context);
-                if (_selectedChild != null) {
-                  context.push(
-                    '/parent/attendance',
-                    extra: {'student': _selectedChild},
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please select a student first'),
-                    ),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.menu_book, color: Colors.orange),
-              title: const Text('Homework'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/parent/homework');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.assignment, color: Colors.green),
-              title: const Text('Marks Cards'),
-              onTap: () {
-                Navigator.pop(context);
-                // Already on home showing marks cards
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.payments, color: Colors.purple),
-              title: const Text('Fees'),
-              onTap: () {
-                Navigator.pop(context);
-                if (_selectedChild != null) {
-                  context.push(
-                    '/parent/fees',
-                    extra: {'student': _selectedChild, 'feeData': _feeData},
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please select a student first'),
-                    ),
-                  );
-                }
-              },
-            ),
-              if (_hasBusAccess)
-              ListTile(
-                leading: Icon(Icons.directions_bus, color: Colors.blue),
-                title: const Text('Bus Tracking'),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Active',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.green.shade800,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push('/parent/bus-tracking');
-                },
-              ),
-            const Spacer(),
-            const Divider(),
-            ListTile(
-              leading: Icon(Icons.logout, color: Colors.red.shade700),
-              title: Text(
-                'Logout',
-                style: TextStyle(color: Colors.red.shade700),
-              ),
-              onTap: () {
-                ref.read(authProvider.notifier).logout();
-                context.go('/login');
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -768,6 +588,27 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                         context.push('/parent/bus-tracking');
                       },
                     ),
+                  _QuickActionCard(
+                    icon: Icons.receipt_long,
+                    label: 'Fee Receipts',
+                    color: Colors.teal,
+                    onTap: () => context.push('/parent/receipts'),
+                  ),
+                  _QuickActionCard(
+                    icon: Icons.settings,
+                    label: 'Settings',
+                    color: Colors.grey,
+                    onTap: () => context.push('/parent/settings'),
+                  ),
+                  _QuickActionCard(
+                    icon: Icons.logout,
+                    label: 'Logout',
+                    color: Colors.red.shade700,
+                    onTap: () {
+                      ref.read(authProvider.notifier).logout();
+                      context.go('/login');
+                    },
+                  ),
                 ],
               ),
             ),

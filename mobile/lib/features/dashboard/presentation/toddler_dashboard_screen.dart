@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
-import '../../../shared/widgets/toddler_drawer.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class ToddlerDashboardScreen extends ConsumerWidget {
   const ToddlerDashboardScreen({super.key});
@@ -23,14 +23,7 @@ class ToddlerDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const ToddlerDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
         title: Row(
           children: [
             Container(
@@ -100,6 +93,24 @@ class ToddlerDashboardScreen extends ConsumerWidget {
                     onTap: () => context.go('/toddler/settings'),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _ActionCard(
+                    icon: Icons.logout,
+                    label: 'Logout',
+                    color: Colors.red.shade700,
+                    onTap: () {
+                      ref.read(authProvider.notifier).logout();
+                      context.go('/login');
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()),
               ],
             ),
             const SizedBox(height: 24),

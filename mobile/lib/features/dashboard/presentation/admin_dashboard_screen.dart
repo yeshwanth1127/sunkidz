@@ -130,6 +130,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     value: '$branchesCount',
                     backgroundColor: AppColors.pastelBlue,
                     iconColor: AppColors.primary,
+                    onTap: () => context.push('/branches'),
                   ),
                   StatCard(
                     icon: Icons.face,
@@ -137,6 +138,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     value: '$studentsCount',
                     backgroundColor: AppColors.pastelYellow,
                     iconColor: const Color(0xFFCA8A04),
+                    onTap: () => context.push('/students'),
                   ),
                   StatCard(
                     icon: Icons.groups,
@@ -144,6 +146,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     value: '$staffCount',
                     backgroundColor: AppColors.pastelGreen,
                     iconColor: const Color(0xFF16A34A),
+                    onTap: () => context.push('/staff'),
                   ),
                   StatCard(
                     icon: Icons.payments,
@@ -154,6 +157,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trendUp: true,
                     backgroundColor: const Color(0xFFFFF7ED),
                     iconColor: const Color(0xFFEA580C),
+                    onTap: () => context.push('/admin/fees'),
                   ),
                 ],
               ),
@@ -166,108 +170,114 @@ class AdminDashboardScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor,
+                    child: GestureDetector(
+                      onTap: () => context.push('/enquiries'),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardTheme.color,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'New Enquiries',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey),
-                              ),
-                              Icon(
-                                Icons.mail_outline,
-                                color: Colors.blue,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            (dashboardAsync.valueOrNull?.newEnquiries ?? 0)
-                                .toString(),
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'New Enquiries',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: Colors.grey),
                                 ),
-                          ),
-                        ],
+                                Icon(
+                                  Icons.mail_outline,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              (dashboardAsync.valueOrNull?.newEnquiries ?? 0)
+                                  .toString(),
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
+                    child: GestureDetector(
+                      onTap: () => context.push('/admin/reports'),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardTheme.color,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Conversion Rate',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey),
-                              ),
-                              Icon(
-                                Icons.trending_up,
-                                color: Colors.green,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _getConversionRate(
-                              newEnquiries:
-                                  dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                              convertedEnquiries:
-                                  dashboardAsync
-                                      .valueOrNull
-                                      ?.convertedEnquiries ??
-                                  0,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
                             ),
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Conversion Rate',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: Colors.grey),
                                 ),
-                          ),
-                        ],
+                                Icon(
+                                  Icons.trending_up,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _getConversionRate(
+                                newEnquiries:
+                                    dashboardAsync.valueOrNull?.newEnquiries ?? 0,
+                                convertedEnquiries:
+                                    dashboardAsync
+                                        .valueOrNull
+                                        ?.convertedEnquiries ??
+                                    0,
+                              ),
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

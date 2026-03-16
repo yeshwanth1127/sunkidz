@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/parent_drawer.dart';
 
 class ParentDaycareUpdatesScreen extends ConsumerStatefulWidget {
   const ParentDaycareUpdatesScreen({super.key});
@@ -75,13 +75,10 @@ class _ParentDaycareUpdatesScreenState extends ConsumerState<ParentDaycareUpdate
     final token = ref.watch(authProvider).token;
 
     return Scaffold(
-      drawer: const ParentDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
         ),
         title: const Text('Daycare Daily Updates'),
         actions: [

@@ -16,26 +16,18 @@ final parentChildrenRidesProvider = StreamProvider<List<Map<String, dynamic>>>((
 });
 
 Stream<List<Map<String, dynamic>>> _createRidesStream(dynamic api) async* {
-  print('🔵 Stream created, starting to fetch rides...');
-  int iteration = 0;
   while (true) {
-    iteration++;
     try {
-      print('🔵 Iteration $iteration: Fetching rides...');
       final rides = await api.getMyChildrenRides();
-      print('🚌 Parent rides API response: ${rides.length} rides');
-      print('🚌 Response type: ${rides.runtimeType}');
-      if (rides.isNotEmpty) {
-        print('🚌 First ride: ${rides[0]}');
-        print('🚌 All rides: $rides');
-      } else {
-        print('🚌 No rides returned');
-      }
       yield rides;
-    } catch (e, st) {
-      print('❌ Error fetching rides: $e');
-      print('❌ Stack trace: $st');
+
+      // If no active rides, stop polling - don't hammer the backend
+      if (rides.isEmpty) {
+        return;
+      }
+    } catch (e) {
       yield [];
+      return; // Stop on error too to avoid repeated failed requests
     }
     await Future.delayed(const Duration(seconds: 5));
   }
@@ -49,40 +41,19 @@ class ParentBusTrackingWidget extends ConsumerWidget {
     final rides = ref.watch(parentChildrenRidesProvider);
 
     return rides.when(
-      loading: () {
-        print('🔄 Loading rides...');
-        return _buildLoadingCard(context);
-      },
-      error: (err, stack) {
-        print('❌ Error loading rides: $err');
-        return _buildErrorCard(context, err.toString());
-      },
+      loading: () => _buildLoadingCard(context),
+      error: (err, stack) => _buildErrorCard(context, err.toString()),
       data: (ridesList) {
-        print('✅ Rides data received: ${ridesList.length} rides');
-        print('✅ Rides list: $ridesList');
         if (ridesList.isEmpty) {
-          print('  No active rides found');
           return _buildNoActiveRideCard(context);
         }
 
-        // Find the first active ride
-        final activeRide = ridesList.isNotEmpty ? ridesList.first : null;
-
-        if (activeRide == null) {
-          print('  Active ride is null');
-          return _buildNoActiveRideCard(context);
-        }
-
-        print('  Active ride data: $activeRide');
-
-        // Use correct field names from backend response
+        final activeRide = ridesList.first;
         final latestLocation = activeRide['latest_location'] as Map<String, dynamic>?;
         final lat = latestLocation?['latitude'] as double?;
         final lng = latestLocation?['longitude'] as double?;
         final busStaffName = activeRide['bus_staff_name'] as String? ?? 'Bus Staff';
         final routeName = activeRide['route_name'] as String? ?? 'Route';
-        
-        print('  Parsed: $busStaffName, $routeName, location: ${lat != null ? "($lat, $lng)" : "null"}');
         
         // Calculate duration from start_time
         int duration = 0;
@@ -172,8 +143,8 @@ class ParentBusTrackingWidget extends ConsumerWidget {
                   if (lat != null && lng != null)
                     LiveMapWidget(
                       currentPosition: Position(
-                        latitude: lat!,
-                        longitude: lng!,
+                        latitude: lat,
+                        longitude: lng,
                         timestamp: DateTime.now(),
                         accuracy: 0,
                         altitude: 0,
@@ -394,17 +365,18 @@ class ParentBusTrackingWidget extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'No Active Bus',
+            'No Active Rides',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Your child\'s bus is not currently in transit',
+            'Bus staff does not have an active ride. Tracking will resume when a ride starts.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.grey,
                 ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
