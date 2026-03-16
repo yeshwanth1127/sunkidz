@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class ToddlerDashboardScreen extends ConsumerWidget {
   const ToddlerDashboardScreen({super.key});
@@ -43,6 +44,7 @@ class ToddlerDashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          NotificationBell(notificationsRoute: '/toddler/notifications'),
           CircleAvatar(
             radius: 18,
             backgroundColor: primaryColor.withValues(alpha: 0.2),

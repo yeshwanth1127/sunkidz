@@ -40,6 +40,18 @@ class ParentApi {
     return r.data as Map<String, dynamic>;
   }
 
+  /// Send message to child's grade teachers only
+  Future<Map<String, dynamic>> sendMessage({
+    required String title,
+    required String message,
+  }) async {
+    final r = await _dio.post('/parent/messages/send', data: {
+      'title': title,
+      'message': message,
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
   /// Daycare daily updates for parent's children
   Future<List<Map<String, dynamic>>> getDaycareDailyUpdates({
     String? studentId,

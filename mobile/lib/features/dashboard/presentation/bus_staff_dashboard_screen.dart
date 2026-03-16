@@ -6,6 +6,7 @@ import '../../../core/api/bus_tracking_provider.dart';
 import '../../../core/providers/active_ride_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../data/bus_staff_dashboard_provider.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class BusStaffDashboardScreen extends ConsumerStatefulWidget {
   const BusStaffDashboardScreen({super.key});
@@ -104,6 +105,7 @@ class _BusStaffDashboardScreenState
           ],
         ),
         actions: [
+          NotificationBell(notificationsRoute: '/bus-staff/notifications'),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {

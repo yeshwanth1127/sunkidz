@@ -7,6 +7,7 @@ import '../../../core/api/current_user_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../shared/widgets/marks_card_display.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/parent_bus_tracking_widget.dart';
 import '../../../features/syllabus/providers/syllabus_provider.dart';
 import '../../../features/syllabus/domain/models/syllabus_model.dart';
@@ -298,26 +299,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
           ],
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(Icons.notifications_outlined),
-                onPressed: () {},
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          NotificationBell(notificationsRoute: '/parent/notifications'),
           InkWell(
             onTap: () => context.push('/parent/settings'),
             child: Padding(
@@ -548,6 +530,18 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     onTap: () {
                       context.push('/parent/homework');
                     },
+                  ),
+                  _QuickActionCard(
+                    icon: Icons.mail,
+                    label: 'Message Teachers',
+                    color: Colors.indigo,
+                    onTap: () => context.push('/parent/send-message'),
+                  ),
+                  _QuickActionCard(
+                    icon: Icons.notifications,
+                    label: 'View Messages',
+                    color: Colors.blue,
+                    onTap: () => context.push('/parent/notifications'),
                   ),
                   _QuickActionCard(
                     icon: Icons.assignment,

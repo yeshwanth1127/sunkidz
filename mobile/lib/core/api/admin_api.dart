@@ -540,4 +540,39 @@ class AdminApi {
   Future<void> removeStudentFromDaycareGroup(String groupId, String studentId) async {
     await _dio.delete('/daycare/admin/groups/$groupId/students/$studentId');
   }
+
+  // Notifications
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final r = await _dio.get('/admin/notifications');
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
+
+  Future<int> getUnreadNotificationCount() async {
+    final r = await _dio.get('/admin/notifications/unread_count');
+    return r.data as int;
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _dio.post('/admin/notifications/mark_read/$notificationId');
+  }
+
+  /// Send message to staff/parents. target_type: all_staff, all_parents, all,
+  /// branch_staff, branch_parents, branch_all, grade_teachers
+  Future<Map<String, dynamic>> sendMessage({
+    required String title,
+    required String message,
+    required String targetType,
+    String? branchId,
+    String? classId,
+  }) async {
+    final data = <String, dynamic>{
+      'title': title,
+      'message': message,
+      'target_type': targetType,
+    };
+    if (branchId != null) data['branch_id'] = branchId;
+    if (classId != null) data['class_id'] = classId;
+    final r = await _dio.post('/admin/messages/send', data: data);
+    return r.data as Map<String, dynamic>;
+  }
 }

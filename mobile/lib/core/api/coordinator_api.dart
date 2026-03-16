@@ -121,4 +121,18 @@ class CoordinatorApi {
     final r = await _dio.post('/coordinator/enquiries', data: data);
     return r.data as Map<String, dynamic>;
   }
+
+  /// Send message to branch teachers or branch parents
+  Future<Map<String, dynamic>> sendMessage({
+    required String title,
+    required String message,
+    required String targetType,
+  }) async {
+    final r = await _dio.post('/coordinator/messages/send', data: {
+      'title': title,
+      'message': message,
+      'target_type': targetType,
+    });
+    return r.data as Map<String, dynamic>;
+  }
 }
