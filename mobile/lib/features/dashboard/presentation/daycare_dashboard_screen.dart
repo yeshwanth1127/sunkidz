@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
-import '../../../shared/widgets/daycare_drawer.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class DaycareDashboardScreen extends ConsumerWidget {
   const DaycareDashboardScreen({super.key});
@@ -23,14 +23,7 @@ class DaycareDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const DaycareDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
         title: Row(
           children: [
             Container(
@@ -114,7 +107,17 @@ class DaycareDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(child: SizedBox()),
+                Expanded(
+                  child: _ActionCard(
+                    icon: Icons.logout,
+                    label: 'Logout',
+                    color: Colors.red.shade700,
+                    onTap: () {
+                      ref.read(authProvider.notifier).logout();
+                      context.go('/login');
+                    },
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 24),

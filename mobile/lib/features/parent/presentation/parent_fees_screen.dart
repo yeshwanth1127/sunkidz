@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/student_profile_provider.dart';
 import '../../admin/presentation/fee_receipt_pdf.dart';
@@ -66,6 +67,10 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: const Text('Fee Details'),
         elevation: 0,
       ),

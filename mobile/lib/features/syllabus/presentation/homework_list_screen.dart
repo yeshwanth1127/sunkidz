@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
@@ -8,7 +9,6 @@ import '../../../core/auth/auth_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
-import '../../../shared/widgets/parent_drawer.dart';
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
@@ -135,11 +135,12 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
         auth.role == UserRole.admin ||
         auth.role == UserRole.teacher ||
         auth.role == UserRole.coordinator;
+    final isParent = auth.role == UserRole.parent;
     final drawer = switch (auth.role) {
       UserRole.admin => const AdminDrawer(),
       UserRole.coordinator => const CoordinatorDrawer(),
       UserRole.teacher => const TeacherDrawer(),
-      UserRole.parent => const ParentDrawer(),
+      UserRole.parent => null, // Parent uses back button, no drawer
       UserRole.busStaff || null => const SizedBox.shrink(),
       _ => const SizedBox.shrink(),
     };
@@ -152,12 +153,17 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
       backgroundColor: const Color(0xFFFFF4E0),
       drawer: drawer,
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
+        leading: isParent
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              )
+            : Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
+              ),
         title: const Text('Homework'),
         centerTitle: true,
         actions: [

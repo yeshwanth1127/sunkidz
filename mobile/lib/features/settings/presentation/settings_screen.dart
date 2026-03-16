@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
-import '../../../shared/widgets/parent_drawer.dart';
 import '../../../shared/widgets/toddler_drawer.dart';
 import '../../../shared/widgets/daycare_drawer.dart';
 import '../data/settings_provider.dart';
@@ -181,7 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Widget _getDrawer(UserRole? role) {
+  Widget? _getDrawer(UserRole? role) {
     switch (role) {
       case UserRole.admin:
         return const AdminDrawer();
@@ -190,7 +190,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       case UserRole.teacher:
         return const TeacherDrawer();
       case UserRole.parent:
-        return const ParentDrawer();
+        return null; // Parent uses back button, no drawer
       case UserRole.toddlers:
         return const ToddlerDrawer();
       case UserRole.daycare:
@@ -204,15 +204,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
 
+    final isParent = auth.role == UserRole.parent;
     return Scaffold(
       drawer: _getDrawer(auth.role),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
+        leading: isParent
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.pop(),
+              )
+            : Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
+              ),
         title: const Text('Settings'),
         centerTitle: true,
       ),
