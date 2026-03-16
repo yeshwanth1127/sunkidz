@@ -75,26 +75,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications_outlined),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            onPressed: () {},
-          ),
+          NotificationBell(unreadCount: 5),
           CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.primary.withValues(alpha: 0.2),
@@ -463,6 +444,40 @@ class _EnquiryTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class NotificationBell extends StatelessWidget {
+  final int unreadCount;
+  const NotificationBell({required this.unreadCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Icon(Icons.notifications, size: 32),
+        if (unreadCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                unreadCount.toString(),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

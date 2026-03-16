@@ -13,7 +13,12 @@ from app.models.student import Student, ParentStudentLink
 from app.models.user import User
 from app.models.fees import FeeStructure
 from app.models.syllabus import Syllabus, Homework
-from app.services.whatsapp_service import whatsapp_service
+import requests
+
+from app.models.notification import Notification
+from app.schemas.notification import NotificationCreate
+
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,36 +35,14 @@ def send_enquiry_notification(enquiry: Enquiry) -> bool:
     Args:
         enquiry: The enquiry object with parent contact information
         
-    Returns:
+ # WhatsApp integration removed
         True if notification was sent successfully, False otherwise
     """
     # Determine which contact to use
     contact_number: Optional[str] = None
     contact_type: str = ""
-    
-    if enquiry.father_contact_no:
-        contact_number = enquiry.father_contact_no
-        contact_type = "father"
-    elif enquiry.mother_contact_no:
-        contact_number = enquiry.mother_contact_no
-        contact_type = "mother"
-    else:
-        logger.warning(
-            f"No contact number available for enquiry ID {enquiry.id} (child: {enquiry.child_name})"
-        )
-        return False
-    
-    logger.info(
-        f"Sending enquiry notification for {enquiry.child_name} to {contact_type}'s number: {contact_number}"
-    )
-    
-    # Send WhatsApp message
-    try:
-        success = whatsapp_service.send_welcome_message(
-            phone_number=contact_number,
-            child_name=enquiry.child_name
-        )
-        
+ # WhatsApp notification logic removed
+
         if success:
             logger.info(
                 f"Successfully sent enquiry notification for enquiry ID {enquiry.id}"
@@ -76,6 +59,7 @@ def send_enquiry_notification(enquiry: Enquiry) -> bool:
             f"Exception while sending enquiry notification for enquiry ID {enquiry.id}: {str(e)}"
         )
         return False
+
 
 
 def send_fee_notification(student_id: UUID, db: Session) -> bool:
@@ -341,3 +325,42 @@ def send_fee_receipt_notification(student_id: UUID, payment, fees_detail: dict, 
     except Exception as e:
         logger.error(f"Exception in send_fee_receipt_notification: {str(e)}")
         return False
+
+
+# --- OneSignal Notification ---
+ONESIGNAL_APP_ID = settings.onesignal_app_id
+ONESIGNAL_API_KEY = settings.onesignal_api_key
+ONESIGNAL_API_URL = "https://onesignal.com/api/v1/notifications"
+
+def send_onesignal_notification(player_ids: list[str], title: str, message: str):
+    headers = {
+        "Authorization": f"Basic {ONESIGNAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "app_id": ONESIGNAL_APP_ID,
+        "include_player_ids": player_ids,
+        "headings": {"en": title},
+        "contents": {"en": message}
+    }
+    response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers)
+    return response.status_code == 200
+
+
+def push_admin_notification(db: Session, admin_user_id: UUID, title: str, message: str, related_enquiry_id: UUID | None = None):
+    # Create DB notification
+    notification = Notification(
+        user_id=admin_user_id,
+        title=title,
+        message=message,
+        related_enquiry_id=related_enquiry_id,
+        is_read=False
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    # Send OneSignal push
+    admin = db.query(User).filter(User.id == admin_user_id).first()
+    if admin and admin.onesignal_player_id:
+        send_onesignal_notification([admin.onesignal_player_id], title, message)
+    return notification
