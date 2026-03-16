@@ -6,11 +6,38 @@ import '../../../core/theme/app_theme.dart';
 import '../data/messages_provider.dart';
 
 /// Shared notifications screen for all roles (admin, coordinator, teacher, parent, etc.)
-class NotificationsScreen extends ConsumerWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  bool _markedAllRead = false;
+
+  Future<void> _ensureMarkAllRead() async {
+    if (_markedAllRead) return;
+    final api = ref.read(messagesApiProvider);
+    if (api == null) return;
+    try {
+      await api.markAllNotificationsRead();
+      _markedAllRead = true;
+      ref.invalidate(unreadCountProvider);
+    } catch (_) {
+      // ignore; user can still read individually / pull to refresh
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Fire and forget; don't block build
+    Future.microtask(_ensureMarkAllRead);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(notificationsProvider);
 
     return Scaffold(

@@ -104,6 +104,20 @@ def mark_my_notification_read(
     return {"success": True}
 
 
+@router.post("/me/notifications/mark_all_read")
+def mark_all_notifications_read(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark all notifications for the current user as read."""
+    db.query(Notification).filter(
+        Notification.user_id == user.id,
+        Notification.is_read == False,
+    ).update({Notification.is_read: True})
+    db.commit()
+    return {"success": True}
+
+
 # --- Admin: Send messages ---
 @router.post("/admin/messages/send", response_model=SendMessageResponse)
 def admin_send_message(
