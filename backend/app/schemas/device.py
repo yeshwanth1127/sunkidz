@@ -1,8 +1,8 @@
-from uuid import UUID
 from pydantic import BaseModel
 
+
 class DeviceRegisterRequest(BaseModel):
-    user_id: UUID
+    """Subscription ID from OneSignal (or legacy player_id)."""
     onesignal_player_id: str
 
 class DeviceRegisterResponse(BaseModel):

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Date, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Date, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -14,7 +14,9 @@ class Syllabus(Base):
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    upload_date = Column(Date, nullable=False)
+    upload_date = Column(Date, nullable=True)  # Legacy; kept for backward compat
+    school_day = Column(Integer, nullable=True)  # 1-180, day in academic calendar
+    academic_year_start = Column(Date, nullable=True)  # June 1 of start year
     file_path = Column(String(500), nullable=False)
     file_name = Column(String(255), nullable=False)
     file_size = Column(String(50), nullable=True)

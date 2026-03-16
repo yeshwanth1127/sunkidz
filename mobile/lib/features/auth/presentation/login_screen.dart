@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:dio/dio.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/api/auth_api.dart';
+import '../../../core/services/device_registration_service.dart';
 import '../../../shared/widgets/sunkidz_logo.dart';
 import '../../../shared/widgets/animated_starry_background.dart';
 
@@ -106,6 +108,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             branchId: branchId,
             classId: classId,
           );
+      if (!kIsWeb) {
+        DeviceRegistrationService.registerDeviceForPush(token);
+      }
       if (mounted) {
         setState(() => _isLoading = false);
         context.go(_homeForRole(role));

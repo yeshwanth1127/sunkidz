@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_provider.dart';
+import '../../../core/api/coordinator_provider.dart';
+import '../../../core/api/teacher_provider.dart';
+import '../../../core/auth/auth_provider.dart';
+import '../../dashboard/data/teacher_dashboard_provider.dart';
 import '../providers/syllabus_provider.dart';
 
 class SyllabusUploadScreen extends ConsumerStatefulWidget {
@@ -19,13 +22,13 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   String? _selectedClassId;
-  DateTime _uploadDate = DateTime.now();
+  int _schoolDay = 1;
   PlatformFile? _selectedFile;
   String? _selectedFileName;
   bool _uploading = false;
-  
+
   List<Map<String, dynamic>> _classes = [];
   bool _loadingClasses = true;
 
@@ -36,24 +39,52 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
   }
 
   Future<void> _loadClasses() async {
-    final api = ref.read(adminApiProvider);
-    if (api == null) {
-      setState(() => _loadingClasses = false);
-      return;
-    }
+    final auth = ref.read(authProvider);
+    final classes = <Map<String, dynamic>>[];
+
     try {
-      final branches = await api.getBranches();
-      final classes = <Map<String, dynamic>>[];
-      for (final branch in branches) {
-        if (branch['classes'] != null) {
-          for (final cls in branch['classes']) {
-            classes.add({
-              'id': cls['id'],
-              'name': '${cls['name']} - ${branch['name']}',
-            });
+      if (auth.role == UserRole.admin) {
+        final api = ref.read(adminApiProvider);
+        if (api == null) {
+          setState(() => _loadingClasses = false);
+          return;
+        }
+        final branches = await api.getBranches();
+        for (final branch in branches) {
+          if (branch['classes'] != null) {
+            for (final cls in branch['classes']) {
+              classes.add({
+                'id': cls['id'],
+                'name': '${cls['name']} - ${branch['name']}',
+              });
+            }
           }
         }
+      } else if (auth.role == UserRole.coordinator) {
+        final api = ref.read(coordinatorApiProvider);
+        if (api == null) {
+          setState(() => _loadingClasses = false);
+          return;
+        }
+        final dashboard = await api.getDashboard();
+        final branchClasses = dashboard['classes'] as List? ?? [];
+        final branchName = dashboard['branch_name'] ?? '';
+        for (final cls in branchClasses) {
+          classes.add({
+            'id': cls['id'],
+            'name': '${cls['name']} - $branchName',
+          });
+        }
+      } else if (auth.role == UserRole.teacher) {
+        final dashboardAsync = await ref.read(teacherDashboardDataProvider.future);
+        if (dashboardAsync != null && dashboardAsync.classId != null && dashboardAsync.className != null) {
+          classes.add({
+            'id': dashboardAsync.classId!,
+            'name': '${dashboardAsync.className!} - ${dashboardAsync.branchName ?? ""}',
+          });
+        }
       }
+
       setState(() {
         _classes = classes;
         _loadingClasses = false;
@@ -123,7 +154,7 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
       await service.uploadSyllabus(
         classId: _selectedClassId!,
         title: _titleController.text,
-        uploadDate: _uploadDate,
+        schoolDay: _schoolDay,
         description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
         file: file,
       );
@@ -224,31 +255,15 @@ class _SyllabusUploadScreenState extends ConsumerState<SyllabusUploadScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Upload date
-                    InkWell(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _uploadDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (date != null) {
-                          setState(() {
-                            _uploadDate = date;
-                          });
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Upload Date *',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(
-                          DateFormat('MMM dd, yyyy').format(_uploadDate),
-                        ),
+                    // School day (1-180)
+                    DropdownButtonFormField<int>(
+                      value: _schoolDay,
+                      decoration: const InputDecoration(
+                        labelText: 'School Day (1-180) *',
+                        border: OutlineInputBorder(),
                       ),
+                      items: List.generate(180, (i) => i + 1).map((d) => DropdownMenuItem(value: d, child: Text('Day $d'))).toList(),
+                      onChanged: (v) => setState(() => _schoolDay = v ?? 1),
                     ),
                     const SizedBox(height: 16),
 

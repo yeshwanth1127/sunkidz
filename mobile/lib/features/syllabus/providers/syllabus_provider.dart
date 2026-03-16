@@ -10,13 +10,25 @@ final syllabusServiceProvider = Provider<SyllabusService>((ref) {
   return SyllabusService(apiClient);
 });
 
+// Syllabus calendar: Day 1-180 with dates and syllabus per day
+final syllabusCalendarProvider = FutureProvider.autoDispose.family<SyllabusCalendar, SyllabusCalendarFilter>(
+  (ref, filter) async {
+    final service = ref.watch(syllabusServiceProvider);
+    return service.fetchSyllabusCalendar(
+      classId: filter.classId,
+      academicYear: filter.academicYear,
+    );
+  },
+);
+
 // Syllabus providers
 final syllabusListProvider = FutureProvider.autoDispose.family<List<Syllabus>, SyllabusFilter>(
   (ref, filter) async {
     final service = ref.watch(syllabusServiceProvider);
     return service.fetchSyllabus(
       classId: filter.classId,
-      uploadDate: filter.uploadDate,
+      schoolDay: filter.schoolDay,
+      academicYearStart: filter.academicYearStart,
     );
   },
 );
@@ -47,11 +59,30 @@ final homeworkDetailProvider = FutureProvider.autoDispose.family<Homework, Strin
 );
 
 // Filter classes
+class SyllabusCalendarFilter {
+  final String classId;
+  final int? academicYear;
+
+  SyllabusCalendarFilter({required this.classId, this.academicYear});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SyllabusCalendarFilter &&
+          runtimeType == other.runtimeType &&
+          classId == other.classId &&
+          academicYear == other.academicYear;
+
+  @override
+  int get hashCode => classId.hashCode ^ (academicYear?.hashCode ?? 0);
+}
+
 class SyllabusFilter {
   final String? classId;
-  final String? uploadDate;
+  final int? schoolDay;
+  final String? academicYearStart;
 
-  SyllabusFilter({this.classId, this.uploadDate});
+  SyllabusFilter({this.classId, this.schoolDay, this.academicYearStart});
 
   @override
   bool operator ==(Object other) =>
@@ -59,10 +90,11 @@ class SyllabusFilter {
       other is SyllabusFilter &&
           runtimeType == other.runtimeType &&
           classId == other.classId &&
-          uploadDate == other.uploadDate;
+          schoolDay == other.schoolDay &&
+          academicYearStart == other.academicYearStart;
 
   @override
-  int get hashCode => classId.hashCode ^ uploadDate.hashCode;
+  int get hashCode => classId.hashCode ^ schoolDay.hashCode ^ (academicYearStart?.hashCode ?? 0);
 }
 
 class HomeworkFilter {

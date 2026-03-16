@@ -1,10 +1,10 @@
 import os
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Body
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -15,12 +15,24 @@ from app.models.user import User
 from app.models.student import Student, ParentStudentLink
 from app.models.branch import Class, BranchAssignment
 from app.models.syllabus import Syllabus, Homework, GalleryImage
+from app.models.syllabus_holiday import SyllabusHoliday
 from app.schemas.syllabus import (
     SyllabusResponse,
     SyllabusUpdate,
+    SyllabusCalendarResponse,
+    SyllabusCalendarDay,
+    SyllabusHolidayCreate,
+    SyllabusHolidayCreateRange,
+    SyllabusHolidayResponse,
     HomeworkResponse,
     HomeworkUpdate,
     GalleryResponse,
+)
+from app.services.academic_calendar_service import (
+    get_academic_year_for_date,
+    get_academic_year_str,
+    academic_year_start,
+    get_school_days_with_dates,
 )
 from app.services.notification_service import send_syllabus_notification, send_homework_notification
 
@@ -37,6 +49,15 @@ GALLERY_DIR = os.path.join(UPLOAD_DIR, "gallery")
 os.makedirs(SYLLABUS_DIR, exist_ok=True)
 os.makedirs(HOMEWORK_DIR, exist_ok=True)
 os.makedirs(GALLERY_DIR, exist_ok=True)
+
+
+def _get_holiday_dates(db: Session, start_year: int) -> set:
+    """Get set of holiday dates for an academic year."""
+    june1 = date(start_year, 6, 1)
+    rows = db.query(SyllabusHoliday).filter(
+        SyllabusHoliday.academic_year_start == june1
+    ).all()
+    return {r.holiday_date for r in rows}
 
 
 def _get_user_classes(db: Session, user: User) -> List[UUID]:
@@ -145,50 +166,53 @@ async def _save_file(file: UploadFile, directory: str) -> tuple[str, str, str]:
 async def upload_syllabus(
     class_id: UUID = Form(...),
     title: str = Form(...),
-    upload_date: str = Form(...),
+    school_day: int = Form(...),
+    academic_year_start_str: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Upload syllabus (admin or teacher for their class)."""
-    # Check authorization
+    """Upload syllabus for a specific school day (1-180). Admin or teacher for their class."""
+    if school_day < 1 or school_day > 180:
+        raise HTTPException(status_code=400, detail="school_day must be between 1 and 180")
     if not _can_upload_to_class(db, current_user, class_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to upload syllabus for this class"
         )
-    
-    # Verify class exists
     class_ = db.query(Class).filter(Class.id == class_id).first()
     if not class_:
         raise HTTPException(status_code=404, detail="Class not found")
-    
-    # Save file
+    if academic_year_start_str:
+        try:
+            ay_start = datetime.fromisoformat(academic_year_start_str).date()
+            if ay_start.month != 6 or ay_start.day != 1:
+                raise HTTPException(status_code=400, detail="academic_year_start must be June 1 (YYYY-06-01)")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid academic_year_start format")
+    else:
+        start_year, _ = get_academic_year_for_date(date.today())
+        ay_start = academic_year_start(start_year)
     file_path, file_name, file_size = await _save_file(file, SYLLABUS_DIR)
-    
-    # Create syllabus record
     syllabus = Syllabus(
         class_id=class_id,
         uploaded_by=current_user.id,
         title=title,
         description=description,
-        upload_date=datetime.fromisoformat(upload_date).date(),
+        school_day=school_day,
+        academic_year_start=ay_start,
         file_path=file_path,
         file_name=file_name,
         file_size=file_size,
     )
-    
     db.add(syllabus)
     db.commit()
     db.refresh(syllabus)
-    
-    # Send WhatsApp notification to staff (non-blocking)
     try:
         send_syllabus_notification(syllabus, db)
     except Exception as ex:
         logger.error(f"Failed to send syllabus notification for syllabus {syllabus.id}: {str(ex)}")
-    
     return SyllabusResponse(
         id=syllabus.id,
         class_id=syllabus.class_id,
@@ -196,7 +220,9 @@ async def upload_syllabus(
         uploader_name=current_user.full_name,
         title=syllabus.title,
         description=syllabus.description,
-        upload_date=syllabus.upload_date,
+        upload_date=None,
+        school_day=syllabus.school_day,
+        academic_year_start=syllabus.academic_year_start,
         file_path=syllabus.file_path,
         file_name=syllabus.file_name,
         file_size=syllabus.file_size,
@@ -208,14 +234,13 @@ async def upload_syllabus(
 @router.get("/syllabus", response_model=List[SyllabusResponse])
 def list_syllabus(
     class_id: Optional[UUID] = None,
-    upload_date: Optional[str] = None,
+    school_day: Optional[int] = None,
+    academic_year_start_str: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List syllabus (filtered by class and/or date)."""
+    """List syllabus (filtered by class, school_day, academic_year)."""
     query = db.query(Syllabus)
-    
-    # Filter by class if specified
     if class_id:
         if not _can_view_class(db, current_user, class_id):
             raise HTTPException(
@@ -224,34 +249,31 @@ def list_syllabus(
             )
         query = query.filter(Syllabus.class_id == class_id)
     else:
-        # If no class specified, filter by user's accessible classes
         if current_user.role == "teacher":
             user_classes = _get_user_classes(db, current_user)
             if user_classes:
                 query = query.filter(Syllabus.class_id.in_(user_classes))
             else:
                 return []
-        # toddlers/daycare: no filter, see all syllabus
         elif current_user.role in ["toddlers", "daycare"]:
-            pass  # query already has all syllabus
-    
-    # For teachers/coordinators, show only admin-uploaded syllabus
+            pass
     if current_user.role in ["teacher", "coordinator"]:
         admin_ids = db.query(User.id).filter(User.role == "admin").subquery()
         query = query.filter(Syllabus.uploaded_by.in_(admin_ids))
-
-    # Filter by date if specified
-    if upload_date:
-        query = query.filter(Syllabus.upload_date == datetime.fromisoformat(upload_date).date())
-
-    syllabi = query.order_by(Syllabus.upload_date.desc()).all()
-    
-    # Build response
+    if school_day is not None:
+        query = query.filter(Syllabus.school_day == school_day)
+    if academic_year_start_str:
+        ay_start = datetime.fromisoformat(academic_year_start_str).date()
+        query = query.filter(Syllabus.academic_year_start == ay_start)
+    else:
+        start_year, _ = get_academic_year_for_date(date.today())
+        ay_start = academic_year_start(start_year)
+        query = query.filter(Syllabus.academic_year_start == ay_start)
+    syllabi = query.order_by(Syllabus.school_day.asc()).all()
     result = []
     for s in syllabi:
         class_ = db.query(Class).filter(Class.id == s.class_id).first()
         uploader = db.query(User).filter(User.id == s.uploaded_by).first()
-        
         result.append(SyllabusResponse(
             id=s.id,
             class_id=s.class_id,
@@ -260,14 +282,162 @@ def list_syllabus(
             title=s.title,
             description=s.description,
             upload_date=s.upload_date,
+            school_day=s.school_day,
+            academic_year_start=s.academic_year_start,
             file_path=s.file_path,
             file_name=s.file_name,
             file_size=s.file_size,
             class_name=class_.name if class_ else "",
             created_at=s.created_at.isoformat() if s.created_at else "",
         ))
-    
     return result
+
+
+@router.get("/syllabus/calendar", response_model=SyllabusCalendarResponse)
+def get_syllabus_calendar(
+    class_id: UUID = Query(...),
+    academic_year: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get Day 1-180 with dates and syllabus for each day. Dates shift with holidays."""
+    if not _can_view_class(db, current_user, class_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view this class"
+        )
+    start_year = academic_year if academic_year else get_academic_year_for_date(date.today())[0]
+    ay_start = academic_year_start(start_year)
+    holiday_dates = _get_holiday_dates(db, start_year)
+    days_data = get_school_days_with_dates(start_year, holiday_dates)
+    syllabi_by_day = {}
+    query = db.query(Syllabus).filter(
+        Syllabus.class_id == class_id,
+        Syllabus.academic_year_start == ay_start,
+        Syllabus.school_day.isnot(None),
+    )
+    if current_user.role in ["teacher", "coordinator"]:
+        admin_ids = db.query(User.id).filter(User.role == "admin").subquery()
+        query = query.filter(Syllabus.uploaded_by.in_(admin_ids))
+    for s in query.all():
+        d = s.school_day
+        if d not in syllabi_by_day:
+            syllabi_by_day[d] = []
+        uploader = db.query(User).filter(User.id == s.uploaded_by).first()
+        syllabi_by_day[d].append({
+            "id": str(s.id),
+            "title": s.title,
+            "file_name": s.file_name,
+            "uploader_name": uploader.full_name if uploader else None,
+        })
+    result_days = [
+        SyllabusCalendarDay(day=item["day"], date=item["date"], syllabus=syllabi_by_day.get(item["day"], []))
+        for item in days_data
+    ]
+    return SyllabusCalendarResponse(
+        academic_year_start=ay_start.isoformat(),
+        academic_year_str=get_academic_year_str(ay_start),
+        days=result_days,
+    )
+
+
+@router.post("/syllabus/holidays", response_model=SyllabusHolidayResponse)
+def add_syllabus_holiday(
+    data: SyllabusHolidayCreate = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add a single holiday date. Admin only."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can add holidays")
+    start_year, _ = get_academic_year_for_date(data.holiday_date)
+    ay_start = academic_year_start(start_year)
+    existing = db.query(SyllabusHoliday).filter(
+        SyllabusHoliday.academic_year_start == ay_start,
+        SyllabusHoliday.holiday_date == data.holiday_date,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Holiday already exists for this date")
+    h = SyllabusHoliday(
+        academic_year_start=ay_start,
+        holiday_date=data.holiday_date,
+        reason=data.reason,
+        created_by=current_user.id,
+    )
+    db.add(h)
+    db.commit()
+    db.refresh(h)
+    return SyllabusHolidayResponse(
+        id=h.id,
+        academic_year_start=h.academic_year_start,
+        holiday_date=h.holiday_date,
+        reason=h.reason,
+        created_at=h.created_at.isoformat() if h.created_at else "",
+    )
+
+
+@router.post("/syllabus/holidays/range", response_model=List[SyllabusHolidayResponse])
+def add_syllabus_holiday_range(
+    data: SyllabusHolidayCreateRange = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add holiday for N days starting from a date. Admin only."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can add holidays")
+    from datetime import timedelta
+    result = []
+    current = data.start_date
+    for _ in range(data.num_days):
+        start_year, _ = get_academic_year_for_date(current)
+        ay_start = academic_year_start(start_year)
+        existing = db.query(SyllabusHoliday).filter(
+            SyllabusHoliday.academic_year_start == ay_start,
+            SyllabusHoliday.holiday_date == current,
+        ).first()
+        if not existing:
+            h = SyllabusHoliday(
+                academic_year_start=ay_start,
+                holiday_date=current,
+                reason=data.reason,
+                created_by=current_user.id,
+            )
+            db.add(h)
+            db.commit()
+            db.refresh(h)
+            result.append(SyllabusHolidayResponse(
+                id=h.id,
+                academic_year_start=h.academic_year_start,
+                holiday_date=h.holiday_date,
+                reason=h.reason,
+                created_at=h.created_at.isoformat() if h.created_at else "",
+            ))
+        current += timedelta(days=1)
+    return result
+
+
+@router.get("/syllabus/holidays", response_model=List[SyllabusHolidayResponse])
+def list_syllabus_holidays(
+    academic_year: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List holidays for an academic year."""
+    start_year = academic_year if academic_year else get_academic_year_for_date(date.today())[0]
+    ay_start = academic_year_start(start_year)
+    rows = db.query(SyllabusHoliday).filter(
+        SyllabusHoliday.academic_year_start == ay_start
+    ).order_by(SyllabusHoliday.holiday_date).all()
+    return [
+        SyllabusHolidayResponse(
+            id=r.id,
+            academic_year_start=r.academic_year_start,
+            holiday_date=r.holiday_date,
+            reason=r.reason,
+            created_at=r.created_at.isoformat() if r.created_at else "",
+        )
+        for r in rows
+    ]
 
 
 @router.get("/syllabus/{syllabus_id}", response_model=SyllabusResponse)
@@ -305,6 +475,8 @@ def get_syllabus(
         title=syllabus.title,
         description=syllabus.description,
         upload_date=syllabus.upload_date,
+        school_day=syllabus.school_day,
+        academic_year_start=syllabus.academic_year_start,
         file_path=syllabus.file_path,
         file_name=syllabus.file_name,
         file_size=syllabus.file_size,
@@ -332,14 +504,14 @@ def update_syllabus(
             detail="You don't have permission to update this syllabus"
         )
     
-    # Update fields
     if data.title:
         syllabus.title = data.title
     if data.description is not None:
         syllabus.description = data.description
-    if data.upload_date:
-        syllabus.upload_date = data.upload_date
-    
+    if data.school_day is not None:
+        if data.school_day < 1 or data.school_day > 180:
+            raise HTTPException(status_code=400, detail="school_day must be between 1 and 180")
+        syllabus.school_day = data.school_day
     db.commit()
     db.refresh(syllabus)
     

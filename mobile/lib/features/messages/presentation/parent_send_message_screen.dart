@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,6 +42,27 @@ class _ParentSendMessageScreenState extends ConsumerState<ParentSendMessageScree
           SnackBar(content: Text(res['message'] as String? ?? 'Sent')),
         );
         context.pop();
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        String msg = 'Failed to send. Please try again.';
+        final data = e.response?.data;
+        if (data is Map) {
+          final d = data['detail'];
+          if (d is String) {
+            msg = d;
+          } else if (d is List && d.isNotEmpty) {
+            final first = d.first;
+            msg = first is Map
+                ? (first['msg'] ?? first['message'] ?? first.toString()).toString()
+                : first.toString();
+          } else if (d != null) {
+            msg = d.toString();
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 5)),
+        );
       }
     } catch (e) {
       if (mounted) {
