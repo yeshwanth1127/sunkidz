@@ -10,9 +10,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const storage = FlutterSecureStorage();
 
-  // Initialize OneSignal
-  OneSignal.initialize("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
-  OneSignal.Notifications.requestPermission(true);
+  // Initialize OneSignal (new API)
+  await OneSignal.shared.setAppId("YOUR_ONESIGNAL_APP_ID"); // Replace with your real App ID
+
+  // Request push notification permission (for iOS)
+  await OneSignal.shared.promptPushNotificationsWithUserResponse();
 
   // Get Player ID and send to backend
   final deviceState = await OneSignal.shared.getDeviceState();
