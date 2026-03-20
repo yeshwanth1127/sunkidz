@@ -1,521 +1,594 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import '../../../core/theme/app_theme.dart';
+import 'dart:math' as math;
 import '../../../core/api/current_user_provider.dart';
-import '../../../shared/widgets/stat_card.dart';
 import '../../../shared/widgets/admin_drawer.dart';
-import '../../../shared/widgets/admissions_chart.dart';
-import '../data/dashboard_provider.dart';
-import '../../../features/messages/data/messages_provider.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../data/dashboard_provider.dart';
 
-class AdminDashboardScreen extends ConsumerWidget {
+// ─── Palette ────────────────────────────────────────────────────────────────
+const _kBg     = Color(0xFFFFF4DF);
+const _kBlue   = Color(0xFFA6CFFF);
+const _kGreen  = Color(0xFF9DE0C2);
+
+// ─── Decorative shape colours ─────────────────────────────────────────────
+const _kShapes = [
+  Color(0xFFFFD6E0), Color(0xFFD6F5FF), Color(0xFFD6FFE8),
+  Color(0xFFEEDDFF), Color(0xFFFFEBC0), Color(0xFFCCF2FF),
+];
+
+class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
 
-  static String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
+  @override
+  ConsumerState<AdminDashboardScreen> createState() =>
+      _AdminDashboardScreenState();
+}
 
-  static String _getConversionRate({
-    required int newEnquiries,
-    required int convertedEnquiries,
-  }) {
-    final total = newEnquiries + convertedEnquiries;
-    if (total == 0) return '0%';
-    final rate = (convertedEnquiries / total * 100).toStringAsFixed(1);
-    return '$rate%';
+final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
+    with SingleTickerProviderStateMixin {
+  int _selectedIndex = 0;
+  late AnimationController _bgController;
+
+  @override
+  void initState() {
+    super.initState();
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat(reverse: true);
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(currentUserProvider);
-    final dashboardAsync = ref.watch(dashboardDataProvider);
-
-    final userName = userAsync.valueOrNull?['full_name']?.toString() ?? 'Admin';
-    final branchesCount = dashboardAsync.valueOrNull?.branchesCount ?? 0;
-    final studentsCount = dashboardAsync.valueOrNull?.studentsCount ?? 0;
-    final staffCount = dashboardAsync.valueOrNull?.staffCount ?? 0;
-    final feesTotalDue = dashboardAsync.valueOrNull?.feesTotalDue ?? 0.0;
-    final feesPending = dashboardAsync.valueOrNull?.feesPending ?? 0.0;
-    final feesCollected = dashboardAsync.valueOrNull?.feesCollected ?? 0.0;
-    final recentEnquiries = dashboardAsync.valueOrNull?.recentEnquiries ?? [];
-
-    final currency = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: '₹',
-      decimalDigits: 0,
-    );
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Image.asset(
-            'images/new_logo.png',
-            height: 32,
-            errorBuilder: (context, error, stackTrace) {
-              return Icon(Icons.grid_view, color: AppColors.primary, size: 24);
-            },
-          ),
-        ),
-        actions: [
-          NotificationBell(notificationsRoute: '/admin/notifications'),
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-            child: Text(
-              userName.isNotEmpty ? userName[0].toUpperCase() : 'A',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(currentUserProvider);
-          ref.invalidate(dashboardDataProvider);
-          ref.invalidate(unreadCountProvider);
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_greeting()}, $userName',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                branchesCount == 1
-                    ? "Here's what's happening across 1 branch."
-                    : "Here's what's happening across $branchesCount branches.",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _AdminQuickActionCard(
-                      icon: Icons.send,
-                      label: 'Send Message',
-                      onTap: () => context.push('/admin/send-message'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AdminQuickActionCard(
-                      icon: Icons.notifications,
-                      label: 'View Messages',
-                      onTap: () => context.push('/admin/notifications'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.2,
-                children: [
-                  StatCard(
-                    icon: Icons.business,
-                    label: 'Branches',
-                    value: '$branchesCount',
-                    backgroundColor: AppColors.pastelBlue,
-                    iconColor: AppColors.primary,
-                    onTap: () => context.push('/branches'),
-                  ),
-                  StatCard(
-                    icon: Icons.face,
-                    label: 'Students',
-                    value: '$studentsCount',
-                    backgroundColor: AppColors.pastelYellow,
-                    iconColor: const Color(0xFFCA8A04),
-                    onTap: () => context.push('/students'),
-                  ),
-                  StatCard(
-                    icon: Icons.groups,
-                    label: 'Staff',
-                    value: '$staffCount',
-                    backgroundColor: AppColors.pastelGreen,
-                    iconColor: const Color(0xFF16A34A),
-                    onTap: () => context.push('/staff'),
-                  ),
-                  StatCard(
-                    icon: Icons.payments,
-                    label: 'Fees Pending',
-                    value: currency.format(feesPending),
-                    trend:
-                        'Collected ${currency.format(feesCollected)} / Due ${currency.format(feesTotalDue)}',
-                    trendUp: true,
-                    backgroundColor: const Color(0xFFFFF7ED),
-                    iconColor: const Color(0xFFEA580C),
-                    onTap: () => context.push('/admin/fees'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Quick Metrics',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.push('/enquiries'),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardTheme.color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'New Enquiries',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: Colors.grey),
-                                ),
-                                Icon(
-                                  Icons.mail_outline,
-                                  color: Colors.blue,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              (dashboardAsync.valueOrNull?.newEnquiries ?? 0)
-                                  .toString(),
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.push('/admin/reports'),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardTheme.color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Conversion Rate',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: Colors.grey),
-                                ),
-                                Icon(
-                                  Icons.trending_up,
-                                  color: Colors.green,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              _getConversionRate(
-                                newEnquiries:
-                                    dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                                convertedEnquiries:
-                                    dashboardAsync
-                                        .valueOrNull
-                                        ?.convertedEnquiries ??
-                                    0,
-                              ),
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Admissions Analytics',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  TextButton(
-                    onPressed: () => context.push('/admin/reports'),
-                    child: Text(
-                      'View Report',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              AdmissionsChart(
-                newEnquiries: dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                convertedEnquiries:
-                    dashboardAsync.valueOrNull?.convertedEnquiries ?? 0,
-                rejectedEnquiries:
-                    dashboardAsync.valueOrNull?.rejectedEnquiries ?? 0,
-                admissionsThisMonth:
-                    dashboardAsync.valueOrNull?.admissionsThisMonth.length ?? 0,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recent Enquiries',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  TextButton(
-                    onPressed: () => context.push('/enquiries'),
-                    child: Text(
-                      'See All',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (recentEnquiries.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardTheme.color,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'No enquiries yet',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...recentEnquiries.map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _EnquiryTile(
-                      name: e['child_name']?.toString() ?? '—',
-                      branch: e['branch_name']?.toString() ?? '—',
-                      age: e['age_years'] ?? 0,
-                      status: e['status']?.toString() ?? 'pending',
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void dispose() {
+    _bgController.dispose();
+    super.dispose();
   }
-}
 
-class _AdminQuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _AdminQuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  void _onItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+    switch (index) {
+      case 0:
+        context.go('/admin');
+        break;
+      case 1:
+        context.push('/admissions');
+        break;
+      case 2:
+        context.push('/students');
+        break;
+      case 3:
+        _scaffoldKey.currentState?.openDrawer();
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: AppColors.primary),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Color(0xFF1a1a1a),
+    ref.watch(currentUserProvider);
+    final dashboardAsync = ref.watch(dashboardDataProvider);
+
+    final data          = dashboardAsync.valueOrNull;
+    final newEnq        = data?.newEnquiries ?? 0;
+    final converted     = data?.convertedEnquiries ?? 0;
+    final rejected      = data?.rejectedEnquiries ?? 0;
+    final admThisMonth  = data?.admissionsThisMonth.length ?? 0;
+    final recentEnquiries = data?.recentEnquiries ?? [];
+
+    final total = (newEnq + converted + rejected).toDouble();
+    final conversionRate = total == 0
+        ? '0.0%'
+        : '${(converted / (newEnq + converted) * 100).toStringAsFixed(1)}%';
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: _kBg,
+      drawer: const AdminDrawer(),
+      extendBody: true,
+      bottomNavigationBar: _buildFloatingNavBar(context),
+      body: Stack(
+        children: [
+          // ── Scattered decorative shapes ──────────────────────────────────
+          ..._buildScatteredShapes(),
+
+          SafeArea(
+            child: Column(
+              children: [
+                _buildAppBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+
+                        // ── "Good morning" & Top Operations ───────────────
+                        const Text(
+                          'Good morning, Admin',
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Icons.send_rounded,
+                                label: 'Send Message',
+                                color: const Color(0xFFBBE5FE),
+                                onTap: () => context.push('/admin/send-message'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Icons.notifications_active_rounded,
+                                label: 'View Messages',
+                                color: const Color(0xFFFFDEB2),
+                                onTap: () => context.push('/admin/notifications'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Top Stats Grid
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.7,
+                          children: [
+                            _StatCard(
+                              title: 'BRANCHES',
+                              value: '2',
+                              icon: Icons.apartment_rounded,
+                              color: const Color(0xFF9FD7FA),
+                              onTap: () => context.push('/branches'),
+                            ),
+                            _StatCard(
+                              title: 'STUDENTS',
+                              value: '150',
+                              icon: Icons.face_retouching_natural_rounded,
+                              color: const Color(0xFFFFC56F),
+                              onTap: () => context.push('/students'),
+                            ),
+                            _StatCard(
+                              title: 'STAFF',
+                              value: '25',
+                              icon: Icons.groups_rounded,
+                              color: const Color(0xFFA5E3BA),
+                              onTap: () => context.push('/staff'),
+                            ),
+                            _StatCard(
+                              title: 'FEES PENDING',
+                              value: '₹2,39,900',
+                              icon: Icons.wallet_rounded,
+                              color: const Color(0xFFFFBCCB),
+                              suberText: 'Collected ₹30,100 / Due ₹2,70,000',
+                              onTap: () => context.push('/admin/fees'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ── Quick Metrics ─────────────────────────────────
+                        _sectionTitle('Quick Metrics'),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricCard(
+                                color: _kBlue,
+                                icon: Icons.mail_outline_rounded,
+                                label: 'New Enquiries',
+                                value: newEnq.toString(),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _MetricCard(
+                                color: _kGreen,
+                                icon: Icons.trending_up_rounded,
+                                label: 'Conversion Rate',
+                                value: conversionRate,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── Enquiry Status Overview ───────────────────────
+                        // ── Enquiry Status Overview ───────────────────────
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(8),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Enquiry Status Overview',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black87),
+                              ),
+                              const SizedBox(height: 20),
+                              _WavyProgressBar(
+                                label: 'New Enquiries',
+                                value: newEnq,
+                                total: total == 0 ? 1 : total,
+                                color: const Color(0xFF4FA5F5),
+                              ),
+                              const SizedBox(height: 20),
+                              _WavyProgressBar(
+                                label: 'Converted',
+                                value: converted,
+                                total: total == 0 ? 1 : total,
+                                color: const Color(0xFF63D38D),
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Expanded(
+                                    child: _WavyProgressBar(
+                                      label: 'Rejected',
+                                      value: rejected,
+                                      total: total == 0 ? 1 : total,
+                                      color: const Color(0xFFF1615E),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Container(
+                                    width: 130,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xFFE5BCFF),
+                                          Color(0xFFB57BFB),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFB57BFB).withAlpha(128),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Admissions\nThis Month',
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.black87, height: 1.2),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              admThisMonth.toString(),
+                                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black),
+                                            ),
+                                            const Spacer(),
+                                            const Icon(Icons.trending_up_rounded, size: 28, color: Colors.deepPurple),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ── Recent Enquiries ──────────────────────────────
+                        _sectionTitle('Recent Enquiries'),
+                        const SizedBox(height: 12),
+                        if (recentEnquiries.isEmpty)
+                          Center(
+                            child: Text('No recent enquiries',
+                                style: TextStyle(color: Colors.grey[500])),
+                          )
+                        else
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 2.2,
+                            ),
+                            itemCount: recentEnquiries.length,
+                            itemBuilder: (context, index) {
+                              final enq = recentEnquiries[index];
+                              final status = (enq['status'] ?? 'new')
+                                  .toString()
+                                  .toLowerCase();
+                              return _EnquiryCard(
+                                name: enq['full_name'] ?? 'Unknown',
+                                status: status,
+                                index: index,
+                              );
+                            },
+                          ),
+                        const SizedBox(height: 120),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Scattered decorative shapes ──────────────────────────────────────────
+  List<Widget> _buildScatteredShapes() {
+    final rng = Random(42);
+    final size = MediaQuery.of(context).size;
+    return List.generate(14, (i) {
+      final color = _kShapes[i % _kShapes.length];
+      final top    = rng.nextDouble() * size.height;
+      final left   = rng.nextDouble() * size.width;
+      final shapeSize = 8.0 + rng.nextDouble() * 14;
+      final isCircle = i % 3 != 0;
+      final isStar   = i % 5 == 0;
+
+      return Positioned(
+        top: top,
+        left: left,
+        child: isStar
+            ? _StarShape(color: color, size: shapeSize)
+            : Container(
+                width: shapeSize,
+                height: shapeSize,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
+                  borderRadius: isCircle
+                      ? null
+                      : BorderRadius.circular(shapeSize * 0.3),
+                ),
               ),
-              textAlign: TextAlign.center,
+      );
+    });
+  }
+
+  Widget _buildAppBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          // Menu button
+          IconButton(
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            icon: const Icon(Icons.menu_rounded, size: 28, color: Colors.black87),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
+          ),
+          const Spacer(),
+          // Central Logo
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text('Sun', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87)),
+              Icon(Icons.wb_sunny_rounded, color: Color(0xFFFFC043), size: 24),
+              Text('Kidz', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87)),
+            ],
+          ),
+          const Spacer(),
+          // Right section
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.orange[200],
+                child: const Icon(Icons.person, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 8),
+              const NotificationBell(notificationsRoute: '/admin/notifications'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingNavBar(BuildContext context) {
+    const items = [
+      _NavItem(icon: Icons.home_rounded,         label: 'Home'),
+      _NavItem(icon: Icons.assignment_add,        label: 'Admissions'),
+      _NavItem(icon: Icons.people_alt_rounded,    label: 'Students'),
+      _NavItem(icon: Icons.more_horiz_rounded,    label: 'More'),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Container(
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(31),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
             ),
           ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(items.length, (i) {
+            final selected = _selectedIndex == i;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _onItemTapped(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected ? _kBlue.withAlpha(38) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      items[i].icon,
+                      size: 24,
+                      color: selected ? _kBlue : Colors.grey[400],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      items[i].label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            selected ? FontWeight.bold : FontWeight.normal,
+                        color: selected ? _kBlue : Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );
   }
+
+  Widget _sectionTitle(String text) => Padding(
+        padding: const EdgeInsets.only(left: 2),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: Colors.black87,
+          ),
+        ),
+      );
 }
 
-class _EnquiryTile extends StatelessWidget {
-  final String name;
-  final String branch;
-  final int age;
-  final String status;
+// ─── Star Shape ───────────────────────────────────────────────────────────────
+class _StarShape extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _StarShape({required this.color, required this.size});
 
-  const _EnquiryTile({
-    required this.name,
-    required this.branch,
-    required this.age,
-    required this.status,
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _StarPainter(color),
+      size: Size(size, size),
+    );
+  }
+}
+
+class _StarPainter extends CustomPainter {
+  final Color color;
+  _StarPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path  = Path();
+    final cx    = size.width / 2;
+    final cy    = size.height / 2;
+    const points = 4;
+    final outerR = size.width / 2;
+    final innerR = size.width / 4;
+    for (int i = 0; i < points * 2; i++) {
+      final angle = (i * pi / points) - pi / 2;
+      final r = i.isEven ? outerR : innerR;
+      final x = cx + r * cos(angle);
+      final y = cy + r * sin(angle);
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_StarPainter old) => old.color != color;
+}
+
+// ─── Metric Card ─────────────────────────────────────────────────────────────
+class _MetricCard extends StatelessWidget {
+  final Color  color;
+  final IconData icon;
+  final String label;
+  final String value;
+  const _MetricCard({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.value,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: color,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: color.withAlpha(128),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.white.withAlpha(150),
+            blurRadius: 4,
+            offset: const Offset(-2, -2),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.pastelYellow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.mail, color: const Color(0xFFCA8A04), size: 20),
+          Icon(icon, size: 36, color: Colors.black87),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black87),
+            maxLines: 2,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  '$branch • Age $age',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: status.toLowerCase() == 'new'
-                  ? Colors.blue.shade100
-                  : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: status.toLowerCase() == 'new'
-                    ? Colors.blue.shade700
-                    : Colors.grey.shade700,
-              ),
-            ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.black),
           ),
         ],
       ),
@@ -523,3 +596,366 @@ class _EnquiryTile extends StatelessWidget {
   }
 }
 
+// ─── Wavy Progress Bar ────────────────────────────────────────────────────────
+class _WavyProgressBar extends StatefulWidget {
+  final String label;
+  final int value;
+  final double total;
+  final Color color;
+
+  const _WavyProgressBar({
+    required this.label,
+    required this.value,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  State<_WavyProgressBar> createState() => _WavyProgressBarState();
+}
+
+class _WavyProgressBarState extends State<_WavyProgressBar> with TickerProviderStateMixin {
+  late AnimationController _spawnAnim;
+  late AnimationController _waveAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _spawnAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..forward();
+    _waveAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _spawnAnim.dispose();
+    _waveAnim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.total == 0) return const SizedBox();
+    final progress = widget.value / widget.total;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.black87)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_spawnAnim, _waveAnim]),
+                builder: (context, child) {
+                  final currentProgress = progress * CurvedAnimation(parent: _spawnAnim, curve: Curves.easeOut).value;
+                  return Container(
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: widget.color.withAlpha(40),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: CustomPaint(
+                      painter: _WavePainter(
+                        progress: currentProgress,
+                        wavePhase: _waveAnim.value,
+                        baseColor: widget.color,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 24,
+              child: Text(
+                widget.value.toString(),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _WavePainter extends CustomPainter {
+  final double progress;
+  final double wavePhase;
+  final Color baseColor;
+
+  _WavePainter({required this.progress, required this.wavePhase, required this.baseColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+
+    final fillWidth = size.width * progress;
+    final basePaint = Paint()..color = baseColor..style = PaintingStyle.fill;
+    
+    final baseRect = RRect.fromLTRBAndCorners(
+      0, 0, fillWidth, size.height,
+      topLeft: const Radius.circular(12),
+      bottomLeft: const Radius.circular(12),
+      topRight: progress >= 0.99 ? const Radius.circular(12) : const Radius.circular(12),
+      bottomRight: progress >= 0.99 ? const Radius.circular(12) : const Radius.circular(12),
+    );
+    canvas.drawRRect(baseRect, basePaint);
+
+    final wavePaint = Paint()
+      ..color = Colors.white.withAlpha(50)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height);
+
+    const waveCount = 2.0; 
+    for (double x = 0; x <= fillWidth; x++) {
+      final nx = x / size.width;
+      final y = size.height / 2 + math.sin((nx * math.pi * 2 * waveCount) + (wavePhase * math.pi * 2)) * (size.height / 3);
+      path.lineTo(x, y);
+    }
+    path.lineTo(fillWidth, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.save();
+    canvas.clipRRect(baseRect);
+    canvas.drawPath(path, wavePaint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _WavePainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.wavePhase != wavePhase;
+  }
+}
+
+// ─── Enquiry Card ─────────────────────────────────────────────────────────────
+class _EnquiryCard extends StatelessWidget {
+  final String name;
+  final String status;
+  final int    index;
+  const _EnquiryCard({
+    required this.name,
+    required this.status,
+    required this.index,
+  });
+
+  static const _avatarColors = [
+    Color(0xFFFFDAC1), // Soft peach
+    Color(0xFFFFF1C1), // Soft yellow
+    Color(0xFFC1EEFF), // Soft light blue
+    Color(0xFFC1D4FF), // Soft deeper blue
+    Color(0xFFFFC1E3), // Soft pink
+  ];
+
+  static const _avatarEmojis = ['🐻', '☀️', '☁️', '🚀', '⭐'];
+
+  Color  _avatarColor()  => _avatarColors[index % _avatarColors.length];
+  String _avatarEmoji()  => _avatarEmojis[index % _avatarEmojis.length];
+
+  Color get _badgeBgColor {
+    switch (status) {
+      case 'converted': return const Color(0xFFB4F1D7);
+      case 'rejected':  return const Color(0xFFFFC6C6);
+      default:          return const Color(0xFFCDEFFD); // new/pending
+    }
+  }
+
+  Color get _badgeTextColor {
+    switch (status) {
+      case 'converted': return const Color(0xFF33A576);
+      case 'rejected':  return const Color(0xFFE55858);
+      default:          return const Color(0xFF5BAEF1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 26,
+          backgroundColor: _avatarColor(),
+          child: Text(_avatarEmoji(), style: const TextStyle(fontSize: 22)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _badgeBgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: _badgeTextColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Nav Item ─────────────────────────────────────────────────────────────────
+class _NavItem {
+  final IconData icon;
+  final String   label;
+  const _NavItem({required this.icon, required this.label});
+}
+
+// ─── Actions & Stats ──────────────────────────────────────────────────────────
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: color.withAlpha(128),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap ?? () {},
+          borderRadius: BorderRadius.circular(30),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: Colors.black87),
+                const SizedBox(width: 6),
+                Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.black87)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String? suberText;
+  final VoidCallback? onTap;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.suberText,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withAlpha(100),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap ?? () {},
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(80),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 22, color: Colors.black54),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.black87, letterSpacing: 0.5),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87),
+                    ),
+                    if (suberText != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        suberText!,
+                        style: const TextStyle(fontSize: 7, color: Colors.black54, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
