@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
@@ -165,6 +166,15 @@ class _AdmissionCardState extends ConsumerState<_AdmissionCard> {
     final subtitle = [branch, if (className.isNotEmpty) className, ageStr].join(' • ');
     final busOpted = widget.admission['bus_opted'] as bool? ?? false;
 
+    final createdAtStr = widget.admission['created_at']?.toString();
+    String admissionDate = '';
+    if (createdAtStr != null) {
+      try {
+        final date = DateTime.parse(createdAtStr);
+        admissionDate = ' • Joined ${DateFormat('dd MMM yyyy').format(date)}';
+      } catch (_) {}
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -199,7 +209,7 @@ class _AdmissionCardState extends ConsumerState<_AdmissionCard> {
                           Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
                           const SizedBox(height: 4),
-                          Text(admissionNo, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontFamily: 'monospace')),
+                          Text('$admissionNo$admissionDate', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontFamily: 'monospace')),
                         ],
                       ),
                     ),

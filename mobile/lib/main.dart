@@ -21,14 +21,18 @@ void main() async {
 
   // OneSignal is mobile-only (iOS/Android) - skip on web to avoid MissingPluginException
   if (!kIsWeb && _oneSignalAppId != 'YOUR_ONESIGNAL_APP_ID') {
-    await OneSignal.initialize(_oneSignalAppId);
-    await OneSignal.User.pushSubscription.optIn();
-    OneSignal.User.pushSubscription.addObserver((state) {
-      final subscriptionId = state.current.id;
-      if (subscriptionId != null && subscriptionId.isNotEmpty) {
-        DeviceRegistrationService.onSubscriptionIdReceived(subscriptionId);
-      }
-    });
+    try {
+      OneSignal.initialize(_oneSignalAppId);
+      OneSignal.User.pushSubscription.optIn();
+      OneSignal.User.pushSubscription.addObserver((state) {
+        final subscriptionId = state.current.id;
+        if (subscriptionId != null && subscriptionId.isNotEmpty) {
+          DeviceRegistrationService.onSubscriptionIdReceived(subscriptionId);
+        }
+      });
+    } catch (e) {
+      debugPrint('OneSignal Initialization Error: $e');
+    }
   }
 
   runApp(
