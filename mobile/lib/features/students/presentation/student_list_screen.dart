@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
@@ -565,6 +566,15 @@ class _StudentCard extends StatelessWidget {
         : (age?.toString() ?? '—');
     final busOpted = student['bus_opted'] as bool? ?? false;
 
+    final createdAtStr = student['created_at']?.toString();
+    String admissionDate = '';
+    if (createdAtStr != null) {
+      try {
+        final date = DateTime.parse(createdAtStr);
+        admissionDate = ' • Joined ${DateFormat('dd MMM yyyy').format(date)}';
+      } catch (_) {}
+    }
+
     final subtitle = [
       branch,
       if (className.isNotEmpty) className,
@@ -619,7 +629,7 @@ class _StudentCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            admissionNo,
+                            '$admissionNo$admissionDate',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade500,

@@ -2,7 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'dart:math' as math;
+import 'dart:ui';
 import '../../../core/api/current_user_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/notification_bell.dart';
@@ -15,8 +17,8 @@ const _kGreen  = Color(0xFF9DE0C2);
 
 // ─── Decorative shape colours ─────────────────────────────────────────────
 const _kShapes = [
-  Color(0xFFFFD6E0), Color(0xFFD6F5FF), Color(0xFFD6FFE8),
-  Color(0xFFEEDDFF), Color(0xFFFFEBC0), Color(0xFFCCF2FF),
+  Color(0xFFFFBDE0), Color(0xFFB3EDFF), Color(0xFFB3FFD9),
+  Color(0xFFDDAAFF), Color(0xFFFFD680), Color(0xFFA6E3FF),
 ];
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
@@ -30,9 +32,10 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 final _scaffoldKey = GlobalKey<ScaffoldState>();
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _bgController;
+  late AnimationController _waveController;
 
   @override
   void initState() {
@@ -41,11 +44,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _bgController.dispose();
+    _waveController.dispose();
     super.dispose();
   }
 
@@ -84,15 +92,34 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
         ? '0.0%'
         : '${(converted / (newEnq + converted) * 100).toStringAsFixed(1)}%';
 
+    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: _kBg,
+      backgroundColor: Colors.transparent,
       drawer: const AdminDrawer(),
       extendBody: true,
       bottomNavigationBar: _buildFloatingNavBar(context),
-      body: Stack(
-        children: [
-          // ── Scattered decorative shapes ──────────────────────────────────
+      body: AnimatedBuilder(
+        animation: _bgController,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.lerp(const Color(0xFFFFF4DF), const Color(0xFFFFF0F5), _bgController.value)!,
+                  Color.lerp(const Color(0xFFFFF4DF), const Color(0xFFE8F4FF), _bgController.value)!,
+                ],
+              ),
+            ),
+            child: child,
+          );
+        },
+        child: Stack(
+          children: [
+            // ── Scattered decorative shapes ──────────────────────────────────
           ..._buildScatteredShapes(),
 
           SafeArea(
@@ -100,12 +127,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
               children: [
                 _buildAppBar(),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(dashboardDataProvider);
+                      // Adding a small delay to allow the loading animation to complete visually
+                      await Future.delayed(const Duration(milliseconds: 500));
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
 
                         // ── "Good morning" & Top Operations ───────────────
                         const Text(
@@ -146,31 +180,31 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                           children: [
                             _StatCard(
                               title: 'BRANCHES',
-                              value: '2',
+                              value: '${data?.branchesCount ?? 0}',
                               icon: Icons.apartment_rounded,
                               color: const Color(0xFF9FD7FA),
                               onTap: () => context.push('/branches'),
                             ),
                             _StatCard(
                               title: 'STUDENTS',
-                              value: '150',
+                              value: '${data?.studentsCount ?? 0}',
                               icon: Icons.face_retouching_natural_rounded,
                               color: const Color(0xFFFFC56F),
                               onTap: () => context.push('/students'),
                             ),
                             _StatCard(
                               title: 'STAFF',
-                              value: '25',
+                              value: '${data?.staffCount ?? 0}',
                               icon: Icons.groups_rounded,
                               color: const Color(0xFFA5E3BA),
                               onTap: () => context.push('/staff'),
                             ),
                             _StatCard(
                               title: 'FEES PENDING',
-                              value: '₹2,39,900',
+                              value: currencyFmt.format(data?.feesPending ?? 0),
                               icon: Icons.wallet_rounded,
                               color: const Color(0xFFFFBCCB),
-                              suberText: 'Collected ₹30,100 / Due ₹2,70,000',
+                              suberText: 'Collected ${currencyFmt.format(data?.feesCollected ?? 0)} / Due ${currencyFmt.format(data?.feesTotalDue ?? 0)}',
                               onTap: () => context.push('/admin/fees'),
                             ),
                           ],
@@ -204,21 +238,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                         const SizedBox(height: 24),
 
                         // ── Enquiry Status Overview ───────────────────────
-                        // ── Enquiry Status Overview ───────────────────────
                         const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(8),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(160),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: Colors.white.withAlpha(200), width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(10),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -300,7 +338,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(height: 32),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
 
                         // ── Recent Enquiries ──────────────────────────────
                         _sectionTitle('Recent Enquiries'),
@@ -328,7 +368,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                                   .toString()
                                   .toLowerCase();
                               return _EnquiryCard(
-                                name: enq['full_name'] ?? 'Unknown',
+                                name: enq['child_name'] ?? enq['full_name'] ?? 'Unknown',
                                 status: status,
                                 index: index,
                               );
@@ -338,11 +378,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                       ],
                     ),
                   ),
+                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -358,10 +400,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
       final shapeSize = 8.0 + rng.nextDouble() * 14;
       final isCircle = i % 3 != 0;
       final isStar   = i % 5 == 0;
+      
+      final dx = (rng.nextDouble() - 0.5) * 60;
+      final dy = (rng.nextDouble() - 0.5) * 60;
 
-      return Positioned(
-        top: top,
-        left: left,
+      return AnimatedBuilder(
+        animation: _bgController,
+        builder: (context, child) {
+          final offset = Curves.easeInOutSine.transform(_bgController.value);
+          return Positioned(
+            top: top + (dy * offset),
+            left: left + (dx * offset),
+            child: child!,
+          );
+        },
         child: isStar
             ? _StarShape(color: color, size: shapeSize)
             : Container(
@@ -393,13 +445,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
           ),
           const Spacer(),
           // Central Logo
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Text('Sun', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87)),
-              Icon(Icons.wb_sunny_rounded, color: Color(0xFFFFC043), size: 24),
-              Text('Kidz', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.black87)),
-            ],
+          Image.asset(
+            'assets/images/new_logo.png',
+            height: 38,
+            fit: BoxFit.contain,
           ),
           const Spacer(),
           // Right section
@@ -557,26 +606,31 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: color.withAlpha(128),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          decoration: BoxDecoration(
+            color: color.withAlpha(210),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withAlpha(180), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: color.withAlpha(128),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.white.withAlpha(150),
+                blurRadius: 4,
+                offset: const Offset(-2, -2),
+              ),
+            ],
           ),
-          BoxShadow(
-            color: Colors.white.withAlpha(150),
-            blurRadius: 4,
-            offset: const Offset(-2, -2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 36, color: Colors.black87),
           const SizedBox(height: 12),
@@ -591,6 +645,8 @@ class _MetricCard extends StatelessWidget {
             style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.black),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -896,20 +952,25 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withAlpha(100),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: color.withAlpha(210),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withAlpha(180), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: color.withAlpha(100),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
+          child: Material(
+            color: Colors.transparent,
         child: InkWell(
           onTap: onTap ?? () {},
           borderRadius: BorderRadius.circular(16),
@@ -954,6 +1015,8 @@ class _StatCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
         ),
       ),
     );

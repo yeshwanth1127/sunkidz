@@ -75,7 +75,7 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
     // Get admissions from this month
     final now = DateTime.now();
     final thisMonth = admissions.where((a) {
-      final createdAt = a['created_at'];
+      final createdAt = a['created_at'] ?? a['admission_date'] ?? a['date_of_admission'];
       if (createdAt == null) return false;
       try {
         final date = DateTime.parse(createdAt.toString());
