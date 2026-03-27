@@ -11,15 +11,23 @@ from app.models.user import User
 from app.models.branch import Branch, BranchAssignment, Class
 
 
+ADMIN_EMAIL = "admin@sunkidz.com"
+ADMIN_PASSWORD = "roopa_admin@123!"
+
+
 def seed():
     db = SessionLocal()
     try:
-        if db.query(User).filter(User.email == "admin@sunkidz.com").first():
-            print("Admin user already exists")
+        existing = db.query(User).filter(User.email == ADMIN_EMAIL).first()
+        if existing:
+            existing.password_hash = get_password_hash(ADMIN_PASSWORD)
+            existing.is_active = "true"
+            db.commit()
+            print(f"Updated admin password for {ADMIN_EMAIL}")
             return
         admin = User(
-            email="admin@sunkidz.com",
-            password_hash=get_password_hash("principal_admin@123!"),
+            email=ADMIN_EMAIL,
+            password_hash=get_password_hash(ADMIN_PASSWORD),
             full_name="Admin",
             role="admin",
             is_active="true",
@@ -27,7 +35,7 @@ def seed():
         db.add(admin)
         db.commit()
         db.refresh(admin)
-        print(f"Created admin user: {admin.email} (password: principal_admin@123!)")
+        print(f"Created admin user: {admin.email} (password: {ADMIN_PASSWORD})")
 
         # Create a sample branch and class
         branch = db.query(Branch).first()
