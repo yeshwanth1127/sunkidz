@@ -57,8 +57,13 @@ html_content = """
             <li><strong>Legal Requirements:</strong> If explicitly required by law or a valid governmental request, we may disclose information to protect our legal rights or ensure user safety.</li>
         </ul>
 
-        <h2>5. Children's Privacy & Google Play Families Policy Compliance</h2>
-        <p>Sunkidz LMS is a tool designed for parents and educators. We do not permit children to create accounts. The app contains <strong>no advertisements</strong> and does not track users for personalized advertising. All data collection regarding students is performed under the direct supervision and authorization of the school and the parents, ensuring full compliance with Google's Families Policy and standard educational privacy laws.</p>
+        <h2>5. Third-Party Advertising & Google Play Families Policy Compliance</h2>
+        <p>Sunkidz LMS is a robust tool designed for parents and educators. While children cannot create accounts, we recognize that families interact with our platform. To support our operations, the app may display third-party advertisements. To ensure a completely safe environment and strict compliance with the Google Play Store Families Policy, we guarantee the following regarding our advertising practices:</p>
+        <ul>
+            <li><strong>No Personalized Ads:</strong> We do not track users, collect Advertising IDs, or use personal data (such as browsing history or demographics) to serve targeted advertisements. All ads displayed are contextual and non-personalized.</li>
+            <li><strong>Certified Ad Networks:</strong> We exclusively use third-party ad networks that have been certified by Google as fully compliant with their Designed for Families program.</li>
+            <li><strong>Appropriate Content:</strong> We aggressively filter advertisements to ensure that no mature, explicit, deceptive, or inappropriate content is displayed. All data collection regarding students is performed under the direct supervision of the school, ensuring standard educational privacy laws are maintained regardless of advertising.</li>
+        </ul>
 
         <h2>6. Data Security</h2>
         <p>We implement robust, industry-standard cryptographic security measures, including HTTPS encryption and secure credential storage, to protect the confidentiality and integrity of your personal information and student data against unauthorized access, alteration, or disclosure.</p>
@@ -71,8 +76,8 @@ html_content = """
 
         <h2>9. Contact Us</h2>
         <p>If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at:</p>
-        <p><strong>Email:</strong> privacy@sunkidz.com</p>
-        <p><strong>Address:</strong> Sunkidz Administration</p>
+        <p><strong>Email:</strong> support@exora.solutions</p>
+        <p><strong>Address:</strong> D Block, 694, 2nd Cross D Block Rd, AECS Layout - C Block, AECS Layout, Brookefield, Bengaluru, Karnataka 560037</p>
     </div>
 </body>
 </html>
@@ -82,3 +87,36 @@ html_content = """
 def get_privacy_policy():
     """Returns the Privacy Policy HTML page."""
     return html_content
+
+
+delete_account_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Account - Sunkidz LMS</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f9f9f9; color: #333; }
+        .container { max-width: 700px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #c0392b; border-bottom: 2px solid #c0392b; padding-bottom: 10px; }
+        p { margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Delete Your Account</h1>
+        <p><strong>App:</strong> Sunkidz LMS &mdash; by Exora Solutions</p>
+        <p>To request deletion of your account and all associated data, simply send an email to:</p>
+        <p><strong><a href="mailto:support@exora.solutions">support@exora.solutions</a></strong></p>
+        <p>Use the subject line: <em>"Account Deletion Request - Sunkidz LMS"</em> and include your registered email address or admission number.</p>
+        <p>Your account and all personal data will be permanently deleted within <strong>7 business days</strong> of your request.</p>
+    </div>
+</body>
+</html>
+"""
+
+@router.get("/delete-account", response_class=HTMLResponse)
+def get_delete_account():
+    """Returns the Account Deletion request page."""
+    return delete_account_content
