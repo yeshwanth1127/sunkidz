@@ -212,6 +212,66 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                             ),
                             
                             const SizedBox(height: 32),
+
+                            // Quick Actions
+                            Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
+                            const SizedBox(height: 12),
+                            AnimatedListItem(
+                              index: 4,
+                              child: InkWell(
+                                onTap: () => context.push('/admin/send-message'),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withOpacity(0.3),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      const Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Send Message to Staff/Parents',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                            ),
+                                            Text(
+                                              'Broadcast updates, news or notifications',
+                                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 32),
                             
                             // Recent Activity
                             Row(

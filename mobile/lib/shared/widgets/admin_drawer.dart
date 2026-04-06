@@ -154,6 +154,12 @@ class AdminDrawer extends ConsumerWidget {
                         onTap: () => _navigate(context, '/homework'),
                       ),
                       _DrawerTile(
+                        icon: Icons.send_rounded,
+                        label: 'Send Message',
+                        isActive: currentRoute == '/admin/send-message',
+                        onTap: () => _navigate(context, '/admin/send-message'),
+                      ),
+                      _DrawerTile(
                         icon: Icons.settings_suggest_rounded,
                         label: 'Settings',
                         isActive: currentRoute == '/admin/settings',

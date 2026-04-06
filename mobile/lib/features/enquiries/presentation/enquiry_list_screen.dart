@@ -413,7 +413,18 @@ class _AddEnquirySheetState extends ConsumerState<_AddEnquirySheet> {
   Future<void> _pickDate() async {
     final initial = DateTime.tryParse(_dobCtrl.text) ?? DateTime.now().subtract(const Duration(days: 365 * 3));
     final date = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: DateTime.now());
-    if (date != null) setState(() => _dobCtrl.text = DateFormat('yyyy-MM-dd').format(date));
+    if (date != null) {
+      final now = DateTime.now();
+      int years = now.year - date.year;
+      int months = now.month - date.month;
+      if (now.day < date.day) months--;
+      if (months < 0) { years--; months += 12; }
+      setState(() {
+        _dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+        _ageYearsCtrl.text = years.toString();
+        _ageMonthsCtrl.text = months.toString();
+      });
+    }
   }
 
   String? _t(TextEditingController c) { final v = c.text.trim(); return v.isEmpty ? null : v; }
