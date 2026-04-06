@@ -570,6 +570,7 @@ class _AddDaycareUserSheet extends StatefulWidget {
 class _AddDaycareUserSheetState extends State<_AddDaycareUserSheet> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   final _dobCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   bool _loading = false;
@@ -577,9 +578,14 @@ class _AddDaycareUserSheetState extends State<_AddDaycareUserSheet> {
 
   Future<void> _save() async {
     final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
     final dob = _dobCtrl.text.trim();
     if (email.isEmpty) {
       setState(() => _error = 'Email is required for login');
+      return;
+    }
+    if (password.isEmpty) {
+      setState(() => _error = 'Password is required for login');
       return;
     }
     if (dob.isEmpty) {
@@ -594,6 +600,7 @@ class _AddDaycareUserSheetState extends State<_AddDaycareUserSheet> {
       await widget.api.createDaycareUser(
         fullName: _nameCtrl.text.trim(),
         email: email,
+        password: password,
         dateOfBirth: dob,
         phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       );
@@ -622,7 +629,9 @@ class _AddDaycareUserSheetState extends State<_AddDaycareUserSheet> {
               const SizedBox(height: 8),
               TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email * (login)'), keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 8),
-              TextField(controller: _dobCtrl, decoration: const InputDecoration(labelText: 'Date of Birth * (YYYY-MM-DD, for login)')),
+              TextField(controller: _passwordCtrl, decoration: const InputDecoration(labelText: 'Password * (login)'), obscureText: true),
+              const SizedBox(height: 8),
+              TextField(controller: _dobCtrl, decoration: const InputDecoration(labelText: 'Date of Birth * (YYYY-MM-DD)')),
               const SizedBox(height: 8),
               TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone')),
               const SizedBox(height: 16),

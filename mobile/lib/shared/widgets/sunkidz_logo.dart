@@ -24,28 +24,33 @@ class SunkidzLogo extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
+                color: AppColors.primary.withOpacity(0.15),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: Colors.white.withOpacity(0.8),
+                blurRadius: 4,
+                offset: const Offset(-2, -2),
               ),
             ],
           ),
-          child: Center(
-            child: ClipOval(
-              child: Image.asset(
-                'images/new_logo.png',
-                width: size * 0.9,
-                height: size * 0.9,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  // Fallback if logo not found
-                  return Icon(
-                    Icons.school,
-                    size: size * 0.6,
-                    color: AppColors.primary,
-                  );
-                },
-              ),
+          child: Padding(
+            padding: EdgeInsets.all(size * 0.12),
+            child: Image.asset(
+              'assets/images/sunkidz_logo_hd.png',
+              width: size * 0.76,
+              height: size * 0.76,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.school,
+                  size: size * 0.5,
+                  color: AppColors.primary,
+                );
+              },
             ),
           ),
         ),
@@ -54,18 +59,19 @@ class SunkidzLogo extends StatelessWidget {
           Text(
             'SUNKIDZ',
             style: TextStyle(
-              fontSize: size * 0.2,
-              fontWeight: FontWeight.bold,
+              fontSize: size * 0.18,
+              fontWeight: FontWeight.w800,
               color: AppColors.primary,
-              letterSpacing: 2,
+              letterSpacing: 3,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Learning Management System',
             style: TextStyle(
-              fontSize: size * 0.1,
-              color: Colors.grey.shade600,
+              fontSize: size * 0.09,
+              color: Colors.grey.shade500,
+              letterSpacing: 0.5,
             ),
           ),
         ],

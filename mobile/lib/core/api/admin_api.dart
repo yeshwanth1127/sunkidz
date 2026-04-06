@@ -189,6 +189,7 @@ class AdminApi {
     required String email,
     required String fullName,
     required String dateOfBirth,
+    required String password,
     String? phone,
   }) async {
     final r = await _dio.post(
@@ -196,6 +197,7 @@ class AdminApi {
       data: {
         'email': email,
         'full_name': fullName,
+        'password': password,
         'date_of_birth': dateOfBirth,
         'role': 'toddlers',
         if (phone != null) 'phone': phone,
@@ -208,6 +210,7 @@ class AdminApi {
     required String email,
     required String fullName,
     required String dateOfBirth,
+    required String password,
     String? phone,
   }) async {
     final r = await _dio.post(
@@ -215,6 +218,7 @@ class AdminApi {
       data: {
         'email': email,
         'full_name': fullName,
+        'password': password,
         'date_of_birth': dateOfBirth,
         'role': 'daycare',
         if (phone != null) 'phone': phone,
@@ -575,4 +579,10 @@ class AdminApi {
     final r = await _dio.post('/admin/messages/send', data: data);
     return r.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> createDirectAdmission(Map<String, dynamic> data) async {
+    final r = await _dio.post('/admin/admissions/direct', data: data);
+    return r.data as Map<String, dynamic>;
+  }
 }
+

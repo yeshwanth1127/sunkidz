@@ -80,7 +80,7 @@ class _LiveMapWidgetState extends State<LiveMapWidget> {
               polylines: [
                 Polyline(
                   points: _getPolylinePoints(),
-                  color: Colors.blue.withValues(alpha: 0.6),
+                  color: Colors.blue.withOpacity(0.6),
                   strokeWidth: 3,
                 ),
               ],
@@ -98,7 +98,7 @@ class _LiveMapWidgetState extends State<LiveMapWidget> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
+                          color: Colors.black.withOpacity(0.2),
                           blurRadius: 8,
                         ),
                       ],
@@ -117,7 +117,7 @@ class _LiveMapWidgetState extends State<LiveMapWidget> {
                     ),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.7),
+                        color: Colors.green.withOpacity(0.7),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.flag, color: Colors.white, size: 16),

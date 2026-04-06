@@ -49,7 +49,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Image.asset(
-                'images/new_logo.png',
+                'assets/images/sunkidz_logo_hd.png',
                 height: 32,
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(Icons.school, color: teacherPrimary, size: 24);
@@ -75,7 +75,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
           NotificationBell(notificationsRoute: '/teacher/notifications'),
           CircleAvatar(
             radius: 20,
-            backgroundColor: teacherPrimary.withValues(alpha: 0.2),
+            backgroundColor: teacherPrimary.withOpacity(0.2),
             child: Text(
               userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
               style: TextStyle(
@@ -112,7 +112,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: teacherPrimary.withValues(alpha: 0.1),
+                      color: teacherPrimary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -136,7 +136,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                         color: Theme.of(context).cardTheme.color,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: teacherPrimary.withValues(alpha: 0.3),
+                          color: teacherPrimary.withOpacity(0.3),
                         ),
                       ),
                       child: Column(
@@ -180,7 +180,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                         color: Theme.of(context).cardTheme.color,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: teacherPrimary.withValues(alpha: 0.3),
+                          color: teacherPrimary.withOpacity(0.3),
                         ),
                       ),
                       child: Column(
@@ -324,8 +324,8 @@ class TeacherDashboardScreen extends ConsumerWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      teacherPrimary.withValues(alpha: 0.3),
-                      Colors.blue.withValues(alpha: 0.2),
+                      teacherPrimary.withOpacity(0.3),
+                      Colors.blue.withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -346,12 +346,12 @@ class TeacherDashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () => context.go('/teacher/marks'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.8),
+                        backgroundColor: Colors.white.withOpacity(0.8),
                       ),
                       child: Text(
-                        'View Report',
+                        'View Marks',
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.bold,
@@ -410,16 +410,16 @@ class _TeacherActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isOutlined ? color.withValues(alpha: 0.1) : color,
+          color: isOutlined ? color.withOpacity(0.1) : color,
           borderRadius: BorderRadius.circular(12),
           border: isOutlined
-              ? Border.all(color: color.withValues(alpha: 0.5))
+              ? Border.all(color: color.withOpacity(0.5))
               : null,
           boxShadow: isOutlined
               ? null
               : [
                   BoxShadow(
-                    color: color.withValues(alpha: 0.3),
+                    color: color.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

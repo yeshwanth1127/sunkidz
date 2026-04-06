@@ -184,7 +184,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: Colors.orange.withOpacity(0.1),
                     border: Border.all(color: Colors.orange),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -380,9 +380,9 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: c.withValues(alpha: 0.15),
+                          color: c.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: c.withValues(alpha: 0.3)),
+                          border: Border.all(color: c.withOpacity(0.3)),
                         ),
                         child: Text(
                           '${_formatDate(dk)}: ${status.toString().toUpperCase()}',
@@ -433,13 +433,13 @@ class _StaffRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: locked ? Colors.grey.shade50 : Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: locked ? Colors.orange.withValues(alpha: 0.3) : Theme.of(context).dividerColor),
+        border: Border.all(color: locked ? Colors.orange.withOpacity(0.3) : Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+            backgroundColor: AppColors.primary.withOpacity(0.2),
             child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 16),
@@ -484,7 +484,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
     );
   }

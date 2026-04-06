@@ -59,7 +59,9 @@ def create_toddlers_user(
     if not email:
         raise HTTPException(status_code=400, detail="Email is required for toddlers login")
     if not data.date_of_birth:
-        raise HTTPException(status_code=400, detail="Date of birth is required for toddlers login")
+        raise HTTPException(status_code=400, detail="Date of birth is required")
+    if not data.password:
+        raise HTTPException(status_code=400, detail="Password is required for login")
     try:
         dob = date.fromisoformat(data.date_of_birth.strip())
     except ValueError:
@@ -68,7 +70,7 @@ def create_toddlers_user(
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=email,
-        password_hash=None,  # Toddlers use email+DOB for login
+        password_hash=get_password_hash(data.password),
         full_name=full_name,
         role=data.role,
         phone=phone,
@@ -105,7 +107,9 @@ def create_daycare_user(
     if not email:
         raise HTTPException(status_code=400, detail="Email is required for daycare login")
     if not data.date_of_birth:
-        raise HTTPException(status_code=400, detail="Date of birth is required for daycare login")
+        raise HTTPException(status_code=400, detail="Date of birth is required")
+    if not data.password:
+        raise HTTPException(status_code=400, detail="Password is required for login")
     try:
         dob = date.fromisoformat(data.date_of_birth.strip())
     except ValueError:
@@ -114,7 +118,7 @@ def create_daycare_user(
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=email,
-        password_hash=None,  # Daycare use email+DOB for login
+        password_hash=get_password_hash(data.password),
         full_name=full_name,
         role=data.role,
         phone=phone,
@@ -776,6 +780,26 @@ def update_student(
     }
 
 
+@router.delete("/students/{student_id}")
+def delete_student(
+    student_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Delete a student and related data."""
+    from app.models.student import ParentStudentLink
+    s = db.query(Student).filter(Student.id == student_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Manually delete parent links since cascade might not be set in DB constraint
+    db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).delete(synchronize_session=False)
+    
+    db.delete(s)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/students/{student_id}/toggle-bus-opt")
 def toggle_bus_opt(
     student_id: UUID,
@@ -1412,6 +1436,7 @@ def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, pay
         "term_fee_2_balance": max(term_fee_2 - paid["term_fee_2"], 0.0),
         "term_fee_3_balance": max(term_fee_3 - paid["term_fee_3"], 0.0),
         "total_balance": max(total_due - total_paid, 0.0),
+        "due_date": fee_structure.due_date.isoformat() if fee_structure and fee_structure.due_date else None,
         "custom_fields": [
             {
                 "key": cf["key"],
@@ -1479,6 +1504,19 @@ def upsert_student_fees(
     fee_structure.term_fee_1 = float(body.get("term_fee_1", fee_structure.term_fee_1 or 0.0))
     fee_structure.term_fee_2 = float(body.get("term_fee_2", fee_structure.term_fee_2 or 0.0))
     fee_structure.term_fee_3 = float(body.get("term_fee_3", fee_structure.term_fee_3 or 0.0))
+
+    # Update due date if provided
+    if "due_date" in body:
+        from datetime import datetime as _dt
+        try:
+            val = body["due_date"]
+            if val:
+                # Handle ISO format from flutter/javascript
+                fee_structure.due_date = _dt.fromisoformat(str(val).replace('Z', '+00:00'))
+            else:
+                fee_structure.due_date = None
+        except Exception:
+            pass
 
     # Persist custom fields when provided
     if "custom_fields" in body:
@@ -1689,6 +1727,13 @@ def push_fee_receipt_to_parent(
     db.add(receipt)
     db.commit()
     db.refresh(receipt)
+
+    # Send Push notification (non-blocking)
+    from app.services.notification_service import send_fee_receipt_notification
+    try:
+        send_fee_receipt_notification(student_id, payment, fees_detail, db)
+    except Exception as ex:
+        logger.error(f"Failed to send fee receipt push notification: {ex}")
 
     return {"ok": True, "receipt_id": str(receipt.id), "message": "Receipt pushed to parent dashboard"}
 

@@ -1,1335 +1,403 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../core/api/student_profile_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
+import '../../../shared/widgets/animated_list_item.dart';
 import 'fee_receipt_pdf.dart';
 
 class AdminFeeManagementScreen extends ConsumerStatefulWidget {
-  const AdminFeeManagementScreen({
-    super.key,
-    required this.branchId,
-    this.studentId,
-  });
-
   final String branchId;
   final String? studentId;
+  const AdminFeeManagementScreen({super.key, required this.branchId, this.studentId});
 
   @override
-  ConsumerState<AdminFeeManagementScreen> createState() =>
-      _AdminFeeManagementScreenState();
+  ConsumerState<AdminFeeManagementScreen> createState() => _AdminFeeManagementScreenState();
 }
 
-class _AdminFeeManagementScreenState
-    extends ConsumerState<AdminFeeManagementScreen>
-    with SingleTickerProviderStateMixin {
+class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _students = [];
   String? _selectedBranchId;
   String? _selectedStudentId;
-  Map<String, dynamic>? _selectedStudent;
-  bool _loading = true;
-  String? _error;
-
   Map<String, dynamic>? _feeData;
+  bool _loading = true;
   bool _loadingFees = false;
-  String? _feeError;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _selectedStudentId = widget.studentId;
     _selectedBranchId = widget.branchId.isEmpty ? null : widget.branchId;
+    _selectedStudentId = widget.studentId;
     _loadBranches();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadBranches() async {
     final api = ref.read(adminApiProvider);
     if (api == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
     try {
-      final branches = await api.getBranches();
-      setState(() {
-        _branches = List<Map<String, dynamic>>.from(branches);
-        _loading = false;
-        if (_branches.length == 1 && _selectedBranchId == null) {
-          _selectedBranchId = _branches[0]['id'];
-          _loadStudents();
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
+      final list = await api.getBranches();
+      if (mounted) setState(() { _branches = list; _loading = false; });
+      if (_selectedBranchId != null) _loadStudents();
+    } catch (_) { if (mounted) setState(() => _loading = false); }
   }
 
   Future<void> _loadStudents() async {
-    if (_selectedBranchId == null) return;
     final api = ref.read(adminApiProvider);
-    if (api == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (api == null || _selectedBranchId == null) return;
+    if (mounted) setState(() => _loading = true);
     try {
-      final admissions = await api.getAdmissions(branchId: _selectedBranchId!);
-      setState(() {
-        _students = List<Map<String, dynamic>>.from(admissions);
-        _loading = false;
-      });
-      if (_selectedStudentId != null) {
-        await _loadFees();
-      }
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  void _selectBranch(String branchId) {
-    setState(() {
-      _selectedBranchId = branchId;
-      _selectedStudentId = null;
-      _selectedStudent = null;
-      _students = [];
-      _feeData = null;
-    });
-    _loadStudents();
+      final list = await api.getAdmissions(branchId: _selectedBranchId!);
+      if (mounted) setState(() { _students = list; _loading = false; });
+      if (_selectedStudentId != null) _loadFees();
+    } catch (_) { if (mounted) setState(() => _loading = false); }
   }
 
   Future<void> _loadFees() async {
-    if (_selectedStudentId == null) return;
     final api = ref.read(adminApiProvider);
-    if (api == null) return;
-    setState(() {
-      _loadingFees = true;
-      _feeError = null;
-    });
+    if (api == null || _selectedStudentId == null) return;
+    if (mounted) setState(() => _loadingFees = true);
     try {
-      final fees = await api.getStudentFees(_selectedStudentId!);
-      setState(() {
-        _feeData = fees;
-        _loadingFees = false;
-      });
-    } catch (e) {
-      setState(() {
-        _feeError = e.toString();
-        _loadingFees = false;
-      });
-    }
-  }
-
-  void _selectStudent(String studentId) {
-    final student = _students.firstWhere(
-      (s) => s['id'] == studentId,
-      orElse: () => {},
-    );
-    setState(() {
-      _selectedStudentId = studentId;
-      _selectedStudent = student.isNotEmpty ? student : null;
-    });
-    _loadFees();
+      final data = await api.getStudentFees(_selectedStudentId!);
+      if (mounted) setState(() { _feeData = data; _loadingFees = false; });
+    } catch (_) { if (mounted) setState(() => _loadingFees = false); }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
+      backgroundColor: const Color(0xFFF8FAFC),
       drawer: const AdminDrawer(),
-      appBar: AppBar(
-        title: const Text('Fee Management'),
-        bottom: _selectedStudentId != null
-            ? TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Fee Structure'),
-                  Tab(text: 'Record Payments'),
-                  Tab(text: 'Reports'),
-                ],
-              )
-            : null,
-      ),
-      body: Container(
-        color: Colors.grey[50],
-        child: _buildMainContent(context),
-      ),
-    );
-  }
-
-  Widget _buildMainContent(BuildContext context) {
-    if (_selectedBranchId == null) {
-      return _buildBranchSelectionFlow();
-    }
-    return _buildFeesFlow(context);
-  }
-
-  Widget _buildBranchSelectionFlow() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            'Select a Branch',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        ),
-        Expanded(
-          child: _buildBranchSelector(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeesFlow(BuildContext context) {
-    if (_selectedStudentId == null) {
-      return Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Select a Student',
-              style: Theme.of(context).textTheme.titleLarge,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            Expanded(
+              child: _selectedBranchId == null 
+                ? _buildBranchSelector() 
+                : _selectedStudentId == null 
+                  ? _buildStudentSelector() 
+                  : _buildFeeDashboard(),
             ),
-          ),
-          Expanded(
-            child: _buildStudentList(),
-          ),
-        ],
-      );
-    }
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => setState(() {
-                  _selectedStudentId = null;
-                  _selectedStudent = null;
-                  _feeData = null;
-                }),
-                child: Row(
-                  children: [
-                    const Icon(Icons.arrow_back, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Back to Students',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => setState(() {
-                  _selectedBranchId = null;
-                  _selectedStudentId = null;
-                  _selectedStudent = null;
-                  _students = [];
-                  _feeData = null;
-                }),
-                child: Row(
-                  children: [
-                    const Icon(Icons.home, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Branches',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildFeeStructureTab(),
-              _buildRecordPaymentsTab(),
-              _buildReportsTab(),
-            ],
-          ),
-        ),
-      ],
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconButton(onPressed: () {
+            if (_selectedStudentId != null) {
+              setState(() { _selectedStudentId = null; _feeData = null; });
+            } else if (_selectedBranchId != null) {
+              setState(() => _selectedBranchId = null);
+            } else {
+              Scaffold.of(context).openDrawer();
+            }
+          }, icon: Icon((_selectedBranchId != null || _selectedStudentId != null) ? Icons.arrow_back_ios_new_rounded : Icons.menu_rounded, size: 20)),
+          const SizedBox(width: 8),
+          Text(_selectedStudentId != null ? 'Fee Statement' : _selectedBranchId != null ? 'Select Student' : 'Finance Terminal', 
+               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          const Spacer(),
+          if (_selectedStudentId != null) IconButton(onPressed: _loadFees, icon: const Icon(Icons.refresh_rounded, color: AppColors.primary)),
+        ],
+      ),
     );
   }
 
   Widget _buildBranchSelector() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(child: Text('Error: $_error'));
-    }
-    if (_branches.isEmpty) {
-      return const Center(child: Text('No branches available'));
-    }
+    if (_loading) return const _StandardLoadingPlaceholder();
     return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _branches.length,
-      itemBuilder: (context, index) {
-        final branch = _branches[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: ListTile(
-            title: Text(branch['name'] ?? 'N/A'),
-            subtitle: Text(branch['address'] ?? ''),
-            onTap: () => _selectBranch(branch['id']),
-            trailing: const Icon(Icons.arrow_forward),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStudentList() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(child: Text('Error: $_error'));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _students.length,
-      itemBuilder: (context, index) {
-        final student = _students[index];
-        final isSelected = _selectedStudentId == student['id'];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          color: isSelected ? Colors.blue[50] : null,
-          child: ListTile(
-            title: Text(student['full_name'] ?? student['name'] ?? 'N/A'),
-            subtitle: Text(student['admission_number'] ?? ''),
-            onTap: () => _selectStudent(student['id']),
-            trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : const Icon(Icons.arrow_forward),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFeeStructureTab() {
-    if (_loadingFees) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_feeError != null) {
-      return Center(child: Text('Error: $_feeError'));
-    }
-    if (_feeData == null) {
-      return Center(
-        child: ElevatedButton(
-          onPressed: () => _showSetupFeeStructure(),
-          child: const Text('Setup Fee Structure'),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Student: ${_selectedStudent?['full_name'] ?? _selectedStudent?['name'] ?? _feeData?['student_name'] ?? 'N/A'}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            _buildFeeCard(
-              'Advance Fees',
-              _feeData!['advance_fees'] ?? 0.0,
-              _feeData!['advance_fees_paid'] ?? 0.0,
-            ),
-            const SizedBox(height: 16),
-            _buildFeeCard(
-              'Term Fee 1',
-              _feeData!['term_fee_1'] ?? 0.0,
-              _feeData!['term_fee_1_paid'] ?? 0.0,
-            ),
-            const SizedBox(height: 16),
-            _buildFeeCard(
-              'Term Fee 2',
-              _feeData!['term_fee_2'] ?? 0.0,
-              _feeData!['term_fee_2_paid'] ?? 0.0,
-            ),
-            const SizedBox(height: 16),
-            _buildFeeCard(
-              'Term Fee 3',
-              _feeData!['term_fee_3'] ?? 0.0,
-              _feeData!['term_fee_3_paid'] ?? 0.0,
-            ),
-            ...(_feeData!['custom_fields'] as List? ?? []).map((cf) => Column(
-              children: [
-                const SizedBox(height: 16),
-                _buildFeeCard(
-                  cf['label'] as String? ?? cf['key'] as String,
-                  (cf['amount'] as num?)?.toDouble() ?? 0.0,
-                  (cf['paid'] as num?)?.toDouble() ?? 0.0,
-                ),
-              ],
-            )),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _showSetupFeeStructure(),
-              child: const Text('Edit Fee Structure'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static const _componentKeys = [
-    'advance_fees',
-    'term_fee_1',
-    'term_fee_2',
-    'term_fee_3',
-  ];
-
-  static const _componentLabels = {
-    'advance_fees': 'Advance Fees',
-    'term_fee_1': 'Term Fee 1',
-    'term_fee_2': 'Term Fee 2',
-    'term_fee_3': 'Term Fee 3',
-  };
-
-  static const _modeLabels = {
-    'cash': 'Cash',
-    'upi': 'UPI',
-    'net_banking': 'Net Banking',
-    'cheque': 'Cheque',
-    'bank_transfer': 'Bank Transfer',
-  };
-
-  Widget _buildRecordPaymentsTab() {
-    if (_loadingFees) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_feeError != null) {
-      return Center(child: Text('Error: $_feeError'));
-    }
-    if (_feeData == null) {
-      return const Center(child: Text('No fee structure found'));
-    }
-
-    final allPayments = (_feeData!['payments'] as List? ?? [])
-        .cast<Map<String, dynamic>>();
-
-    // Group by component
-    final customFields = (_feeData!['custom_fields'] as List? ?? []).cast<Map<String, dynamic>>();
-    final allComponentKeys = [
-      ..._componentKeys,
-      ...customFields.map((cf) => cf['key'] as String),
-    ];
-    final allLabels = {
-      ..._componentLabels,
-      for (final cf in customFields) cf['key'] as String: cf['label'] as String,
-    };
-
-    // Group by component
-    final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final key in allComponentKeys) {
-      grouped[key] = allPayments.where((p) => p['component'] == key).toList();
-    }
-
-    return ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        ElevatedButton.icon(
-          onPressed: _showRecordPaymentDialog,
-          icon: const Icon(Icons.add),
-          label: const Text('Record New Payment'),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Transaction History',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
-        ...allComponentKeys.map((comp) {
-          final compPayments = grouped[comp] ?? [];
-          final totalPaid = compPayments.fold<double>(
-            0.0,
-            (sum, p) => sum + ((p['amount_paid'] as num?)?.toDouble() ?? 0.0),
-          );
-          final label = allLabels[comp] ?? comp;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            child: ExpansionTile(
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor:
-                    compPayments.isEmpty ? Colors.grey[200] : Colors.green[100],
-                child: Icon(
-                  compPayments.isEmpty ? Icons.remove : Icons.check,
-                  size: 16,
-                  color: compPayments.isEmpty ? Colors.grey : Colors.green[700],
-                ),
-              ),
-              title: Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-              subtitle: Text(
-                '${compPayments.length} transaction${compPayments.length != 1 ? 's' : ''}'
-                ' • ₹${totalPaid.toStringAsFixed(2)} paid',
-                style: TextStyle(
-                  color: compPayments.isEmpty ? Colors.grey : Colors.green[800],
-                  fontSize: 12,
-                ),
-              ),
-              children: compPayments.isEmpty
-                  ? [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                        child: Text(
-                          'No payments recorded for $label.',
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
-                        ),
-                      ),
-                    ]
-                  : compPayments
-                      .map((payment) => _buildPaymentHistoryRow(payment))
-                      .toList(),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildPaymentHistoryRow(Map<String, dynamic> payment) {
-    final dateRaw = payment['payment_date'] as String?;
-    final dateStr = dateRaw != null
-        ? DateFormat('dd MMM yyyy').format(DateTime.parse(dateRaw))
-        : 'N/A';
-    final amount = (payment['amount_paid'] as num?)?.toDouble() ?? 0.0;
-    final mode = _modeLabels[payment['payment_mode']] ?? payment['payment_mode'] ?? 'N/A';
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey[200]!)),
-        color: Colors.white,
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-        leading: const Icon(Icons.receipt_long_outlined, color: Colors.blueGrey, size: 20),
-        title: Text(
-          '₹${amount.toStringAsFixed(2)}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        subtitle: Text(
-          '$dateStr  •  $mode',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.print_outlined, color: Colors.indigo, size: 20),
-              tooltip: 'Print Receipt',
-              onPressed: () => _handlePrintReceipt(payment),
-            ),
-            IconButton(
-              icon: const Icon(Icons.send_outlined, color: Colors.green, size: 20),
-              tooltip: 'Push to Parent Dashboard',
-              onPressed: () => _sendReceiptToParent(payment),
-            ),
-          ],
+      itemCount: _branches.length,
+      itemBuilder: (context, i) => AnimatedListItem(
+        index: i,
+        child: _SelectionCard(
+          title: _branches[i]['name'] ?? 'Branch',
+          subtitle: _branches[i]['address'] ?? 'Location',
+          icon: Icons.apartment_rounded,
+          onTap: () { setState(() => _selectedBranchId = _branches[i]['id']); _loadStudents(); },
         ),
       ),
     );
   }
 
-  void _handlePrintReceipt(Map<String, dynamic> payment) {
-    FeeReceiptPdf.printReceipt(
-      payment: payment,
-      feeData: _feeData!,
-      student: _selectedStudent,
-    );
-  }
-
-  Future<void> _sendReceiptToParent(Map<String, dynamic> payment) async {
-    final api = ref.read(adminApiProvider);
-    if (api == null) return;
-    final paymentId = payment['id'] as String?;
-    if (paymentId == null) return;
-
-    // Show loading indicator
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-              SizedBox(width: 12),
-              Text('Pushing receipt to parent dashboard...'),
-            ],
-          ),
-          duration: Duration(seconds: 10),
-        ),
-      );
-    }
-
-    try {
-      final result = await api.sendFeeReceipt(_selectedStudentId!, paymentId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        final sent = result['ok'] == true && result['already_sent'] != true;
-        final alreadySent = result['already_sent'] == true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? (sent ? 'Receipt sent' : 'Failed to send')),
-            backgroundColor: sent ? Colors.green : (alreadySent ? Colors.orange[700] : Colors.orange),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    } on Exception catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        // Extract detail message from DioException if available
-        String msg = e.toString();
-        if (msg.contains('"detail"')) {
-          final match = RegExp(r'"detail"\s*:\s*"([^"]+)"').firstMatch(msg);
-          if (match != null) msg = match.group(1)!;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: Colors.red[700],
-            duration: const Duration(seconds: 8),
-          ),
-        );
-      }
-    }
-  }
-
-  void _showReceiptOptions(Map<String, dynamic> payment) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Payment Recorded Successfully',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '₹${((payment['amount_paid'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)} — '
-              '${_getComponentLabel(payment['component'] as String? ?? '')}',
-              style: TextStyle(color: Colors.grey[700], fontSize: 13),
-            ),
-            const Divider(height: 24),
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE3F2FD),
-                child: Icon(Icons.print_outlined, color: Colors.indigo),
-              ),
-              title: const Text('Print / Download Receipt PDF'),
-              subtitle: const Text('Opens print dialog with full receipt'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _handlePrintReceipt(payment);
-              },
-            ),
-            ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE8F5E9),
-                child: Icon(Icons.send_outlined, color: Colors.green),
-              ),
-              title: const Text('Send Receipt to Parent via WhatsApp'),
-              subtitle: const Text('Sends receipt directly to parent\'s phone'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _sendReceiptToParent(payment);
-              },
-            ),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.grey[200],
-                child: const Icon(Icons.close, color: Colors.grey),
-              ),
-              title: const Text('Close'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            const SizedBox(height: 8),
-          ],
+  Widget _buildStudentSelector() {
+    if (_loading) return const _StandardLoadingPlaceholder();
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _students.length,
+      itemBuilder: (context, i) => AnimatedListItem(
+        index: i,
+        child: _SelectionCard(
+          title: _students[i]['full_name'] ?? 'Student',
+          subtitle: 'ID: ${_students[i]['admission_number'] ?? '—'}',
+          icon: Icons.person_rounded,
+          onTap: () { setState(() => _selectedStudentId = _students[i]['id']); _loadFees(); },
         ),
       ),
     );
   }
 
-  Widget _buildReportsTab() {
-    if (_loadingFees) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_feeError != null) {
-      return Center(child: Text('Error: $_feeError'));
-    }
-    if (_feeData == null) {
-      return const Center(child: Text('No fee structure found'));
-    }
+  Widget _buildFeeDashboard() {
+    if (_loadingFees) return const _StandardLoadingPlaceholder();
+    if (_feeData == null) return const Center(child: Text('No fee data found'));
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Fee Summary',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildSummaryRow(
-              'Total Due',
-              _feeData!['total_due']?.toStringAsFixed(2) ?? '0.00',
-              Colors.red[100],
-            ),
-            _buildSummaryRow(
-              'Total Paid',
-              _feeData!['total_paid']?.toStringAsFixed(2) ?? '0.00',
-              Colors.green[100],
-            ),
-            _buildSummaryRow(
-              'Total Balance',
-              _feeData!['total_balance']?.toStringAsFixed(2) ?? '0.00',
-              Colors.orange[100],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Component-wise Balance',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildBalanceItem(
-              'Advance Fees',
-              _feeData!['advance_fees_balance']?.toStringAsFixed(2) ?? '0.00',
-            ),
-            _buildBalanceItem(
-              'Term Fee 1',
-              _feeData!['term_fee_1_balance']?.toStringAsFixed(2) ?? '0.00',
-            ),
-            _buildBalanceItem(
-              'Term Fee 2',
-              _feeData!['term_fee_2_balance']?.toStringAsFixed(2) ?? '0.00',
-            ),
-            _buildBalanceItem(
-              'Term Fee 3',
-              _feeData!['term_fee_3_balance']?.toStringAsFixed(2) ?? '0.00',
-            ),
-            ...(_feeData!['custom_fields'] as List? ?? []).map((cf) =>
-              _buildBalanceItem(
-                cf['label'] as String? ?? cf['key'] as String,
-                ((cf['balance'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  String _getComponentLabel(String component) {
-    const standard = {
-      'advance_fees': 'Advance Fees',
-      'term_fee_1': 'Term Fee 1',
-      'term_fee_2': 'Term Fee 2',
-      'term_fee_3': 'Term Fee 3',
-    };
-    if (standard.containsKey(component)) return standard[component]!;
-    final custom = (_feeData?['custom_fields'] as List? ?? [])
-        .cast<Map<String, dynamic>>()
-        .where((cf) => cf['key'] == component)
-        .firstOrNull;
-    return custom?['label'] as String? ?? component;
-  }
-
-  Widget _buildFeeCard(String title, double amount, double paid) {
-    final balance = amount - paid;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildMetricCol('Due', amount),
-                _buildMetricCol('Paid', paid),
-                _buildMetricCol('Balance', balance),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMetricCol(String label, double value) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 4),
-        Text(
-          '₹${value.toStringAsFixed(2)}',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        _buildSummaryCarousel(),
+        _buildFeeTabSystem(),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildStructureView(),
+              _buildHistoryView(),
+              _buildReportsView(),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, Color? bgColor) {
+  Widget _buildSummaryCarousel() {
+    final balance = (_feeData!['total_balance'] as num?)?.toDouble() ?? 0.0;
     return Container(
-      color: bgColor,
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [AppShadows.card],
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('OUTSTANDING BALANCE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                const SizedBox(height: 8),
+                Text('₹${NumberFormat('#,##,###').format(balance)}', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+              ],
+            ),
           ),
-          Text(
-            '₹$value',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+            child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 28),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBalanceItem(String label, String balance) {
+  Widget _buildFeeTabSystem() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(16)),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [AppShadows.soft]),
+        labelColor: const Color(0xFF0F172A),
+        unselectedLabelColor: const Color(0xFF64748B),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+        tabs: const [Tab(text: 'STRUCTURE'), Tab(text: 'PAYMENTS'), Tab(text: 'HISTORY')],
+      ),
+    );
+  }
+
+  Widget _buildStructureView() {
+    final components = [
+      {'label': 'Advance Deposit', 'key': 'advance_fees'},
+      {'label': 'Term I Fee', 'key': 'term_fee_1'},
+      {'label': 'Term II Fee', 'key': 'term_fee_2'},
+      {'label': 'Term III Fee', 'key': 'term_fee_3'},
+    ];
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: components.length,
+      itemBuilder: (context, i) {
+        final key = components[i]['key']!;
+        final total = (_feeData![key] as num?)?.toDouble() ?? 0.0;
+        final paid = (_feeData!['${key}_paid'] as num?)?.toDouble() ?? 0.0;
+        return _FeeComponentCard(label: components[i]['label']!, total: total, paid: paid);
+      },
+    );
+  }
+
+  Widget _buildHistoryView() {
+    final payments = (_feeData!['payments'] as List? ?? []);
+    if (payments.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('No payments recorded yet.', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w600))));
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: payments.length,
+      itemBuilder: (context, i) {
+        final p = payments[i] as Map<String, dynamic>;
+        final amt = (p['amount'] as num?)?.toDouble() ?? 0.0;
+        final date = p['payment_date']?.toString() ?? p['created_at']?.toString() ?? '';
+        final mode = p['payment_mode']?.toString() ?? 'Cash';
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [AppShadows.soft], border: Border.all(color: const Color(0xFFF1F5F9))),
+          child: Row(
+            children: [
+              Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(Icons.receipt_long_rounded, color: AppColors.accentGreen, size: 20)),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Payment — $mode', style: const TextStyle(fontWeight: FontWeight.w700,fontSize: 14)),
+                Text(date.length > 10 ? date.substring(0, 10) : date, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              ])),
+              Text('₹${NumberFormat('#,###').format(amt)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accentGreen)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReportsView() {
+    final total = (_feeData!['total_fees'] as num?)?.toDouble() ?? 0.0;
+    final paid = (_feeData!['total_paid'] as num?)?.toDouble() ?? 0.0;
+    final balance = (_feeData!['total_balance'] as num?)?.toDouble() ?? 0.0;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.all(16),
+      child: Column(
         children: [
-          Text(label),
-          Text(
-            '₹$balance',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+          _SummaryTile(label: 'Total Fees', value: total, icon: Icons.account_balance_wallet_rounded, color: AppColors.primary),
+          const SizedBox(height: 12),
+          _SummaryTile(label: 'Amount Paid', value: paid, icon: Icons.check_circle_rounded, color: AppColors.accentGreen),
+          const SizedBox(height: 12),
+          _SummaryTile(label: 'Outstanding Balance', value: balance, icon: Icons.warning_amber_rounded, color: balance > 0 ? Colors.orange : AppColors.accentGreen),
         ],
       ),
     );
   }
-
-  void _showSetupFeeStructure() {
-    showDialog(
-      context: context,
-      builder: (context) => SetupFeeStructureDialog(
-        studentId: _selectedStudentId!,
-        existingData: _feeData,
-        onSaved: () {
-          _loadFees();
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showRecordPaymentDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => RecordPaymentDialog(
-        studentId: _selectedStudentId!,
-        feeData: _feeData,
-        onSaved: (savedPayment) async {
-          await _loadFees();
-          if (mounted) {
-            Navigator.pop(dialogContext);
-            _showReceiptOptions(savedPayment);
-          }
-        },
-      ),
-    );
-  }
 }
 
-class SetupFeeStructureDialog extends ConsumerStatefulWidget {
-  const SetupFeeStructureDialog({
-    super.key,
-    required this.studentId,
-    this.existingData,
-    required this.onSaved,
-  });
-
-  final String studentId;
-  final Map<String, dynamic>? existingData;
-  final VoidCallback onSaved;
-
-  @override
-  ConsumerState<SetupFeeStructureDialog> createState() =>
-      _SetupFeeStructureDialogState();
-}
-
-class _SetupFeeStructureDialogState
-    extends ConsumerState<SetupFeeStructureDialog> {
-  late TextEditingController _advanceController;
-  late TextEditingController _term1Controller;
-  late TextEditingController _term2Controller;
-  late TextEditingController _term3Controller;
-  bool _saving = false;
-
-  // Custom fields: each entry has {key, label, ctrl (TextEditingController)}
-  late List<Map<String, dynamic>> _customFields;
-  bool _addingField = false;
-  final _newLabelCtrl = TextEditingController();
-  final _newAmountCtrl = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _advanceController = TextEditingController(
-      text: (widget.existingData?['advance_fees'] ?? 0.0).toStringAsFixed(2),
-    );
-    _term1Controller = TextEditingController(
-      text: (widget.existingData?['term_fee_1'] ?? 0.0).toStringAsFixed(2),
-    );
-    _term2Controller = TextEditingController(
-      text: (widget.existingData?['term_fee_2'] ?? 0.0).toStringAsFixed(2),
-    );
-    _term3Controller = TextEditingController(
-      text: (widget.existingData?['term_fee_3'] ?? 0.0).toStringAsFixed(2),
-    );
-    final rawCustom = (widget.existingData?['custom_fields'] as List? ?? [])
-        .cast<Map<String, dynamic>>();
-    _customFields = rawCustom.map((cf) {
-      return <String, dynamic>{
-        'key': cf['key'] as String,
-        'label': cf['label'] as String,
-        'ctrl': TextEditingController(
-          text: ((cf['amount'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2),
-        ),
-      };
-    }).toList();
-  }
-
-  @override
-  void dispose() {
-    _advanceController.dispose();
-    _term1Controller.dispose();
-    _term2Controller.dispose();
-    _term3Controller.dispose();
-    _newLabelCtrl.dispose();
-    _newAmountCtrl.dispose();
-    for (final cf in _customFields) {
-      (cf['ctrl'] as TextEditingController).dispose();
-    }
-    super.dispose();
-  }
-
-  void _addField() {
-    final label = _newLabelCtrl.text.trim();
-    if (label.isEmpty) return;
-    final key = label
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    if (key.isEmpty) return;
-    if (_customFields.any((cf) => cf['key'] == key)) return;
-    setState(() {
-      _customFields.add({
-        'key': key,
-        'label': label,
-        'ctrl': TextEditingController(
-          text: (double.tryParse(_newAmountCtrl.text) ?? 0.0).toStringAsFixed(2),
-        ),
-      });
-      _addingField = false;
-      _newLabelCtrl.clear();
-      _newAmountCtrl.clear();
-    });
-  }
-
-  void _removeField(int index) {
-    setState(() {
-      final cf = _customFields.removeAt(index);
-      (cf['ctrl'] as TextEditingController).dispose();
-    });
-  }
+class _SelectionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Setup Fee Structure'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Standard Fees',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _advanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Advance Fees', prefixText: '₹ '),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _term1Controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Term Fee 1', prefixText: '₹ '),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _term2Controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Term Fee 2', prefixText: '₹ '),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _term3Controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Term Fee 3', prefixText: '₹ '),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Custom Fees',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
-                ),
-                TextButton.icon(
-                  onPressed: () => setState(() => _addingField = !_addingField),
-                  icon: Icon(_addingField ? Icons.close : Icons.add, size: 16),
-                  label: Text(_addingField ? 'Cancel' : 'Add Field'),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                ),
-              ],
-            ),
-            ..._customFields.asMap().entries.map((entry) {
-              final i = entry.key;
-              final cf = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Text(cf['label'] as String, style: const TextStyle(fontSize: 14)),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 100,
-                      child: TextField(
-                        controller: cf['ctrl'] as TextEditingController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          prefixText: '₹ ',
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                      onPressed: () => _removeField(i),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            if (_addingField) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _newLabelCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Field Name (e.g. Bus Fee)',
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _newAmountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '₹ ',
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _addField,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text('Add', style: TextStyle(color: Colors.white)),
-                ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [AppShadows.soft], border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          leading: Container(width: 48, height: 48, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: AppColors.primary)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          subtitle: Text(subtitle, style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeeComponentCard extends StatelessWidget {
+  final String label;
+  final double total;
+  final double paid;
+  const _FeeComponentCard({required this.label, required this.total, required this.paid});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total > 0 ? (paid / total).clamp(0.0, 1.0) : 0.0;
+    final isSettled = progress >= 1.0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFF1F5F9)), boxShadow: [AppShadows.soft]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F172A))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: (isSettled ? AppColors.accentGreen : Colors.amber).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: Text(isSettled ? 'PAID' : 'PENDING', style: TextStyle(color: isSettled ? AppColors.accentGreen : Colors.amber.shade700, fontSize: 10, fontWeight: FontWeight.w900)),
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: const Color(0xFFF1F5F9), valueColor: AlwaysStoppedAnimation(isSettled ? AppColors.accentGreen : AppColors.primary)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Paid: ₹${NumberFormat('#,###').format(paid)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600)),
+              Text('Total: ₹${NumberFormat('#,###').format(total)}', style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
     );
   }
+}
 
-  Future<void> _save() async {
-    final api = ref.read(studentProfileApiProvider);
-    if (api?.updateStudentFees == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API not available')),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    try {
-      final customPayload = _customFields.map((cf) => {
-        'key': cf['key'] as String,
-        'label': cf['label'] as String,
-        'amount': double.tryParse((cf['ctrl'] as TextEditingController).text) ?? 0.0,
-      }).toList();
-      await api!.updateStudentFees!(
-        widget.studentId,
-        {
-          'advance_fees': double.tryParse(_advanceController.text) ?? 0.0,
-          'term_fee_1': double.tryParse(_term1Controller.text) ?? 0.0,
-          'term_fee_2': double.tryParse(_term2Controller.text) ?? 0.0,
-          'term_fee_3': double.tryParse(_term3Controller.text) ?? 0.0,
-          'custom_fields': customPayload,
-        },
-      );
-      widget.onSaved();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fee structure saved successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+class _StandardLoadingPlaceholder extends StatelessWidget {
+  const _StandardLoadingPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (_, __) => const Padding(
+        padding: EdgeInsets.only(bottom: 24),
+        child: ShimmerLoading.rectangular(height: 100, width: double.infinity),
+      ),
+    );
   }
 }
 
-class RecordPaymentDialog extends ConsumerStatefulWidget {
-  const RecordPaymentDialog({
-    super.key,
-    required this.studentId,
-    this.feeData,
-    required this.onSaved,
-  });
-
-  final String studentId;
-  final Map<String, dynamic>? feeData;
-  final Future<void> Function(Map<String, dynamic> savedPayment) onSaved;
-
-  @override
-  ConsumerState<RecordPaymentDialog> createState() =>
-      _RecordPaymentDialogState();
-}
-
-class _RecordPaymentDialogState extends ConsumerState<RecordPaymentDialog> {
-  late TextEditingController _amountController;
-  String _selectedComponent = 'advance_fees';
-  String _selectedMode = 'cash';
-  bool _saving = false;
-
-  List<DropdownMenuItem<String>> get _componentItems {
-    final items = <DropdownMenuItem<String>>[
-      const DropdownMenuItem(value: 'advance_fees', child: Text('Advance Fees')),
-      const DropdownMenuItem(value: 'term_fee_1', child: Text('Term Fee 1')),
-      const DropdownMenuItem(value: 'term_fee_2', child: Text('Term Fee 2')),
-      const DropdownMenuItem(value: 'term_fee_3', child: Text('Term Fee 3')),
-    ];
-    for (final cf in (widget.feeData?['custom_fields'] as List? ?? [])) {
-      items.add(DropdownMenuItem<String>(
-        value: cf['key'] as String,
-        child: Text(cf['label'] as String? ?? cf['key'] as String),
-      ));
-    }
-    return items;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _amountController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final double value;
+  final IconData icon;
+  final Color color;
+  const _SummaryTile({required this.label, required this.value, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Record Fee Payment'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              value: _selectedComponent,
-              items: _componentItems,
-              onChanged: (value) {
-                if (value != null) setState(() => _selectedComponent = value);
-              },
-              decoration: const InputDecoration(labelText: 'Fee Component'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount Paid',
-                prefixText: '₹ ',
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _selectedMode,
-              items: const [
-                DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                DropdownMenuItem(value: 'upi', child: Text('UPI')),
-                DropdownMenuItem(value: 'net_banking', child: Text('Net Banking')),
-                DropdownMenuItem(value: 'cheque', child: Text('Cheque')),
-                DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer')),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _selectedMode = value);
-                }
-              },
-              decoration: const InputDecoration(labelText: 'Payment Mode'),
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [AppShadows.soft], border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: Row(
+        children: [
+          Container(width: 48, height: 48, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 22)),
+          const SizedBox(width: 16),
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF1E293B)))),
+          Text('₹${NumberFormat('#,##,###').format(value)}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: color)),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Record'),
-        ),
-      ],
     );
-  }
-
-  Future<void> _save() async {
-    if (_amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter amount')),
-      );
-      return;
-    }
-
-    final api = ref.read(studentProfileApiProvider);
-    if (api?.recordFeePayment == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API not available')),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    try {
-      final savedPayment = await api!.recordFeePayment!(
-        widget.studentId,
-        {
-          'component': _selectedComponent,
-          'amount_paid': double.parse(_amountController.text),
-          'payment_mode': _selectedMode,
-        },
-      );
-      await widget.onSaved(savedPayment);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
   }
 }

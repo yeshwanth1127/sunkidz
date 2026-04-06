@@ -1,17 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sunkidz_lms/main.dart';
 import 'package:sunkidz_lms/core/auth/auth_provider.dart';
 
 void main() {
   testWidgets('App loads', (WidgetTester tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
+    FlutterSecureStorage.setMockInitialValues({});
+    const storage = FlutterSecureStorage();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          authProvider.overrideWith((ref) => AuthNotifier(prefs)),
+          authProvider.overrideWith((ref) => AuthNotifier(storage)),
         ],
         child: const SunkidzApp(),
       ),

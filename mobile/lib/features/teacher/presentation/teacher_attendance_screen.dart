@@ -188,7 +188,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: Colors.orange.withOpacity(0.1),
                     border: Border.all(color: Colors.orange),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -393,9 +393,9 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: c.withValues(alpha: 0.15),
+                          color: c.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: c.withValues(alpha: 0.3)),
+                          border: Border.all(color: c.withOpacity(0.3)),
                         ),
                         child: Text('${_formatDate(dk)}: ${status.toUpperCase()}', style: TextStyle(fontSize: 12, color: c, fontWeight: FontWeight.w500)),
                       );
@@ -432,9 +432,9 @@ class _SummaryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
     );
@@ -462,13 +462,13 @@ class _StudentAttendanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: locked ? Colors.grey.shade50 : Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: locked ? Colors.orange.withValues(alpha: 0.3) : Theme.of(context).dividerColor),
+        border: Border.all(color: locked ? Colors.orange.withOpacity(0.3) : Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+            backgroundColor: AppColors.primary.withOpacity(0.2),
             child: Text((student['name'] as String? ?? '?').substring(0, 1).toUpperCase()),
           ),
           const SizedBox(width: 12),

@@ -302,7 +302,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   Row(
                     children: [
                       Image.asset(
-                        'images/new_logo.png',
+                        'assets/images/sunkidz_logo_hd.png',
                         height: 28,
                         errorBuilder: (context, error, stackTrace) {
                           return Icon(Icons.school, size: 28, color: AppColors.primary);
