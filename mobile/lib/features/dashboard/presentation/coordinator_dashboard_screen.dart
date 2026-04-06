@@ -86,7 +86,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Image.asset(
-                'images/new_logo.png',
+                'assets/images/sunkidz_logo_hd.png',
                 height: 32,
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(
@@ -157,13 +157,13 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                       end: Alignment.bottomRight,
                       colors: [
                         AppColors.primaryLight,
-                        AppColors.primaryLight.withValues(alpha: 0.7),
+                        AppColors.primaryLight.withOpacity(0.7),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primaryLight.withValues(alpha: 0.3),
+                        color: AppColors.primaryLight.withOpacity(0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -184,7 +184,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                             ? 'Overview for $branchName'
                             : 'No branch assigned',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: Colors.white.withOpacity(0.9),
                           fontSize: 14,
                         ),
                       ),
@@ -195,7 +195,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(
@@ -291,7 +291,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: Colors.black.withOpacity(0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),
@@ -341,7 +341,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: Colors.black.withOpacity(0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),
@@ -386,10 +386,10 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
+                    color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.blue.withValues(alpha: 0.3),
+                      color: Colors.blue.withOpacity(0.3),
                     ),
                   ),
                   child: Row(
@@ -507,7 +507,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
+                              color: AppColors.primary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -567,7 +567,7 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: AppColors.primary
-                                                      .withValues(alpha: 0.2),
+                                                      .withOpacity(0.2),
                                                   borderRadius:
                                                       const BorderRadius.vertical(
                                                         top: Radius.circular(4),
@@ -634,9 +634,9 @@ class _CoordMessageCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
+          color: AppColors.primary.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -692,7 +692,7 @@ class _CoordStatCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 20),

@@ -31,6 +31,7 @@ import '../../features/admin/presentation/daycare_management_screen.dart';
 import '../../features/admin/presentation/branch_detail_screen.dart';
 import '../../features/enquiries/presentation/enquiry_list_screen.dart';
 import '../../features/admissions/presentation/admission_list_screen.dart';
+import '../../features/admissions/presentation/admission_new_screen.dart';
 import '../../features/students/presentation/student_list_screen.dart';
 import '../../features/students/presentation/student_profile_screen.dart';
 import '../../features/marks/presentation/marks_card_screen.dart';
@@ -369,6 +370,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/enquiries',
         builder: (_, __) => const EnquiryListScreen(),
+      ),
+      GoRoute(
+        path: '/admissions/new',
+        builder: (_, __) => const AdmissionNewScreen(),
       ),
       GoRoute(
         path: '/admissions',

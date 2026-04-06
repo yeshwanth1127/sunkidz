@@ -20,6 +20,10 @@ class FeeStructure(Base):
     term_fee_3 = Column(Float, default=0.0)
     # JSON list: [{"key": "bus_fee", "label": "Bus Fee", "amount": 2000.0}]
     custom_fields_json = Column(Text, nullable=True)
+    
+    # NEW fields for automated reminders
+    due_date = Column(DateTime, nullable=True)
+    last_reminder_sent_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

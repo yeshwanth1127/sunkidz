@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong2.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../core/api/bus_tracking_provider.dart' show busTrackingApiProvider;
 import '../../../core/theme/app_theme.dart';
 
@@ -44,7 +44,7 @@ class _AdminLiveTrackingDashboardState extends ConsumerState<AdminLiveTrackingDa
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        backgroundColor: Colors.black.withOpacity(0.3),
         elevation: 0,
         centerTitle: true,
         title: const Text(
@@ -56,7 +56,7 @@ class _AdminLiveTrackingDashboardState extends ConsumerState<AdminLiveTrackingDa
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: Colors.white.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -167,9 +167,11 @@ class _AdminLiveTrackingDashboardState extends ConsumerState<AdminLiveTrackingDa
         .toList();
 
     if (points.isNotEmpty) {
-      _mapController.fitBounds(
-        LatLngBounds.fromPoints(points),
-        options: const FitBoundsOptions(padding: EdgeInsets.all(100)),
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.all(100),
+        ),
       );
     }
   }
@@ -225,8 +227,8 @@ class _MapView extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.8)
-                          : Colors.black.withValues(alpha: 0.2),
+                          ? AppColors.primary.withOpacity(0.8)
+                          : Colors.black.withOpacity(0.2),
                       blurRadius: isSelected ? 12 : 4,
                       spreadRadius: isSelected ? 2 : 0,
                     ),
@@ -235,7 +237,7 @@ class _MapView extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected ? AppColors.primary : AppColors.success,
+                    color: isSelected ? AppColors.primary : AppColors.accentGreen,
                     border: isSelected
                         ? Border.all(color: Colors.white, width: 3)
                         : null,
@@ -293,7 +295,7 @@ class _RidesList extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 20,
           ),
         ],
@@ -307,7 +309,7 @@ class _RidesList extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
+                color: Colors.grey.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -326,7 +328,7 @@ class _RidesList extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                    color: const Color(0xFF4CAF50).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -376,8 +378,8 @@ class _RidesList extends StatelessWidget {
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.1)
-                          : Colors.grey.withValues(alpha: 0.05),
+                          ? AppColors.primary.withOpacity(0.1)
+                          : Colors.grey.withOpacity(0.05),
                       border: isSelected
                           ? Border.all(color: AppColors.primary, width: 2)
                           : null,

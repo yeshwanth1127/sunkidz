@@ -24,11 +24,11 @@ class BottomNavBar extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.black.withValues(alpha: 0.8)
-            : Colors.white.withValues(alpha: 0.9),
+            ? Colors.black.withOpacity(0.8)
+            : Colors.white.withOpacity(0.9),
         border: Border(
           top: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
           ),
         ),
       ),

@@ -11,6 +11,7 @@ import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../core/api/coordinator_provider.dart';
 import '../../../core/api/teacher_provider.dart';
+import '../../../core/api/parent_provider.dart';
 import '../../dashboard/data/teacher_dashboard_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
@@ -66,12 +67,40 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
           });
         }
       } else if (auth.role == UserRole.teacher) {
-        final dashboardAsync = await ref.read(teacherDashboardDataProvider.future);
-        if (dashboardAsync != null && dashboardAsync.classId != null && dashboardAsync.className != null) {
-          classes.add({
-            'id': dashboardAsync.classId!,
-            'name': '${dashboardAsync.className!} - ${dashboardAsync.branchName ?? ""}',
-          });
+        final api = ref.read(teacherApiProvider);
+        if (api != null) {
+          try {
+            final dashboard = await api.getDashboard();
+            final classId = dashboard['class_id']?.toString();
+            final className = dashboard['class_name']?.toString() ?? '';
+            final branchName = dashboard['branch_name']?.toString() ?? '';
+            if (classId != null) {
+              classes.add({
+                'id': classId,
+                'name': '$className - $branchName',
+              });
+            }
+          } catch (_) {}
+        }
+      } else if (auth.role == UserRole.parent) {
+        final api = ref.read(parentApiProvider);
+        if (api != null) {
+          try {
+            final response = await api.getChildren();
+            final childrenList = (response['children'] as List?) ?? [];
+            for (final child in childrenList) {
+              final childMap = child as Map<String, dynamic>;
+              final classId = childMap['class_id']?.toString();
+              final className = childMap['class_name']?.toString() ?? '';
+              final childName = childMap['name']?.toString() ?? '';
+              if (classId != null) {
+                classes.add({
+                  'id': classId,
+                  'name': '$className ($childName)',
+                });
+              }
+            }
+          } catch (_) {}
         }
       }
 
@@ -298,7 +327,7 @@ class _DayCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          backgroundColor: AppColors.primary.withOpacity(0.1),
           child: Text('$day', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
         ),
         title: Text('Day $day', style: const TextStyle(fontWeight: FontWeight.bold)),

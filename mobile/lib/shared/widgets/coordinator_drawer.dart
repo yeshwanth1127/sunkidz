@@ -15,7 +15,7 @@ class CoordinatorDrawer extends ConsumerWidget {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: AppColors.primaryLight.withValues(alpha: 0.1),
+              color: AppColors.primaryLight.withOpacity(0.1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,6 +96,9 @@ class CoordinatorDrawer extends ConsumerWidget {
   void _logout(BuildContext context, WidgetRef ref) {
     Navigator.pop(context);
     ref.read(authProvider.notifier).logout();
+    while (GoRouter.of(context).canPop()) {
+      context.pop();
+    }
     context.go('/login');
   }
 }

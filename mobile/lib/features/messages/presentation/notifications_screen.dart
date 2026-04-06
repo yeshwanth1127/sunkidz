@@ -91,12 +91,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 final senderName = n['sender_name'] as String?;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  color: isRead ? null : AppColors.primary.withValues(alpha: 0.05),
+                  color: isRead ? null : AppColors.primary.withOpacity(0.05),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: isRead
                           ? Colors.grey.shade300
-                          : AppColors.primary.withValues(alpha: 0.2),
+                          : AppColors.primary.withOpacity(0.2),
                       child: Icon(
                         Icons.mail,
                         color: isRead ? Colors.grey : AppColors.primary,

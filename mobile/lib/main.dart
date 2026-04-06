@@ -12,7 +12,7 @@ import 'shared/widgets/device_registration_listener.dart';
 /// OneSignal App ID - set via --dart-define=ONESIGNAL_APP_ID=xxx or use default
 const String _oneSignalAppId = String.fromEnvironment(
   'ONESIGNAL_APP_ID',
-  defaultValue: 'YOUR_ONESIGNAL_APP_ID',
+  defaultValue: 'c2fc1605-2886-44f3-a4e4-6534d722f794',
 );
 
 void main() async {

@@ -1,34 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../shared/widgets/admin_drawer.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
+import '../../../shared/widgets/animated_list_item.dart';
 
 class AdminAttendanceScreen extends ConsumerStatefulWidget {
   const AdminAttendanceScreen({super.key});
 
   @override
-  ConsumerState<AdminAttendanceScreen> createState() =>
-      _AdminAttendanceScreenState();
+  ConsumerState<AdminAttendanceScreen> createState() => _AdminAttendanceScreenState();
 }
 
-class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
-    with SingleTickerProviderStateMixin {
+class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
   bool _loading = true;
   Map<String, dynamic>? _attendanceData;
   Map<String, dynamic>? _historyData;
   Map<String, dynamic>? _staffAttendanceData;
-  Map<String, dynamic>? _staffHistoryData;
-  String _historyPeriod = 'week';
-  String? _filterBranchId;
-  String? _filterClassId;
-  bool _historyViewByStudent = false;
   List<Map<String, dynamic>> _branches = [];
-
-  static String _dateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String? _filterBranchId;
 
   @override
   void initState() {
@@ -57,708 +52,311 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
     if (api == null) return;
     try {
       final list = await api.getBranches();
-      setState(() => _branches = list);
+      if (mounted) setState(() => _branches = list);
     } catch (_) {}
   }
 
   Future<void> _loadAttendance() async {
     final api = ref.read(adminApiProvider);
     if (api == null) return;
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     try {
       final res = await api.getAttendance(
-        date: _dateStr(_selectedDate),
+        date: DateFormat('yyyy-MM-dd').format(_selectedDate),
         branchId: _filterBranchId,
-        classId: _filterClassId,
       );
-      setState(() {
-        _attendanceData = res;
-        _loading = false;
-      });
+      if (mounted) setState(() { _attendanceData = res; _loading = false; });
     } catch (e) {
-      setState(() {
-        _attendanceData = null;
-        _loading = false;
-      });
+      if (mounted) setState(() { _attendanceData = null; _loading = false; });
     }
   }
 
   Future<void> _loadHistory() async {
     final api = ref.read(adminApiProvider);
     if (api == null) return;
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     try {
-      final res = await api.getAttendanceHistory(
-        period: _historyPeriod,
-        branchId: _filterBranchId,
-        classId: _filterClassId,
-      );
-      setState(() {
-        _historyData = res;
-        _loading = false;
-      });
+      final res = await api.getAttendanceHistory(period: 'week', branchId: _filterBranchId);
+      if (mounted) setState(() { _historyData = res; _loading = false; });
     } catch (e) {
-      setState(() {
-        _historyData = null;
-        _loading = false;
-      });
+      if (mounted) setState(() { _historyData = null; _loading = false; });
     }
   }
 
   Future<void> _loadStaffAttendance() async {
     final api = ref.read(adminApiProvider);
     if (api == null) return;
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     try {
       final res = await api.getStaffAttendance(
-        date: _dateStr(_selectedDate),
+        date: DateFormat('yyyy-MM-dd').format(_selectedDate),
         branchId: _filterBranchId,
       );
-      setState(() {
-        _staffAttendanceData = res;
-        _loading = false;
-      });
+      if (mounted) setState(() { _staffAttendanceData = res; _loading = false; });
     } catch (e) {
-      setState(() {
-        _staffAttendanceData = null;
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _loadStaffHistory() async {
-    final api = ref.read(adminApiProvider);
-    if (api == null) return;
-    setState(() => _loading = true);
-    try {
-      final res = await api.getStaffAttendanceHistory(
-        period: _historyPeriod,
-        branchId: _filterBranchId,
-      );
-      setState(() {
-        _staffHistoryData = res;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _staffHistoryData = null;
-        _loading = false;
-      });
+      if (mounted) setState(() { _staffAttendanceData = null; _loading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
+      backgroundColor: const Color(0xFFF8FAFC),
       drawer: const AdminDrawer(),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: const Text('Attendance (All Branches)'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'By Date'),
-            Tab(text: 'History'),
-            Tab(text: 'Staff'),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            _buildTabSelector(),
+            _buildFilterBar(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildDailyView(),
+                  _buildHistoryView(),
+                  _buildStaffView(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          _buildByDateTab(),
-          _buildHistoryTab(),
-          _buildStaffAttendanceTab(),
+          IconButton(onPressed: () => Scaffold.of(context).openDrawer(), icon: const Icon(Icons.menu_rounded)),
+          const SizedBox(width: 8),
+          const Text('Attendance Live', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          const Spacer(),
+          IconButton(onPressed: _loadAttendance, icon: const Icon(Icons.history_rounded, color: AppColors.primary)),
         ],
       ),
     );
   }
 
-  Widget _buildByDateTab() {
-    return RefreshIndicator(
-      onRefresh: _loadAttendance,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _filterBranchId,
-                    decoration: const InputDecoration(
-                      labelText: 'Branch',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Branches'),
-                      ),
-                      ..._branches.map(
-                        (b) => DropdownMenuItem(
-                          value: b['id'] as String?,
-                          child: Text(b['name'] as String? ?? '—'),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) async {
-                      setState(() => _filterBranchId = v);
-                      await _loadAttendance();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _loading
-                        ? null
-                        : () async {
-                            final d = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now().add(
-                                const Duration(days: 1),
-                              ),
-                            );
-                            if (d != null) setState(() => _selectedDate = d);
-                            await _loadAttendance();
-                          },
-                    icon: const Icon(Icons.calendar_today, size: 18),
-                    label: Text(_formatDate(_selectedDate)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_loading && _attendanceData == null)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_attendanceData == null)
-              const Center(child: Text('Failed to load'))
-            else
-              _buildByBranchClassContent(
-                _attendanceData!['by_branch_class'] as List? ?? [],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildByBranchClassContent(List<dynamic> list) {
-    if (list.isEmpty) {
-      return const Center(child: Text('No attendance data'));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: list.map((item) {
-        final m = item as Map<String, dynamic>;
-        final branch = m['branch'] as String? ?? '—';
-        final cls = m['class'] as String? ?? '—';
-        final students = List<Map<String, dynamic>>.from(
-          m['students'] as List? ?? [],
-        );
-        int present = 0, absent = 0, leave = 0;
-        for (final s in students) {
-          final st = s['status'] as String? ?? 'present';
-          if (st == 'present')
-            present++;
-          else if (st == 'absent')
-            absent++;
-          else
-            leave++;
-        }
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.business, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$branch • $cls',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _Chip(
-                      label: 'Total: ${students.length}',
-                      color: AppColors.primary,
-                    ),
-                    _Chip(label: 'P: $present', color: Colors.green),
-                    _Chip(label: 'A: $absent', color: Colors.red),
-                    _Chip(label: 'L: $leave', color: Colors.amber),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ...students
-                    .take(10)
-                    .map(
-                      (s) => ListTile(
-                        dense: true,
-                        leading: CircleAvatar(
-                          radius: 16,
-                          child: Text(
-                            (s['name'] as String? ?? '?')
-                                .substring(0, 1)
-                                .toUpperCase(),
-                          ),
-                        ),
-                        title: Text(s['name'] as String? ?? '—'),
-                        trailing: _statusChip(
-                          s['status'] as String? ?? 'present',
-                        ),
-                      ),
-                    ),
-                if (students.length > 10)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '+ ${students.length - 10} more',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _statusChip(String status) {
-    Color c = Colors.green;
-    if (status == 'absent') c = Colors.red;
-    if (status == 'leave') c = Colors.amber;
+  Widget _buildTabSelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: c),
-      ),
-    );
-  }
-
-  Widget _buildHistoryTab() {
-    return RefreshIndicator(
-      onRefresh: _loadHistory,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('Weekly'),
-                  selected: _historyPeriod == 'week',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'week');
-                    await _loadHistory();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Monthly'),
-                  selected: _historyPeriod == 'month',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'month');
-                    await _loadHistory();
-                  },
-                ),
-                const Spacer(),
-                ChoiceChip(
-                  label: const Text('By Date'),
-                  selected: !_historyViewByStudent,
-                  onSelected: (_) =>
-                      setState(() => _historyViewByStudent = false),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('By Student'),
-                  selected: _historyViewByStudent,
-                  onSelected: (_) =>
-                      setState(() => _historyViewByStudent = true),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_loading && _historyData == null)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_historyData == null)
-              const Center(child: Text('No history'))
-            else
-              _historyViewByStudent
-                  ? _buildHistoryByStudent(_historyData!)
-                  : _buildHistoryContent(_historyData!),
-          ],
-        ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(16)),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [AppShadows.soft]),
+        labelColor: Color(0xFF0F172A),
+        unselectedLabelColor: Color(0xFF64748B),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        tabs: const [Tab(text: 'Daily'), Tab(text: 'History'), Tab(text: 'Staff')],
       ),
     );
   }
 
-  Widget _buildHistoryContent(Map<String, dynamic> data) {
-    final dates = List<String>.from(data['dates'] as List? ?? []);
-    final byDate = data['by_date'] as Map<String, dynamic>? ?? {};
-    if (dates.isEmpty) {
-      return const Center(child: Text('No attendance records for this period'));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${data['start']} to ${data['end']}',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 12),
-        ...dates.reversed.map((dk) {
-          final recs = byDate[dk] as List? ?? [];
-          final present = recs
-              .where((r) => (r as Map)['status'] == 'present')
-              .length;
-          final absent = recs
-              .where((r) => (r as Map)['status'] == 'absent')
-              .length;
-          final leave = recs
-              .where((r) => (r as Map)['status'] == 'leave')
-              .length;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              title: Text(_formatDate(dk)),
-              subtitle: Text('P: $present  A: $absent  L: $leave'),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildHistoryByStudent(Map<String, dynamic> data) {
-    final byStudent = data['by_student'] as Map<String, dynamic>? ?? {};
-    final dates = List<String>.from(data['dates'] as List? ?? []);
-    if (byStudent.isEmpty) return const Center(child: Text('No students'));
-    final entries = (byStudent as Map).entries.toList()
-      ..sort((a, b) {
-        final aVal = a.value as Map;
-        final bVal = b.value as Map;
-        final cmp = ((aVal['branch_name'] ?? '') as String).compareTo(
-          (bVal['branch_name'] ?? '') as String,
-        );
-        if (cmp != 0) return cmp;
-        return ((aVal['name'] ?? '') as String).compareTo(
-          (bVal['name'] ?? '') as String,
-        );
-      });
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${data['start']} to ${data['end']}',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 12),
-        ...entries.map((e) {
-          final info = e.value as Map<String, dynamic>;
-          final name = info['name'] as String? ?? '—';
-          final branchName = info['branch_name'] as String? ?? '—';
-          final className = info['class_name'] as String? ?? '—';
-          final datesMap = info['dates'] as Map<String, dynamic>? ?? {};
-          final present = datesMap.values.where((v) => v == 'present').length;
-          final absent = datesMap.values.where((v) => v == 'absent').length;
-          final leave = datesMap.values.where((v) => v == 'leave').length;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ExpansionTile(
-              title: Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+  Widget _buildFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final d = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2023), lastDate: DateTime.now());
+                if (d != null) { setState(() => _selectedDate = d); _loadAttendance(); }
+              },
+              icon: const Icon(Icons.calendar_month_rounded, size: 18),
+              label: Text(DateFormat('EEE, MMM d').format(_selectedDate), style: const TextStyle(fontWeight: FontWeight.w700)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
-              subtitle: Text(
-                '$branchName • $className • P: $present  A: $absent  L: $leave',
-              ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: dates.reversed.map((dk) {
-                      final status = datesMap[dk] as String? ?? '—';
-                      Color c = Colors.grey;
-                      if (status == 'present') c = Colors.green;
-                      if (status == 'absent') c = Colors.red;
-                      if (status == 'leave') c = Colors.amber;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: c.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          '${_formatDate(dk)}: ${status.toString().toUpperCase()}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: c,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  static String _formatDate(dynamic d) {
-    if (d is DateTime) return '${d.day}/${d.month}/${d.year}';
-    final s = d.toString();
-    if (s.length >= 10) {
-      final parts = s.substring(0, 10).split('-');
-      if (parts.length == 3) return '${parts[2]}/${parts[1]}/${parts[0]}';
-    }
-    return s;
-  }
-
-  Widget _buildStaffAttendanceTab() {
-    return RefreshIndicator(
-      onRefresh: _loadStaffAttendance,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _filterBranchId,
-                    decoration: const InputDecoration(
-                      labelText: 'Branch',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Branches'),
-                      ),
-                      ..._branches.map(
-                        (b) => DropdownMenuItem(
-                          value: b['id'] as String?,
-                          child: Text(b['name'] as String? ?? '—'),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) async {
-                      setState(() => _filterBranchId = v);
-                      await _loadStaffAttendance();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _loading
-                        ? null
-                        : () async {
-                            final d = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now().add(
-                                const Duration(days: 1),
-                              ),
-                            );
-                            if (d != null) setState(() => _selectedDate = d);
-                            await _loadStaffAttendance();
-                          },
-                    icon: const Icon(Icons.calendar_today, size: 18),
-                    label: Text(_formatDate(_selectedDate)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_loading && _staffAttendanceData == null)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_staffAttendanceData == null)
-              const Center(child: Text('Failed to load'))
-            else
-              _buildStaffByBranchContent(
-                _staffAttendanceData!['by_branch'] as List? ?? [],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStaffByBranchContent(List<dynamic> list) {
-    if (list.isEmpty) {
-      return const Center(child: Text('No staff attendance data'));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: list.map((item) {
-        final m = item as Map<String, dynamic>;
-        final branchName = m['branch_name'] as String? ?? '—';
-        final staff = List<Map<String, dynamic>>.from(
-          m['staff'] as List? ?? [],
-        );
-        final summary = m['summary'] as Map<String, dynamic>? ?? {};
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.business, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      branchName,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _Chip(
-                      label: 'Total: ${summary['total'] ?? 0}',
-                      color: AppColors.primary,
-                    ),
-                    _Chip(
-                      label: 'P: ${summary['present'] ?? 0}',
-                      color: Colors.green,
-                    ),
-                    _Chip(
-                      label: 'A: ${summary['absent'] ?? 0}',
-                      color: Colors.red,
-                    ),
-                    _Chip(
-                      label: 'L: ${summary['leave'] ?? 0}',
-                      color: Colors.amber,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ...staff
-                    .take(15)
-                    .map(
-                      (s) => ListTile(
-                        dense: true,
-                        leading: CircleAvatar(
-                          radius: 16,
-                          child: Text(
-                            (s['full_name'] as String? ?? '?')
-                                .substring(0, 1)
-                                .toUpperCase(),
-                          ),
-                        ),
-                        title: Text(s['full_name'] as String? ?? '—'),
-                        subtitle: s['class_name'] != null
-                            ? Text(s['class_name'] as String)
-                            : null,
-                        trailing: _statusChip(
-                          s['status'] as String? ?? 'present',
-                        ),
-                      ),
-                    ),
-                if (staff.length > 15)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '+ ${staff.length - 15} more',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-              ],
             ),
           ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _filterBranchId,
+                hint: const Text('Branch', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('All Branches')),
+                  ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Text(b['name'] as String? ?? '—'))),
+                ],
+                onChanged: (v) { setState(() => _filterBranchId = v); _loadAttendance(); },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyView() {
+    if (_loading) return const _AttendanceLoadingPlaceholder();
+    final list = _attendanceData?['by_branch_class'] as List? ?? [];
+    if (list.isEmpty) return const Center(child: Text('No attendance records'));
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: list.length,
+      itemBuilder: (context, i) {
+        final item = list[i] as Map<String, dynamic>;
+        return AnimatedListItem(
+          index: i,
+          child: _AttendanceGroupCard(data: item),
         );
-      }).toList(),
+      },
+    );
+  }
+
+  Widget _buildHistoryView() {
+    if (_loading) return const _AttendanceLoadingPlaceholder();
+    final weekly = _historyData?['weekly_summary'] as List? ?? [];
+    if (weekly.isEmpty) return const Center(child: Text('No attendance history for this period.'));
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: weekly.length,
+      itemBuilder: (context, i) {
+        final item = weekly[i] as Map<String, dynamic>;
+        final present = (item['present'] as num?)?.toInt() ?? 0;
+        final total = (item['total'] as num?)?.toInt() ?? 0;
+        final pct = total > 0 ? present / total : 0.0;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [AppShadows.soft]),
+          child: Row(
+            children: [
+              Expanded(child: Text(item['date']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w700))),
+              Text('$present/$total', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
+              const SizedBox(width: 12),
+              SizedBox(width: 80, child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: pct, minHeight: 8, backgroundColor: const Color(0xFFF1F5F9), valueColor: AlwaysStoppedAnimation(pct > 0.8 ? AppColors.accentGreen : Colors.amber)))),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStaffView() {
+    if (_loading) return const _AttendanceLoadingPlaceholder();
+    final list = _staffAttendanceData?['by_branch'] as List? ?? [];
+    if (list.isEmpty) return const Center(child: Text('No staff attendance records for this date.'));
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: list.length,
+      itemBuilder: (context, i) {
+        final item = list[i] as Map<String, dynamic>;
+        final staff = List<Map<String, dynamic>>.from(item['staff'] as List? ?? []);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [AppShadows.soft]),
+          child: ExpansionTile(
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            title: Text(item['branch']?.toString() ?? 'Branch', style: const TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text('${staff.length} staff members', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+            children: staff.map((s) => ListTile(
+              dense: true,
+              leading: CircleAvatar(radius: 14, backgroundColor: const Color(0xFFF1F5F9), child: Text(s['name']?[0] ?? '?', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+              title: Text(s['name'] ?? 'Staff', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              trailing: _StatusBadge(status: s['status'] ?? 'present'),
+            )).toList(),
+          ),
+        );
+      },
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _Chip({required this.label, required this.color});
+class _AttendanceGroupCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _AttendanceGroupCard({required this.data});
 
   @override
   Widget build(BuildContext context) {
+    final branch = data['branch'] as String? ?? '—';
+    final cls = data['class'] as String? ?? '—';
+    final students = List<Map<String, dynamic>>.from(data['students'] as List? ?? []);
+    
+    int p = students.where((s) => s['status'] == 'present').length;
+    int a = students.where((s) => s['status'] == 'absent').length;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [AppShadows.soft], border: Border.all(color: const Color(0xFFF1F5F9))),
+      child: ExpansionTile(
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        title: Text('$branch • $cls', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A))),
+        subtitle: Row(
+          children: [
+            _StatMini(label: 'PRESENT', count: p, color: AppColors.accentGreen),
+            const SizedBox(width: 12),
+            _StatMini(label: 'ABSENT', count: a, color: const Color(0xFFE11D48)),
+          ],
+        ),
+        children: students.map((s) => ListTile(
+          dense: true,
+          leading: CircleAvatar(radius: 14, backgroundColor: const Color(0xFFF1F5F9), child: Text(s['name']?[0] ?? '?', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+          title: Text(s['name'] ?? 'Student', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          trailing: _StatusBadge(status: s['status'] ?? 'present'),
+        )).toList(),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
+    );
+  }
+}
+
+class _StatMini extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  const _StatMini({required this.label, required this.count, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text('$count $label', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8))),
+      ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+  @override
+  Widget build(BuildContext context) {
+    final isP = status == 'present';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: (isP ? AppColors.accentGreen : const Color(0xFFE11D48)).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+      child: Text(status.toUpperCase(), style: TextStyle(color: isP ? AppColors.accentGreen : const Color(0xFFE11D48), fontSize: 9, fontWeight: FontWeight.w900)),
+    );
+  }
+}
+
+class _AttendanceLoadingPlaceholder extends StatelessWidget {
+  const _AttendanceLoadingPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (_, __) => const Padding(
+        padding: EdgeInsets.only(bottom: 24),
+        child: Column(
+          children: [
+            ShimmerLoading.rectangular(height: 80, width: double.infinity),
+          ],
         ),
       ),
     );
