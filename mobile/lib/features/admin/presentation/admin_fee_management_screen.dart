@@ -139,7 +139,7 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
       itemBuilder: (context, i) => AnimatedListItem(
         index: i,
         child: _SelectionCard(
-          title: _students[i]['full_name'] ?? 'Student',
+          title: _students[i]['name'] ?? 'Student',
           subtitle: 'ID: ${_students[i]['admission_number'] ?? '—'}',
           icon: Icons.person_rounded,
           onTap: () { setState(() => _selectedStudentId = _students[i]['id']); _loadFees(); },
@@ -152,23 +152,178 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
     if (_loadingFees) return const _StandardLoadingPlaceholder();
     if (_feeData == null) return const Center(child: Text('No fee data found'));
 
-    return Column(
+    return Stack(
       children: [
-        _buildSummaryCarousel(),
-        _buildFeeTabSystem(),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
+        Column(
+          children: [
+            _buildSummaryCarousel(),
+            _buildFeeTabSystem(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildStructureView(),
+                  _buildHistoryView(),
+                  _buildReportsView(),
+                ],
+              ),
+            ),
+          ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildStructureView(),
-              _buildHistoryView(),
-              _buildReportsView(),
+              FloatingActionButton.small(
+                heroTag: 'pay',
+                backgroundColor: AppColors.accentGreen,
+                onPressed: () => _showRecordPaymentSheet(),
+                child: const Icon(Icons.payment_rounded, color: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              FloatingActionButton(
+                heroTag: 'edit',
+                backgroundColor: AppColors.primary,
+                onPressed: () => _showEditFeeSheet(),
+                child: const Icon(Icons.edit_rounded, color: Colors.white),
+              ),
             ],
           ),
         ),
       ],
     );
   }
+
+  void _showEditFeeSheet() {
+    final advCtrl = TextEditingController(text: (_feeData!['advance_fees']?.toString() ?? '0'));
+    final t1Ctrl = TextEditingController(text: (_feeData!['term_fee_1']?.toString() ?? '0'));
+    final t2Ctrl = TextEditingController(text: (_feeData!['term_fee_2']?.toString() ?? '0'));
+    final t3Ctrl = TextEditingController(text: (_feeData!['term_fee_3']?.toString() ?? '0'));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const Text('Edit Fee Structure', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 20),
+            _feeField(advCtrl, 'Advance Deposit (₹)'),
+            _feeField(t1Ctrl, 'Term I Fee (₹)'),
+            _feeField(t2Ctrl, 'Term II Fee (₹)'),
+            _feeField(t3Ctrl, 'Term III Fee (₹)'),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () async {
+                final api = ref.read(adminApiProvider);
+                if (api == null) return;
+                Navigator.pop(context);
+                try {
+                  await api.updateStudentFees(_selectedStudentId!, {
+                    'advance_fees': double.tryParse(advCtrl.text) ?? 0,
+                    'term_fee_1': double.tryParse(t1Ctrl.text) ?? 0,
+                    'term_fee_2': double.tryParse(t2Ctrl.text) ?? 0,
+                    'term_fee_3': double.tryParse(t3Ctrl.text) ?? 0,
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fees updated!')));
+                  _loadFees();
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
+          ])),
+        ),
+      ),
+    );
+  }
+
+  void _showRecordPaymentSheet() {
+    final amtCtrl = TextEditingController();
+    String mode = 'Cash';
+    String component = 'advance_fees';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(builder: (ctx, setS) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const Text('Record Payment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 20),
+            TextFormField(controller: amtCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Amount (₹) *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.currency_rupee))),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: mode,
+              decoration: const InputDecoration(labelText: 'Payment Mode', border: OutlineInputBorder(), prefixIcon: Icon(Icons.payment)),
+              items: const [
+                DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                DropdownMenuItem(value: 'UPI', child: Text('UPI')),
+                DropdownMenuItem(value: 'Card', child: Text('Card')),
+                DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
+                DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
+              ],
+              onChanged: (v) => setS(() => mode = v ?? 'Cash'),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: component,
+              decoration: const InputDecoration(labelText: 'Fee Category *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.category_rounded)),
+              items: const [
+                DropdownMenuItem(value: 'advance_fees', child: Text('Advance Deposit')),
+                DropdownMenuItem(value: 'term_fee_1', child: Text('Term I Fee')),
+                DropdownMenuItem(value: 'term_fee_2', child: Text('Term II Fee')),
+                DropdownMenuItem(value: 'term_fee_3', child: Text('Term III Fee')),
+              ],
+              onChanged: (v) => setS(() => component = v ?? 'advance_fees'),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () async {
+                final api = ref.read(adminApiProvider);
+                if (api == null) return;
+                final amt = double.tryParse(amtCtrl.text.trim());
+                if (amt == null || amt <= 0) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount'))); return; }
+                Navigator.pop(context);
+                try {
+                  await api.recordFeePayment(_selectedStudentId!, {
+                    'amount_paid': amt, 
+                    'payment_mode': mode,
+                    'component': component,
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded!')));
+                  _loadFees();
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: AppColors.accentGreen, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
+          ]),
+        ),
+      )),
+    );
+  }
+
+  Widget _feeField(TextEditingController ctrl, String label) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: TextFormField(controller: ctrl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.currency_rupee, size: 18), isDense: true)),
+  );
 
   Widget _buildSummaryCarousel() {
     final balance = (_feeData!['total_balance'] as num?)?.toDouble() ?? 0.0;

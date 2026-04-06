@@ -50,6 +50,10 @@ android {
     }
 }
 
+dependencies {
+    implementation("com.google.android.gms:play-services-ads-identifier:18.0.1")
+}
+
 flutter {
     source = "../.."
 }
