@@ -36,6 +36,8 @@ class UserCreate(BaseModel):
     role: str  # teacher, coordinator, bus_staff, toddlers, daycare
     phone: str | None = None
     date_of_birth: str | None = None  # YYYY-MM-DD for toddlers/daycare
+    branch_id: str | None = None  # UUID string - for direct branch assignment to teachers
+    class_id: str | None = None  # UUID string - for direct class assignment to teachers
 
 
 class UserUpdate(BaseModel):

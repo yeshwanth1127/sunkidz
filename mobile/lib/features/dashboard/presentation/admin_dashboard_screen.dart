@@ -47,10 +47,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       _scaffoldKey.currentState?.openDrawer();
       return;
     }
-    setState(() => _selectedIndex = index);
+    if (mounted) {
+      setState(() => _selectedIndex = index);
+    }
     switch (index) {
       case 0: context.go('/admin'); break;
-      case 1: context.push('/admissions'); break;
+      case 1: context.push('/enquiries'); break;
       case 2: context.push('/students'); break;
     }
   }
@@ -202,7 +204,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                                   Expanded(
                                     child: _StatusBox(
                                       label: 'Conversion Rate',
-                                      value: '${(data.convertedEnquiries / (data.newEnquiries + data.convertedEnquiries + 0.001) * 100).toStringAsFixed(1)}%',
+                                      value: '${data.conversionRate.toStringAsFixed(1)}%',
                                       icon: Icons.auto_graph_rounded,
                                       color: AppColors.accentGreen,
                                     ),
@@ -349,6 +351,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           Image.asset('assets/images/sunkidz_logo_hd.png', height: 40, filterQuality: FilterQuality.high),
           const Spacer(),
           const NotificationBell(notificationsRoute: '/admin/notifications'),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => context.go('/admin/settings'),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(0xFF0F172A).withOpacity(0.08),
+              child: const Icon(Icons.person_rounded, size: 22, color: Color(0xFF0F172A)),
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
     );
@@ -371,7 +383,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavBtn(icon: Icons.grid_view_rounded, label: 'Home', isSelected: _selectedIndex == 0, onTap: () => _onItemTapped(0)),
-              _NavBtn(icon: Icons.add_task_rounded, label: 'Apply', isSelected: _selectedIndex == 1, onTap: () => _onItemTapped(1)),
+              _NavBtn(icon: Icons.person_search_rounded, label: 'Enquiries', isSelected: _selectedIndex == 1, onTap: () => _onItemTapped(1)),
               _NavBtn(icon: Icons.people_alt_rounded, label: 'Students', isSelected: _selectedIndex == 2, onTap: () => _onItemTapped(2)),
               _NavBtn(icon: Icons.menu_open_rounded, label: 'Menu', isSelected: false, onTap: () => _onItemTapped(3)),
             ],

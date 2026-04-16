@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/api/coordinator_api.dart';
 import '../../../core/api/coordinator_provider.dart';
+import '../../../shared/widgets/stat_card.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/dob_picker.dart';
@@ -71,53 +72,106 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFFFFF4E0),
       drawer: const CoordinatorDrawer(),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
         leading: Builder(
           builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
+            icon: const Icon(Icons.menu, color: Colors.black87),
             onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
         ),
         title: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFFFFF4E0),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Image.asset(
                 'assets/images/sunkidz_logo_hd.png',
-                height: 32,
+                height: 28,
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(
                     Icons.school,
-                    color: AppColors.primaryLight,
+                    color: AppColors.primary,
                     size: 24,
                   );
                 },
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  branchName,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  'Branch Coordinator Dashboard',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    branchName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2D2323),
+                      letterSpacing: -0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Branch Coordinator',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
-          NotificationBell(notificationsRoute: '/coordinator/notifications'),
+          NotificationBell(
+            notificationsRoute: '/coordinator/notifications',
+            iconColor: Colors.black87,
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => context.go('/coordinator/settings'),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.orange.shade100),
+              ),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: AppColors.primary.withOpacity(0.1),
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : 'C',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: Colors.orange.shade50.withOpacity(0.5),
+          ),
+        ),
       ),
       body: dashboardAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -245,34 +299,42 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                   crossAxisSpacing: 16,
                   childAspectRatio: 1.1,
                   children: [
-                    _CoordStatCard(
+                    StatCard(
                       icon: Icons.person,
                       label: 'Teachers',
                       value: '$teachersCount',
-                      trend: 'in branch',
+                      trend: 'In Branch',
+                      backgroundColor: AppColors.pastelBlue,
+                      iconColor: Colors.blue.shade600,
                     ),
-                    _CoordStatCard(
+                    StatCard(
                       icon: Icons.groups,
                       label: 'Total Students',
                       value: '$studentsCount',
-                      trend: 'enrolled',
+                      trend: 'Enrolled',
+                      backgroundColor: AppColors.pastelGreen,
+                      iconColor: Colors.green.shade600,
                     ),
-                    _CoordStatCard(
+                    StatCard(
                       icon: Icons.how_to_reg,
                       label: 'Attendance Today',
                       value: '$attendanceToday',
                       trend: studentsCount > 0
-                          ? 'of $studentsCount present'
+                          ? '${(attendanceToday / studentsCount * 100).toStringAsFixed(0)}% present'
                           : '—',
                       trendUp:
                           studentsCount > 0 &&
                           attendanceToday >= studentsCount * 0.8,
+                      backgroundColor: AppColors.pastelYellow,
+                      iconColor: Colors.orange.shade600,
                     ),
-                    _CoordStatCard(
+                    StatCard(
                       icon: Icons.class_,
                       label: 'Classes',
                       value: '${classes.length}',
-                      trend: 'grades',
+                      trend: 'Grades',
+                      backgroundColor: AppColors.pastelOrange,
+                      iconColor: Colors.deepOrange.shade600,
                     ),
                   ],
                 ),
@@ -659,63 +721,6 @@ class _CoordMessageCard extends StatelessWidget {
   }
 }
 
-class _CoordStatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String? trend;
-  final bool trendUp;
-
-  const _CoordStatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.trend,
-    this.trendUp = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: AppColors.primary, size: 20),
-              ),
-              if (trend != null)
-                Text(
-                  trend!,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: trendUp ? Colors.green.shade700 : Colors.grey,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
-        ],
-      ),
-    );
-  }
-}
 
 class _ActionTile extends StatelessWidget {
   final IconData icon;

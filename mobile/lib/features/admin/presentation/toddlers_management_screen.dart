@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
 
 class ToddlersManagementScreen extends ConsumerStatefulWidget {
   const ToddlersManagementScreen({super.key});
@@ -106,14 +105,20 @@ class _ToddlersManagementScreenState extends ConsumerState<ToddlersManagementScr
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Toddlers Management'),
+        title: const Text(
+          'Toddlers Management',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _showAddUser),
+          IconButton(icon: const Icon(Icons.add, color: Colors.black87), onPressed: _showAddUser),
         ],
       ),
       body: _loading

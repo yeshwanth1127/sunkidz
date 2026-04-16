@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
+
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
 import '../../dashboard/data/dashboard_provider.dart';
@@ -135,7 +135,6 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AdminDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -183,8 +182,8 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu_rounded, color: Color(0xFF1E293B)),
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1E293B)),
           ),
           const SizedBox(width: 8),
           const Text(

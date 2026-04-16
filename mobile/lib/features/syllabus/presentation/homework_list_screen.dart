@@ -6,9 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
-import '../../../shared/widgets/coordinator_drawer.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
+
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
 import '../domain/models/syllabus_model.dart';
@@ -136,14 +134,6 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
         auth.role == UserRole.teacher ||
         auth.role == UserRole.coordinator;
     final isParent = auth.role == UserRole.parent;
-    final drawer = switch (auth.role) {
-      UserRole.admin => const AdminDrawer(),
-      UserRole.coordinator => const CoordinatorDrawer(),
-      UserRole.teacher => const TeacherDrawer(),
-      UserRole.parent => null, // Parent uses back button, no drawer
-      UserRole.busStaff || null => const SizedBox.shrink(),
-      _ => const SizedBox.shrink(),
-    };
     final filter = HomeworkFilter(
       classId: _selectedClassId,
       uploadDate: _selectedDate?.toIso8601String().split('T')[0],
@@ -151,25 +141,23 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: drawer,
       appBar: AppBar(
-        leading: isParent
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              )
-            : Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(ctx).openDrawer(),
-                ),
-              ),
-        title: const Text('Homework'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Homework',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         centerTitle: true,
         actions: [
           if (canUpload)
             IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, color: Colors.black87),
               onPressed: _navigateToUpload,
             ),
         ],

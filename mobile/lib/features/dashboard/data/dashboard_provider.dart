@@ -12,6 +12,8 @@ class DashboardData {
   final int newEnquiries;
   final int convertedEnquiries;
   final int rejectedEnquiries;
+  final double conversionRate;
+  final int totalEnquiries;
   final List<Map<String, dynamic>> admissionsThisMonth;
 
   const DashboardData({
@@ -25,6 +27,8 @@ class DashboardData {
     required this.newEnquiries,
     required this.convertedEnquiries,
     required this.rejectedEnquiries,
+    required this.conversionRate,
+    required this.totalEnquiries,
     required this.admissionsThisMonth,
   });
 }
@@ -45,6 +49,8 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
     int newEnquiries = 0;
     int convertedEnquiries = 0;
     int rejectedEnquiries = 0;
+    double conversionRate = 0.0;
+    int totalEnquiries = 0;
 
     try {
       final analytics = await api.getAnalytics();
@@ -59,8 +65,11 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
       newEnquiries = (enquiryStats['pending'] as num?)?.toInt() ?? 0;
       convertedEnquiries = (enquiryStats['converted'] as num?)?.toInt() ?? 0;
       rejectedEnquiries = (enquiryStats['rejected'] as num?)?.toInt() ?? 0;
+      conversionRate = (enquiryStats['conversion_rate'] as num?)?.toDouble() ?? 0.0;
+      totalEnquiries = (enquiryStats['total'] as num?)?.toInt() ?? 0;
     } catch (_) {
       // Fallback: count from enquiry list if analytics fails
+      totalEnquiries = enquiries.length;
       for (var enquiry in enquiries) {
         final status = enquiry['status']?.toString().toLowerCase() ?? 'new';
         if (status == 'new' || status == 'pending')
@@ -69,6 +78,9 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
           convertedEnquiries++;
         else if (status == 'rejected')
           rejectedEnquiries++;
+      }
+      if (totalEnquiries > 0) {
+        conversionRate = (convertedEnquiries / totalEnquiries) * 100;
       }
     }
 
@@ -96,6 +108,8 @@ final dashboardDataProvider = FutureProvider<DashboardData?>((ref) async {
       newEnquiries: newEnquiries,
       convertedEnquiries: convertedEnquiries,
       rejectedEnquiries: rejectedEnquiries,
+      conversionRate: conversionRate,
+      totalEnquiries: totalEnquiries,
       admissionsThisMonth: thisMonth,
     );
   } catch (_) {

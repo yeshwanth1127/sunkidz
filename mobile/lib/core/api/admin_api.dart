@@ -128,6 +128,8 @@ class AdminApi {
     required String fullName,
     required String role,
     String? phone,
+    String? branchId,
+    String? classId,
   }) async {
     final r = await _dio.post(
       '/admin/users',
@@ -137,6 +139,8 @@ class AdminApi {
         'full_name': fullName,
         'role': role,
         if (phone != null) 'phone': phone,
+        if (branchId != null) 'branch_id': branchId,
+        if (classId != null) 'class_id': classId,
       },
     );
     return r.data as Map<String, dynamic>;
@@ -154,7 +158,7 @@ class AdminApi {
     if (email != null) data['email'] = email;
     if (fullName != null) data['full_name'] = fullName;
     if (phone != null) data['phone'] = phone;
-    if (isActive != null) data['is_active'] = isActive == 'true';
+    if (isActive != null) data['is_active'] = isActive;
     if (dateOfBirth != null) data['date_of_birth'] = dateOfBirth;
     final r = await _dio.put('/admin/users/$id', data: data);
     return r.data as Map<String, dynamic>;
@@ -329,6 +333,11 @@ class AdminApi {
   ) async {
     final r = await _dio.post('/admin/admissions/from-enquiry', data: data);
     return r.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> searchParents(String phone) async {
+    final r = await _dio.get('/admin/parents/search', queryParameters: {'phone': phone});
+    return List<Map<String, dynamic>>.from(r.data as List);
   }
 
   // Marks Cards
@@ -568,6 +577,7 @@ class AdminApi {
     required String targetType,
     String? branchId,
     String? classId,
+    String? targetUserId,
   }) async {
     final data = <String, dynamic>{
       'title': title,
@@ -576,6 +586,7 @@ class AdminApi {
     };
     if (branchId != null) data['branch_id'] = branchId;
     if (classId != null) data['class_id'] = classId;
+    if (targetUserId != null) data['target_user_id'] = targetUserId;
     final r = await _dio.post('/admin/messages/send', data: data);
     return r.data as Map<String, dynamic>;
   }

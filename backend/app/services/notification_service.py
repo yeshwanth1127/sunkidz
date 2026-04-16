@@ -138,35 +138,82 @@ def send_fee_receipt_notification(student_id: UUID, payment, fees_detail: dict, 
         return False
 
 
-# --- OneSignal Notification ---
-ONESIGNAL_APP_ID = settings.onesignal_app_id
-ONESIGNAL_API_KEY = settings.onesignal_api_key
-# OneSignal REST API (supports both v1 and newer - use include_subscription_ids for OneSignal v5)
+# OneSignal REST API URL
 ONESIGNAL_API_URL = "https://api.onesignal.com/notifications"
 
 
-def send_onesignal_notification(subscription_ids: list[str], title: str, message: str) -> bool:
-    """Send push via OneSignal. subscription_ids can be subscription IDs (v5) or player IDs (legacy)."""
-    if not subscription_ids or not ONESIGNAL_APP_ID or not ONESIGNAL_API_KEY:
+def send_onesignal_notification(
+    subscription_ids: list[str], title: str, message: str, data: dict | None = None
+) -> bool:
+    """Send push via OneSignal using modern v5 compatible payload and logging."""
+    app_id = settings.onesignal_app_id
+    api_key = settings.onesignal_api_key
+
+    if not subscription_ids:
+        logger.warning("🔔 OneSignal: No subscription IDs provided. Skipping.")
         return False
+    
+    if not app_id or not api_key:
+        logger.error("🔴 CRITICAL: OneSignal credentials NOT configured!")
+        logger.error(f"   ONESIGNAL_APP_ID: {'✓ SET' if app_id else '✗ MISSING'}")
+        logger.error(f"   ONESIGNAL_API_KEY: {'✓ SET' if api_key else '✗ MISSING'}")
+        logger.error("   → Add these to your .env file and restart backend")
+        return False
+
     headers = {
-        "Authorization": f"Key {ONESIGNAL_API_KEY}",
+        "Authorization": f"Basic {api_key}",
         "Content-Type": "application/json",
     }
+
     # OneSignal v5 uses include_subscription_ids; legacy used include_player_ids
+    # We include both for maximum compatibility across SDK versions and accounts
     payload = {
-        "app_id": ONESIGNAL_APP_ID,
+        "app_id": app_id,
         "include_subscription_ids": subscription_ids,
+        "include_player_ids": subscription_ids,
         "headings": {"en": title},
         "contents": {"en": message},
     }
+    
+    if data:
+        payload["data"] = data
+
     try:
-        response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=10)
-        if response.status_code != 200:
-            logger.warning(f"OneSignal API error: {response.status_code} {response.text}")
-        return response.status_code == 200
+        logger.info(f"📤 OneSignal: Sending to {len(subscription_ids)} device(s)")
+        logger.debug(f"   • Title: {title}")
+        logger.debug(f"   • Message: {message}")
+        logger.debug(f"   • Sample IDs: {subscription_ids[:3]}")
+        
+        response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=12)
+        
+        if response.status_code == 200:
+            logger.info("✅ OneSignal push delivered successfully!")
+            logger.debug(f"   Response: {response.json()}")
+            return True
+            
+        elif response.status_code == 401:
+            logger.error("❌ OneSignal Auth Failed (401) - Invalid credentials")
+            logger.error(f"   Response: {response.text}")
+            logger.info("🔄 Retrying with 'Key' authorization format...")
+            
+            headers["Authorization"] = f"Key {api_key}"
+            response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=12)
+            
+            if response.status_code == 200:
+                logger.info("✅ Retry successful with 'Key' format!")
+                return True
+            else:
+                logger.error(f"❌ Retry also failed: {response.status_code} - {response.text}")
+                return False
+        else:
+            logger.error(f"❌ OneSignal API Error ({response.status_code})")
+            logger.error(f"   Response: {response.text}")
+            return False
+            
     except Exception as e:
-        logger.error(f"OneSignal send failed: {e}")
+        logger.error(f"❌ OneSignal request exception: {e}")
+        import traceback
+        logger.error(f"   Traceback: {traceback.format_exc()}")
         return False
 
 

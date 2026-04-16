@@ -4,11 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/api/current_user_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
-import '../../../shared/widgets/coordinator_drawer.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
-import '../../../shared/widgets/toddler_drawer.dart';
-import '../../../shared/widgets/daycare_drawer.dart';
+import '../../../core/theme/app_theme.dart';
+
 import '../data/settings_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -181,24 +178,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Widget? _getDrawer(UserRole? role) {
-    switch (role) {
-      case UserRole.admin:
-        return const AdminDrawer();
-      case UserRole.coordinator:
-        return const CoordinatorDrawer();
-      case UserRole.teacher:
-        return const TeacherDrawer();
-      case UserRole.parent:
-        return null; // Parent uses back button, no drawer
-      case UserRole.toddlers:
-        return const ToddlerDrawer();
-      case UserRole.daycare:
-        return const DaycareDrawer();
-      default:
-        return const AdminDrawer();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,20 +185,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final isParent = auth.role == UserRole.parent;
     return Scaffold(
-      drawer: _getDrawer(auth.role),
       appBar: AppBar(
-        leading: isParent
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              )
-            : Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(ctx).openDrawer(),
-                ),
-              ),
-        title: const Text('Settings'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          isParent ? 'Settings' : 'Profile & Settings',
+          style: const TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -284,6 +261,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 24),
+            // Account Information Section
+            Text(
+              'Account Information',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your profile details associated with the school records',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            ref.watch(currentUserProvider).when(
+              data: (user) {
+                if (user == null) {
+                  return Center(
+                    child: Column(
+                      children: [
+                        const Icon(Icons.info_outline, size: 48, color: Colors.orange),
+                        const SizedBox(height: 16),
+                        const Text('Unable to load profile data.'),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () => ref.invalidate(currentUserProvider),
+                          child: const Text('Try Again'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return Column(
+                  children: [
+                    _buildInfoTile(context, Icons.person_outline_rounded, 'Full Name', user['full_name'] ?? '—'),
+                    const SizedBox(height: 12),
+                    _buildInfoTile(context, Icons.phone_outlined, 'Phone Number', user['phone'] ?? '—'),
+                    const SizedBox(height: 12),
+                    _buildInfoTile(context, Icons.email_outlined, 'Email Address', user['email'] ?? '—'),
+                    const SizedBox(height: 12),
+                    _buildInfoTile(context, Icons.badge_outlined, 'Role', (user['role'] as String?)?.toUpperCase() ?? '—'),
+                  ],
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (e, _) => Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Error: ${e.toString().replaceAll('Exception: ', '')}', textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(currentUserProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 32),
@@ -420,6 +466,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ],
     ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(BuildContext context, IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF1E293B),
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

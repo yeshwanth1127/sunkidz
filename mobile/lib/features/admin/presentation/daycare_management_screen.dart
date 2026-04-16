@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
 
 class DaycareManagementScreen extends ConsumerStatefulWidget {
   const DaycareManagementScreen({super.key});
@@ -148,12 +147,18 @@ class _DaycareManagementScreenState extends ConsumerState<DaycareManagementScree
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Daycare Management'),
+        title: const Text(
+          'Daycare Management',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -165,7 +170,7 @@ class _DaycareManagementScreenState extends ConsumerState<DaycareManagementScree
           AnimatedBuilder(
             animation: _tabController,
             builder: (_, __) => IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, color: Colors.black87),
               onPressed: _tabController.index == 0 ? _showAddUser : _showAddGroup,
             ),
           ),

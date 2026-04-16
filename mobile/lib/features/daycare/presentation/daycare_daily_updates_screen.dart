@@ -5,7 +5,7 @@ import 'dart:io';
 import '../../../core/api/daycare_provider.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/daycare_drawer.dart';
+
 
 class DaycareDailyUpdatesScreen extends ConsumerStatefulWidget {
   const DaycareDailyUpdatesScreen({super.key});
@@ -79,17 +79,20 @@ class _DaycareDailyUpdatesScreenState extends ConsumerState<DaycareDailyUpdatesS
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const DaycareDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Daily Updates'),
+        title: const Text(
+          'Daily Updates',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _showPostUpdate),
+          IconButton(icon: const Icon(Icons.add, color: Colors.black87), onPressed: _showPostUpdate),
         ],
       ),
       body: _error != null

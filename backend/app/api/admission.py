@@ -44,19 +44,25 @@ def create_admission_from_enquiry(
     admission_date = date.today()
     admission_number = _generate_admission_number_for_branch(db, branch, admission_date)
 
-    # Create parent user - password = DOB (YYYY-MM-DD)
-    dob_str = data.date_of_birth.isoformat()
-    parent = User(
-        email=None,
-        password_hash=get_password_hash(dob_str),
-        full_name=data.parent_name,
-        role="parent",
-        phone=data.parent_contact,
-        is_active="true",
-    )
-    db.add(parent)
-    db.commit()
-    db.refresh(parent)
+    # Create or use existing parent user
+    if data.parent_user_id:
+        parent = db.query(User).filter(User.id == data.parent_user_id).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent user not found")
+    else:
+        # Create parent user - password = DOB (YYYY-MM-DD)
+        dob_str = data.date_of_birth.isoformat()
+        parent = User(
+            email=None,
+            password_hash=get_password_hash(dob_str),
+            full_name=data.parent_name,
+            role="parent",
+            phone=data.parent_contact,
+            is_active="true",
+        )
+        db.add(parent)
+        db.commit()
+        db.refresh(parent)
 
     # Create student
     age_years = None
@@ -127,11 +133,15 @@ def create_admission_from_enquiry(
     enquiry.status = "converted"
     db.commit()
 
+    msg = f"Admission created. Parent can login."
+    if not data.parent_user_id:
+        msg = f"Admission created. Parent can login with admission_number={admission_number} and date_of_birth={dob_str}"
+
     return {
         "admission_number": admission_number,
         "student_id": str(student.id),
         "parent_id": str(parent.id),
-        "message": f"Admission created. Parent can login with admission_number={admission_number} and date_of_birth={dob_str}",
+        "message": msg,
     }
 
 
@@ -151,19 +161,25 @@ def create_direct_admission(
     admission_date = date.today()
     admission_number = _generate_admission_number_for_branch(db, branch, admission_date)
 
-    # Create parent user - password = DOB (YYYY-MM-DD)
-    dob_str = data.date_of_birth.isoformat()
-    parent = User(
-        email=None,
-        password_hash=get_password_hash(dob_str),
-        full_name=data.parent_name,
-        role="parent",
-        phone=data.parent_contact,
-        is_active="true",
-    )
-    db.add(parent)
-    db.commit()
-    db.refresh(parent)
+    # Create or use existing parent user
+    if data.parent_user_id:
+        parent = db.query(User).filter(User.id == data.parent_user_id).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent user not found")
+    else:
+        # Create parent user - password = DOB (YYYY-MM-DD)
+        dob_str = data.date_of_birth.isoformat()
+        parent = User(
+            email=None,
+            password_hash=get_password_hash(dob_str),
+            full_name=data.parent_name,
+            role="parent",
+            phone=data.parent_contact,
+            is_active="true",
+        )
+        db.add(parent)
+        db.commit()
+        db.refresh(parent)
 
     # Create student
     age_years = None
@@ -230,9 +246,13 @@ def create_direct_admission(
     db.add(ParentStudentLink(user_id=parent.id, student_id=student.id, is_primary=True))
     db.commit()
 
+    msg = f"Student created directly. Parent can login."
+    if not data.parent_user_id:
+        msg = f"Student created directly. Parent can login with admission_number={admission_number} and date_of_birth={dob_str}"
+
     return {
         "admission_number": admission_number,
         "student_id": str(student.id),
         "parent_id": str(parent.id),
-        "message": f"Student created directly. Parent can login with admission_number={admission_number} and date_of_birth={dob_str}",
+        "message": msg,
     }

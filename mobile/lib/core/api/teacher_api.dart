@@ -60,4 +60,24 @@ class TeacherApi {
     final r = await _dio.get('/teacher/attendance/history', queryParameters: {'period': period});
     return r.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> sendMessage({
+    required String title,
+    required String message,
+    required String targetType,
+    String? targetUserId,
+  }) async {
+    final r = await _dio.post('/teacher/send', data: {
+      'title': title,
+      'message': message,
+      'target_type': targetType,
+      if (targetUserId != null) 'target_user_id': targetUserId,
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> searchParents(String phone) async {
+    final r = await _dio.get('/teacher/parents/search', queryParameters: {'phone': phone});
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
 }

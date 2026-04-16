@@ -81,7 +81,7 @@ def _send_custom_fee_reminder(student_id, message, db: Session):
     player_ids = []
     
     for link in parent_links:
-        user = db.query(User).filter(User.id == link.parent_id).first()
+        user = db.query(User).filter(User.id == link.user_id).first()
         if user and user.onesignal_player_id:
             player_ids.append(user.onesignal_player_id)
             
@@ -89,8 +89,8 @@ def _send_custom_fee_reminder(student_id, message, db: Session):
         return
         
     send_onesignal_notification(
-        player_ids=player_ids,
-        heading="Fee Payment Reminder",
-        content=message,
+        subscription_ids=player_ids,
+        title="Fee Payment Reminder",
+        message=message,
         data={"type": "fee_reminder", "student_id": str(student_id)}
     )

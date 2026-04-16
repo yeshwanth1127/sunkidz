@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -234,18 +234,38 @@ def upsert_marks(
     class_id = _teacher_class_id(user, db)
     if not _student_in_teacher_class(student_id, class_id, db):
         raise HTTPException(status_code=404, detail="Student not found in your class")
+    
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    card = db.query(MarksCard).filter(MarksCard.student_id == student_id, MarksCard.academic_year == body.academic_year).first()
+    
+    # Extract academic_year and data from request body
+    academic_year = body.academic_year if body.academic_year else "2024-25"
+    marks_data = body.data if body.data else {}
+    
+    card = db.query(MarksCard).filter(
+        MarksCard.student_id == student_id, 
+        MarksCard.academic_year == academic_year
+    ).first()
+    
     if card:
-        card.data = body.data
+        card.data = marks_data
+        db.commit()
+        db.refresh(card)
     else:
-        card = MarksCard(student_id=student_id, academic_year=body.academic_year, data=body.data)
+        card = MarksCard(student_id=student_id, academic_year=academic_year, data=marks_data)
         db.add(card)
-    db.commit()
-    db.refresh(card)
-    return {"id": str(card.id), "student_id": str(card.student_id), "academic_year": card.academic_year, "data": card.data}
+        db.commit()
+        db.refresh(card)
+    
+    return {
+        "id": str(card.id), 
+        "student_id": str(card.student_id), 
+        "academic_year": card.academic_year, 
+        "data": card.data,
+        "status": "success",
+        "message": "Marks saved successfully"
+    }
 
 
 # --- Attendance ---
@@ -405,3 +425,28 @@ def get_attendance_history(
             by_student[str(a.student_id)]["dates"][dk] = a.status
     dates = sorted(by_date.keys())
     return {"period": period, "start": start_d.isoformat(), "end": end_d.isoformat(), "dates": dates, "by_date": by_date, "by_student": by_student}
+
+
+@router.get("/parents/search")
+def search_parents(
+    phone: str = Query(..., description="Phone number to search for"),
+    user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """Search for existing parents by phone number."""
+    # Note: For teachers, we might want to restrict this to parents of students in their class, 
+    # but the user said "particular parents", and teachers might need to reach any parent 
+    # if they are coordinating something school-wide. For now, keep it open to all parent users.
+    users = db.query(User).filter(
+        User.role == "parent",
+        User.phone.contains(phone),
+    ).all()
+    return [
+        {
+            "id": str(u.id),
+            "full_name": u.full_name,
+            "phone": u.phone,
+            "email": u.email,
+        }
+        for u in users
+    ]

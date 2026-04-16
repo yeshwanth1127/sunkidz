@@ -50,6 +50,7 @@ class AdmissionDirectCreate(BaseModel):
     emergency_contact_phone: str | None = None
     transport_required: bool = False
     religion: str | None = None
+    parent_user_id: UUID | None = None
 
 class AdmissionCreate(AdmissionDirectCreate):
     enquiry_id: UUID

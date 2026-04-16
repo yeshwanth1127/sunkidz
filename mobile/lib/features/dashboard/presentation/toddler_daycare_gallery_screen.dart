@@ -5,8 +5,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../features/syllabus/domain/models/syllabus_model.dart';
 import '../../../features/syllabus/providers/syllabus_provider.dart';
-import '../../../shared/widgets/toddler_drawer.dart';
-import '../../../shared/widgets/daycare_drawer.dart';
+
 
 class ToddlerDaycareGalleryScreen extends ConsumerStatefulWidget {
   final bool isToddler;
@@ -56,19 +55,21 @@ class _ToddlerDaycareGalleryScreenState
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final token = auth.token;
-    final drawer = widget.isToddler ? const ToddlerDrawer() : const DaycareDrawer();
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: drawer,
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Gallery'),
+        title: const Text(
+          'Gallery',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _load,

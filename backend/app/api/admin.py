@@ -463,6 +463,7 @@ def create_user(
         raise HTTPException(status_code=400, detail="Password is required")
     if email and db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+    
     user = User(
         email=email,
         password_hash=get_password_hash(data.password),
@@ -474,6 +475,36 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # If branch_id and/or class_id provided, create BranchAssignment
+    if data.branch_id:
+        try:
+            branch_id = UUID(data.branch_id)
+            # Verify branch exists
+            branch = db.query(Branch).filter(Branch.id == branch_id).first()
+            if not branch:
+                raise HTTPException(status_code=400, detail=f"Branch with ID {data.branch_id} not found")
+            
+            # Verify class exists if provided
+            class_id = None
+            if data.class_id:
+                class_id = UUID(data.class_id)
+                cls = db.query(Class).filter(Class.id == class_id).first()
+                if not cls:
+                    raise HTTPException(status_code=400, detail=f"Class with ID {data.class_id} not found")
+            
+            # Create BranchAssignment
+            assignment = BranchAssignment(
+                user_id=user.id,
+                branch_id=branch_id,
+                class_id=class_id,
+            )
+            db.add(assignment)
+            db.commit()
+            logger.info(f"✅ Created BranchAssignment for {user.email}: branch={branch_id}, class={class_id}")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid branch_id or class_id format (must be UUID)")
+    
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -528,7 +559,7 @@ def update_user(
     if data.phone is not None:
         user.phone = data.phone
     if data.is_active is not None:
-        user.is_active = data.is_active
+        user.is_active = data.is_active.lower().strip()
     if data.date_of_birth is not None and (data.date_of_birth or "").strip() and user.role in ("toddlers", "daycare"):
         try:
             user.date_of_birth = date.fromisoformat(data.date_of_birth.strip())
@@ -603,6 +634,31 @@ def list_admissions(
             "bus_opted": s.bus_opted or False,
         })
     return result
+
+
+@router.get("/parents/search")
+def search_parents(
+    phone: str = Query(..., description="Phone number to search for"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Search for existing parents by phone number."""
+    users = db.query(User).filter(
+        User.role == "parent",
+        User.phone.contains(phone),
+    ).all()
+    results = []
+    for u in users:
+        # Find names of students linked to this parent
+        students = [link.student.name for link in u.student_links if link.student]
+        results.append({
+            "id": str(u.id),
+            "full_name": u.full_name,
+            "phone": u.phone,
+            "email": u.email,
+            "students": students,
+        })
+    return results
 
 
 @router.get("/students/{student_id}")

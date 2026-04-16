@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 60 * 24  # 24 hours
 
     # Default classes created for each branch
-    default_branch_classes: tuple[str, ...] = ("playgroup", "ig1", "ig2", "ig3")
+    default_branch_classes: tuple[str, ...] = ("playgroup", "IG-1", "IG-2", "IG-3")
 
     # UltraMsg WhatsApp API
     ultramsg_api_url: str = "https://api.ultramsg.com"
