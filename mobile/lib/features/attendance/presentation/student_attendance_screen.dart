@@ -26,7 +26,7 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
               child: Icon(Icons.child_care, color: AppColors.primary),
             ),
             const SizedBox(width: 12),
@@ -181,9 +181,9 @@ class _SummaryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -217,7 +217,7 @@ class _StudentAttendanceCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primary.withOpacity(0.2),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
             backgroundImage: NetworkImage(student.imageUrl),
           ),
           const SizedBox(width: 12),

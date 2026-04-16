@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_provider.dart';
 import '../../../core/api/messages_provider.dart';
+import '../../../core/api/parent_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/messages_provider.dart';
 
@@ -20,8 +22,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (_markedAllRead) return;
     final api = ref.read(messagesApiProvider);
     if (api == null) return;
+
+    final auth = ref.read(authProvider);
+    final selectedChild = ref.read(selectedChildProvider);
+    final studentId =
+        auth.role == UserRole.parent ? (selectedChild?['id']?.toString()) : null;
+
+    if (auth.role == UserRole.parent && studentId == null) {
+      return;
+    }
+
     try {
-      await api.markAllNotificationsRead();
+      await api.markAllNotificationsRead(studentId: studentId);
       _markedAllRead = true;
       ref.invalidate(unreadCountProvider);
     } catch (_) {
@@ -91,12 +103,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 final senderName = n['sender_name'] as String?;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  color: isRead ? null : AppColors.primary.withOpacity(0.05),
+                  color: isRead ? null : AppColors.primary.withValues(alpha: 0.05),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: isRead
                           ? Colors.grey.shade300
-                          : AppColors.primary.withOpacity(0.2),
+                          : AppColors.primary.withValues(alpha: 0.2),
                       child: Icon(
                         Icons.mail,
                         color: isRead ? Colors.grey : AppColors.primary,

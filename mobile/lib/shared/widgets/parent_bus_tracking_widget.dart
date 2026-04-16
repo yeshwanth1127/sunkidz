@@ -74,7 +74,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 border: Border.all(color: Colors.green, width: 1.5),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -135,7 +135,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
               ),
               clipBehavior: Clip.antiAlias,
               child: Stack(
@@ -159,7 +159,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
                     )
                   else
                     Container(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.grey.withValues(alpha: 0.1),
                       child: Center(
                         child: Text('Location updating...',
                             style: Theme.of(context).textTheme.bodySmall),
@@ -177,8 +177,8 @@ class ParentBusTrackingWidget extends ConsumerWidget {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.6),
+                            Colors.black.withValues(alpha: 0.3),
+                            Colors.black.withValues(alpha: 0.6),
                           ],
                         ),
                       ),
@@ -215,7 +215,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.05),
+                color: Colors.grey.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -289,7 +289,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.05),
+        color: Colors.grey.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -314,8 +314,8 @@ class ParentBusTrackingWidget extends ConsumerWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.05),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        color: Colors.red.withValues(alpha: 0.05),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -353,7 +353,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.05),
+        color: Colors.grey.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -361,7 +361,7 @@ class ParentBusTrackingWidget extends ConsumerWidget {
           Icon(
             Icons.directions_bus,
             size: 48,
-            color: Colors.grey.withOpacity(0.5),
+            color: Colors.grey.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
@@ -436,7 +436,7 @@ class _FullScreenBusTrackingState extends ConsumerState<_FullScreenBusTracking> 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.3),
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
         elevation: 0,
         leading: IconButton(
           icon: Container(
@@ -462,7 +462,7 @@ class _FullScreenBusTrackingState extends ConsumerState<_FullScreenBusTracking> 
             Text(
               busStaffName,
               style: TextStyle(
-                  color: Colors.white.withOpacity(0.8), fontSize: 12),
+                  color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
             ),
           ],
         ),
@@ -495,7 +495,7 @@ class _FullScreenBusTrackingState extends ConsumerState<_FullScreenBusTracking> 
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
+                      color: Colors.grey.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),

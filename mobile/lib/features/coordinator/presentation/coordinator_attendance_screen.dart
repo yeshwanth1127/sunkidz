@@ -329,7 +329,7 @@ class _CoordinatorAttendanceScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.2),
+        color: c.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -642,10 +642,10 @@ class _CoordinatorAttendanceScreenState
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: c.withOpacity(0.15),
+                                color: c.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: c.withOpacity(0.3),
+                                  color: c.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Text(
@@ -694,7 +694,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

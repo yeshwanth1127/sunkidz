@@ -190,7 +190,7 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: textColor.withOpacity(0.8),
+            color: textColor.withValues(alpha: 0.8),
           ),
         ),
         const SizedBox(height: 8),

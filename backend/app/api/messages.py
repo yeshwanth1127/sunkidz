@@ -2,6 +2,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -31,6 +32,7 @@ class AdminSendMessageRequest(SendMessageRequest):
     branch_id: UUID | None = None
     class_id: UUID | None = None
     target_user_id: UUID | None = None
+    target_student_id: UUID | None = None
 
 
 class CoordinatorSendMessageRequest(SendMessageRequest):
@@ -52,16 +54,23 @@ class SendMessageResponse(BaseModel):
 # --- Notifications (any authenticated user) ---
 @router.get("/me/notifications")
 def list_my_notifications(
+    student_id: UUID | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List notifications for the current user."""
-    notifications = (
-        db.query(Notification)
-        .filter(Notification.user_id == user.id)
-        .order_by(Notification.created_at.desc())
-        .all()
-    )
+    query = db.query(Notification).filter(Notification.user_id == user.id)
+    if student_id and user.role == "parent":
+        # Parent dashboard can switch children. Show global notifications and
+        # student-specific notifications for the selected child only.
+        query = query.filter(
+            or_(
+                Notification.target_student_id.is_(None),
+                Notification.target_student_id == student_id,
+            )
+        )
+
+    notifications = query.order_by(Notification.created_at.desc()).all()
     result = []
     for n in notifications:
         sender_name = None
@@ -76,6 +85,7 @@ def list_my_notifications(
             "title": n.title,
             "message": n.message,
             "related_enquiry_id": str(n.related_enquiry_id) if n.related_enquiry_id else None,
+            "target_student_id": str(n.target_student_id) if n.target_student_id else None,
             "is_read": n.is_read,
             "created_at": n.created_at.isoformat() if n.created_at else None,
         })
@@ -84,14 +94,24 @@ def list_my_notifications(
 
 @router.get("/me/notifications/unread_count")
 def my_unread_count(
+    student_id: UUID | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get unread notification count for the current user."""
-    return db.query(Notification).filter(
+    query = db.query(Notification).filter(
         Notification.user_id == user.id,
         Notification.is_read == False,
-    ).count()
+    )
+    if student_id and user.role == "parent":
+        query = query.filter(
+            or_(
+                Notification.target_student_id.is_(None),
+                Notification.target_student_id == student_id,
+            )
+        )
+
+    return query.count()
 
 
 @router.post("/me/notifications/mark_read/{notification_id}")
@@ -114,14 +134,24 @@ def mark_my_notification_read(
 
 @router.post("/me/notifications/mark_all_read")
 def mark_all_notifications_read(
+    student_id: UUID | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Mark all notifications for the current user as read."""
-    db.query(Notification).filter(
+    query = db.query(Notification).filter(
         Notification.user_id == user.id,
         Notification.is_read == False,
-    ).update({Notification.is_read: True})
+    )
+    if student_id and user.role == "parent":
+        query = query.filter(
+            or_(
+                Notification.target_student_id.is_(None),
+                Notification.target_student_id == student_id,
+            )
+        )
+
+    query.update({Notification.is_read: True})
     db.commit()
     return {"success": True}
 
@@ -141,9 +171,33 @@ def admin_send_message(
 
     target = data.target_type
     if target == "particular_user":
-        if not data.target_user_id:
-            raise HTTPException(status_code=400, detail="target_user_id required for particular_user")
-        recipient_ids = [data.target_user_id]
+        if data.target_user_id:
+            recipient_ids = [data.target_user_id]
+        elif data.target_student_id:
+            student = db.query(Student).filter(Student.id == data.target_student_id).first()
+            if not student:
+                raise HTTPException(status_code=404, detail="Student not found")
+
+            recipient_ids = [link.user_id for link in student.parent_links if link.user]
+            if not recipient_ids:
+                # Fallback for older records where the link may be missing.
+                phone_candidates = {
+                    (student.father_contact_no or "").strip(),
+                    (student.mother_contact_no or "").strip(),
+                    (student.residential_contact_no or "").strip(),
+                }
+                phone_candidates = {p for p in phone_candidates if p}
+                if phone_candidates:
+                    parents = db.query(User).filter(User.role == "parent").all()
+                    for parent in parents:
+                        parent_phone = (parent.phone or "").strip()
+                        if parent_phone and any(
+                            phone_candidate[-10:] and phone_candidate[-10:] in parent_phone
+                            for phone_candidate in phone_candidates
+                        ):
+                            recipient_ids.append(parent.id)
+        else:
+            raise HTTPException(status_code=400, detail="target_user_id or target_student_id required for particular_user")
     else:
         if target in ("branch_staff", "branch_parents", "branch_all") and not data.branch_id:
             raise HTTPException(status_code=400, detail="branch_id required for this target type")
@@ -156,7 +210,12 @@ def admin_send_message(
         raise HTTPException(status_code=400, detail="No recipients found for the given criteria")
 
     count = create_notifications_for_users(
-        db, recipient_ids, title, message, sender_id=user.id
+        db,
+        recipient_ids,
+        title,
+        message,
+        sender_id=user.id,
+        target_student_id=(data.target_student_id if target == "particular_user" else None),
     )
     return SendMessageResponse(
         success=True,

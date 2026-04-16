@@ -10,6 +10,7 @@ class Notification(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    target_student_id = Column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=True)
     title = Column(String(255), nullable=False)
     message = Column(String(1000), nullable=False)
     related_enquiry_id = Column(UUID(as_uuid=True), ForeignKey("enquiries.id"), nullable=True)

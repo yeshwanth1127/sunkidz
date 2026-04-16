@@ -19,7 +19,7 @@ class ToddlerDrawer extends ConsumerWidget {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: const Color(0xFFE8A87C).withOpacity(0.3),
+              color: const Color(0xFFE8A87C).withValues(alpha: 0.3),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

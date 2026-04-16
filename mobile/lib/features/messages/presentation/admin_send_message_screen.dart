@@ -12,7 +12,8 @@ class AdminSendMessageScreen extends ConsumerStatefulWidget {
       _AdminSendMessageScreenState();
 }
 
-class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen> {
+class _AdminSendMessageScreenState
+    extends ConsumerState<AdminSendMessageScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _messageController = TextEditingController();
@@ -24,11 +25,11 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
   List<Map<String, dynamic>> _classes = [];
   bool _loadingMeta = true;
 
-  // For particular parent search
+  // For particular student search
   final _searchController = TextEditingController();
   List<Map<String, dynamic>> _searchResults = [];
   bool _searching = false;
-  Map<String, dynamic>? _selectedParent;
+  Map<String, dynamic>? _selectedStudent;
 
   @override
   void initState() {
@@ -63,15 +64,23 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
   }
 
   Future<void> _searchParents(String query) async {
-    if (query.length < 3) return;
-    final api = ref.read(adminApiProvider);
-    if (api == null) return;
-
+    if (query.trim().length < 3) {
+      if (mounted) {
+        setState(() {
+          _searching = false;
+          _searchResults = [];
+        });
+      }
+      return;
+    }
     setState(() => _searching = true);
     try {
-      final results = await api.searchParents(query);
+      final api = ref.read(adminApiProvider);
+      if (api == null) return;
+      final results = await api.searchStudents(query.trim());
       if (mounted) setState(() => _searchResults = results);
     } catch (_) {
+      if (mounted) setState(() => _searchResults = []);
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -82,14 +91,18 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
     final api = ref.read(adminApiProvider);
     if (api == null) return;
 
-    final needsBranch = ['branch_staff', 'branch_parents', 'branch_all'].contains(_targetType);
+    final needsBranch = [
+      'branch_staff',
+      'branch_parents',
+      'branch_all',
+    ].contains(_targetType);
     final needsClass = _targetType == 'grade_teachers';
     final needsParent = _targetType == 'particular_user';
 
     if (needsBranch && _branchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a branch')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a branch')));
       return;
     }
     if (needsClass && _classId == null) {
@@ -98,23 +111,29 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
       );
       return;
     }
-    if (needsParent && _selectedParent == null) {
+    if (needsParent && _selectedStudent == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please search and select a parent')),
+        const SnackBar(content: Text('Please search and select a student')),
       );
       return;
     }
 
     setState(() => _sending = true);
     try {
-      final res = await api.sendMessage(
-        title: _titleController.text.trim(),
-        message: _messageController.text.trim(),
-        targetType: _targetType,
-        branchId: _branchId,
-        classId: _classId,
-        targetUserId: _selectedParent?['id'],
-      );
+      final res =
+          needsParent
+              ? await api.sendMessageToStudentParent(
+                title: _titleController.text.trim(),
+                message: _messageController.text.trim(),
+                studentId: _selectedStudent!['id'].toString(),
+              )
+              : await api.sendMessage(
+                title: _titleController.text.trim(),
+                message: _messageController.text.trim(),
+                targetType: _targetType,
+                branchId: _branchId,
+                classId: _classId,
+              );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(res['message'] as String? ?? 'Sent')),
@@ -123,9 +142,9 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -146,40 +165,74 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
         ),
         title: const Text(
           'Send Message',
-          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
       ),
-      body: _loadingMeta
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: _targetType,
-                      decoration: const InputDecoration(labelText: 'Send to'),
+      body:
+          _loadingMeta
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: _targetType,
+                        decoration: const InputDecoration(labelText: 'Send to'),
                         items: const [
-                          DropdownMenuItem(value: 'all_staff', child: Text('All Staff')),
-                          DropdownMenuItem(value: 'all_parents', child: Text('All Parents')),
-                          DropdownMenuItem(value: 'all', child: Text('Everyone (Staff + Parents)')),
-                          DropdownMenuItem(value: 'branch_staff', child: Text('Branch Staff Only')),
-                          DropdownMenuItem(value: 'branch_parents', child: Text('Branch Parents Only')),
-                          DropdownMenuItem(value: 'branch_all', child: Text('Branch (Staff + Parents)')),
-                          DropdownMenuItem(value: 'grade_teachers', child: Text('Grade/Class Teachers')),
-                          DropdownMenuItem(value: 'particular_user', child: Text('Particular Parent')),
+                          DropdownMenuItem(
+                            value: 'all_staff',
+                            child: Text('All Staff'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'all_parents',
+                            child: Text('All Parents'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'all',
+                            child: Text('Everyone (Staff + Parents)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'branch_staff',
+                            child: Text('Branch Staff Only'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'branch_parents',
+                            child: Text('Branch Parents Only'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'branch_all',
+                            child: Text('Branch (Staff + Parents)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'grade_teachers',
+                            child: Text('Grade/Class Teachers'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'particular_user',
+                            child: Text('Particular Parent'),
+                          ),
                         ],
                         onChanged: (v) {
                           setState(() {
                             _targetType = v ?? _targetType;
-                            if (!['branch_staff', 'branch_parents', 'branch_all'].contains(_targetType)) {
+                            if (![
+                              'branch_staff',
+                              'branch_parents',
+                              'branch_all',
+                            ].contains(_targetType)) {
                               _branchId = null;
                             }
-                            if (_targetType != 'grade_teachers') _classId = null;
+                            if (_targetType != 'grade_teachers')
+                              _classId = null;
                             if (_targetType != 'particular_user') {
-                              _selectedParent = null;
+                              _selectedStudent = null;
                               _searchResults = [];
                               _searchController.clear();
                             }
@@ -188,148 +241,233 @@ class _AdminSendMessageScreenState extends ConsumerState<AdminSendMessageScreen>
                       ),
                       if (_targetType == 'particular_user') ...[
                         const SizedBox(height: 16),
-                        if (_selectedParent != null)
+                        if (_selectedStudent != null)
                           ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.person)),
-                            title: Text(_selectedParent!['full_name'] ?? ''),
-                            subtitle: Text(_selectedParent!['phone'] ?? ''),
+                            leading: const CircleAvatar(
+                              child: Icon(Icons.person),
+                            ),
+                            title: Text(_selectedStudent!['name'] ?? ''),
+                            subtitle: Text(
+                              '${_selectedStudent!['admission_number'] ?? ''}${(_selectedStudent!['parent_name'] ?? '').toString().isNotEmpty ? ' • ${_selectedStudent!['parent_name']}' : ''}${(_selectedStudent!['parent_contact'] ?? '').toString().isNotEmpty ? ' • ${_selectedStudent!['parent_contact']}' : ''}',
+                            ),
                             trailing: IconButton(
                               icon: const Icon(Icons.close),
-                              onPressed: () => setState(() => _selectedParent = null),
+                              onPressed:
+                                  () => setState(() => _selectedStudent = null),
                             ),
                             tileColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           )
                         else ...[
                           TextFormField(
                             controller: _searchController,
                             decoration: InputDecoration(
                               labelText: 'Search by Student Name',
-                              hintText: 'Enter at least 3 characters',
-                              suffixIcon: _searching
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : IconButton(
-                                      icon: const Icon(Icons.search),
-                                      onPressed: () => _searchParents(_searchController.text),
-                                    ),
+                              hintText: 'Student name, parent name, or admission no',
+                              suffixIcon:
+                                  _searching
+                                      ? const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : IconButton(
+                                        icon: const Icon(Icons.search),
+                                        onPressed:
+                                            () => _searchParents(
+                                              _searchController.text,
+                                            ),
+                                      ),
                             ),
                             onChanged: _searchParents,
                           ),
+                          if (!_searching &&
+                              _searchController.text.trim().length >= 3 &&
+                              _searchResults.isEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'No parents found. Try full student name, parent name, or phone.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ),
                           if (_searchResults.isNotEmpty)
                             Container(
                               margin: const EdgeInsets.only(top: 8),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 4,
+                                  ),
+                                ],
                               ),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _searchResults.length,
-                                separatorBuilder: (ctx, i) => const Divider(height: 1),
-                                itemBuilder: (ctx, i) {
-                                  final p = _searchResults[i];
-                                  return ListTile(
-                                    title: Text(p['full_name'] ?? ''),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (p['students'] != null && (p['students'] as List).isNotEmpty)
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxHeight: 260,
+                                ),
+                                child: ListView.separated(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: _searchResults.length,
+                                  separatorBuilder:
+                                      (ctx, i) => const Divider(height: 1),
+                                  itemBuilder: (ctx, i) {
+                                    final s = _searchResults[i];
+                                    return ListTile(
+                                      title: Text(s['name'] ?? ''),
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
                                           Text(
-                                            'Student: ${(p['students'] as List).join(", ")}',
-                                            style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
-                                          )
-                                        else
-                                          Text(p['phone'] ?? '', style: const TextStyle(fontSize: 12)),
-                                      ],
-                                    ),
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedParent = p;
-                                        _searchResults = [];
-                                      });
-                                    },
-                                  );
-                                },
+                                            '${s['admission_number'] ?? ''}${(s['parent_name'] ?? '').toString().isNotEmpty ? ' • ${s['parent_name']}' : ''}${(s['parent_contact'] ?? '').toString().isNotEmpty ? ' • ${s['parent_contact']}' : ''}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.blue,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedStudent = s;
+                                          _searchResults = [];
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                         ],
                       ],
-                    if (['branch_staff', 'branch_parents', 'branch_all'].contains(_targetType)) ...[
+                      if ([
+                        'branch_staff',
+                        'branch_parents',
+                        'branch_all',
+                      ].contains(_targetType)) ...[
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _branchId,
+                          decoration: const InputDecoration(
+                            labelText: 'Branch',
+                          ),
+                          items:
+                              _branches
+                                  .map(
+                                    (b) => DropdownMenuItem(
+                                      value: b['id'] as String?,
+                                      child: Text(b['name'] as String? ?? ''),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) {
+                            setState(() {
+                              _branchId = v;
+                              _classId = null;
+                              _selectedStudent = null;
+                              _searchResults = [];
+                              _searchController.clear();
+                            });
+                          },
+                        ),
+                      ],
+                      if (_targetType == 'grade_teachers') ...[
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _classId,
+                          decoration: const InputDecoration(
+                            labelText: 'Grade/Class',
+                          ),
+                          items:
+                              _classes
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c['id'] as String?,
+                                      child: Text(c['name'] as String? ?? ''),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) {
+                            setState(() {
+                              _classId = v;
+                              _selectedStudent = null;
+                              _searchResults = [];
+                              _searchController.clear();
+                            });
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Subject',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator:
+                            (v) =>
+                                (v == null || v.trim().isEmpty)
+                                    ? 'Required'
+                                    : null,
+                      ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _branchId,
-                        decoration: const InputDecoration(labelText: 'Branch'),
-                        items: _branches
-                            .map((b) => DropdownMenuItem(
-                                  value: b['id'] as String?,
-                                  child: Text(b['name'] as String? ?? ''),
-                                ))
-                            .toList(),
-                        onChanged: (v) => setState(() {
-                          _branchId = v;
-                          _classId = null;
-                        }),
+                      TextFormField(
+                        controller: _messageController,
+                        decoration: const InputDecoration(
+                          labelText: 'Message',
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 5,
+                        validator:
+                            (v) =>
+                                (v == null || v.trim().isEmpty)
+                                    ? 'Required'
+                                    : null,
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        onPressed: _sending ? null : _send,
+                        icon:
+                            _sending
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Icon(Icons.send),
+                        label: Text(_sending ? 'Sending...' : 'Send Message'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                       ),
                     ],
-                    if (_targetType == 'grade_teachers') ...[
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _classId,
-                        decoration: const InputDecoration(labelText: 'Grade/Class'),
-                        items: _classes
-                            .map((c) => DropdownMenuItem(
-                                  value: c['id'] as String?,
-                                  child: Text(c['name'] as String? ?? ''),
-                                ))
-                            .toList(),
-                        onChanged: (v) => setState(() => _classId = v),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Subject',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _messageController,
-                      decoration: const InputDecoration(
-                        labelText: 'Message',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                      ),
-                      maxLines: 5,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: _sending ? null : _send,
-                      icon: _sending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send),
-                      label: Text(_sending ? 'Sending...' : 'Send Message'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
     );
   }
 }

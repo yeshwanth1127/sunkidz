@@ -295,7 +295,7 @@ class _HomeworkCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.1),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
           child: const Icon(Icons.assignment, color: AppColors.primary),
         ),
         title: Text(

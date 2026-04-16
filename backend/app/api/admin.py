@@ -590,16 +590,28 @@ def update_user(
 def list_admissions(
     branch_id: UUID | None = Query(None),
     class_id: UUID | None = Query(None),
+    search: str | None = Query(None, description="Search by student name, parent name, contact, or admission number"),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """List all students (admissions). Filter by branch and/or class (grade)."""
+    """List all students (admissions). Filter by branch and/or class (grade). Optionally search by name."""
     q = db.query(Student).filter(Student.admission_number.isnot(None))
     if branch_id:
         q = q.filter(Student.branch_id == branch_id)
     if class_id:
         q = q.filter(Student.class_id == class_id)
-    students = q.order_by(Student.created_at.desc()).all()
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.filter(
+            func.lower(Student.name).like(func.lower(term)) |
+            func.lower(Student.admission_number).like(func.lower(term)) |
+            func.lower(Student.father_name).like(func.lower(term)) |
+            func.lower(Student.mother_name).like(func.lower(term)) |
+            Student.residential_contact_no.like(term) |
+            Student.father_contact_no.like(term) |
+            Student.mother_contact_no.like(term)
+        )
+    students = q.order_by(Student.created_at.desc()).limit(50 if search else None).all()
     result = []
     for s in students:
         branch_name = None
@@ -611,8 +623,12 @@ def list_admissions(
             cls = db.query(Class).filter(Class.id == s.class_id).first()
             class_name = cls.name if cls else None
         parent_contact = s.residential_contact_no
+        parent_user_id = None
+        parent_name = None
         if s.parent_links:
             try:
+                parent_user_id = str(s.parent_links[0].user.id)
+                parent_name = s.parent_links[0].user.full_name
                 parent_contact = s.parent_links[0].user.phone or parent_contact
             except Exception:
                 pass
@@ -631,6 +647,8 @@ def list_admissions(
             "father_name": s.father_name,
             "mother_name": s.mother_name,
             "parent_contact": parent_contact,
+            "parent_user_id": parent_user_id,
+            "parent_name": parent_name or s.father_name or s.mother_name,
             "bus_opted": s.bus_opted or False,
         })
     return result

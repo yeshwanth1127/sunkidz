@@ -97,7 +97,7 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
                         margin: const EdgeInsets.only(left: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          color: (widget.trendUp ? Colors.green : Colors.red).withOpacity(0.1),
+                          color: (widget.trendUp ? Colors.green : Colors.red).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(

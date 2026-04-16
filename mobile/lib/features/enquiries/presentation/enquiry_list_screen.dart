@@ -486,7 +486,7 @@ class _AddEnquirySheetState extends ConsumerState<_AddEnquirySheet> {
       const SizedBox(width: 8),
       Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
       const SizedBox(width: 8),
-      Expanded(child: Divider(color: AppColors.primary.withOpacity(0.25))),
+      Expanded(child: Divider(color: AppColors.primary.withValues(alpha: 0.25))),
     ]),
   );
 

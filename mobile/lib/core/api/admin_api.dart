@@ -317,14 +317,18 @@ class AdminApi {
   Future<List<Map<String, dynamic>>> getAdmissions({
     String? branchId,
     String? classId,
+    String? search,
   }) async {
     final params = <String, String>{};
     if (branchId != null) params['branch_id'] = branchId;
     if (classId != null) params['class_id'] = classId;
-    final q = params.isEmpty
-        ? ''
-        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
-    final r = await _dio.get('/admin/admissions$q');
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    final r = await _dio.get('/admin/admissions', queryParameters: params.isEmpty ? null : params);
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
+
+  Future<List<Map<String, dynamic>>> searchStudents(String query) async {
+    final r = await _dio.get('/admin/admissions', queryParameters: {'search': query});
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
@@ -588,6 +592,20 @@ class AdminApi {
     if (classId != null) data['class_id'] = classId;
     if (targetUserId != null) data['target_user_id'] = targetUserId;
     final r = await _dio.post('/admin/messages/send', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> sendMessageToStudentParent({
+    required String title,
+    required String message,
+    required String studentId,
+  }) async {
+    final r = await _dio.post('/admin/messages/send', data: {
+      'title': title,
+      'message': message,
+      'target_type': 'particular_user',
+      'target_student_id': studentId,
+    });
     return r.data as Map<String, dynamic>;
   }
 

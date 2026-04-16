@@ -97,7 +97,7 @@ class _TeacherStudentProfileScreenState extends ConsumerState<TeacherStudentProf
                 children: [
                   CircleAvatar(
                     radius: 48,
-                    backgroundColor: AppColors.primary.withOpacity(0.2),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                     child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.primary)),
                   ),
                   const SizedBox(height: 16),
@@ -105,7 +105,7 @@ class _TeacherStudentProfileScreenState extends ConsumerState<TeacherStudentProf
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(999)),
+                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(999)),
                     child: Text(admissionNo, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
                   ),
                   if (classInfo.isNotEmpty) ...[

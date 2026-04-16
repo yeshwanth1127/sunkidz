@@ -24,13 +24,13 @@ class SunkidzLogo extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(0.15),
+                color: AppColors.primary.withValues(alpha: 0.15),
                 blurRadius: 20,
                 spreadRadius: 2,
                 offset: const Offset(0, 6),
               ),
               BoxShadow(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 blurRadius: 4,
                 offset: const Offset(-2, -2),
               ),

@@ -16,13 +16,21 @@ class MessagesApi {
     },
   ));
 
-  Future<List<Map<String, dynamic>>> getNotifications() async {
-    final r = await _dio.get('/me/notifications');
+  Future<List<Map<String, dynamic>>> getNotifications({String? studentId}) async {
+    final params = <String, dynamic>{};
+    if (studentId != null && studentId.isNotEmpty) {
+      params['student_id'] = studentId;
+    }
+    final r = await _dio.get('/me/notifications', queryParameters: params);
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
-  Future<int> getUnreadCount() async {
-    final r = await _dio.get('/me/notifications/unread_count');
+  Future<int> getUnreadCount({String? studentId}) async {
+    final params = <String, dynamic>{};
+    if (studentId != null && studentId.isNotEmpty) {
+      params['student_id'] = studentId;
+    }
+    final r = await _dio.get('/me/notifications/unread_count', queryParameters: params);
     return r.data as int;
   }
 
@@ -30,7 +38,11 @@ class MessagesApi {
     await _dio.post('/me/notifications/mark_read/$notificationId');
   }
 
-  Future<void> markAllNotificationsRead() async {
-    await _dio.post('/me/notifications/mark_all_read');
+  Future<void> markAllNotificationsRead({String? studentId}) async {
+    final params = <String, dynamic>{};
+    if (studentId != null && studentId.isNotEmpty) {
+      params['student_id'] = studentId;
+    }
+    await _dio.post('/me/notifications/mark_all_read', queryParameters: params);
   }
 }

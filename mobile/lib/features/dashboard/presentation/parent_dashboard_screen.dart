@@ -486,7 +486,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
         borderRadius: BorderRadius.circular(100),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.shade100.withOpacity(0.4),
+            color: Colors.orange.shade100.withValues(alpha: 0.4),
             blurRadius: 30,
             spreadRadius: 5,
             offset: const Offset(0, 10),
@@ -844,7 +844,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.04),
+            color: Colors.orange.withValues(alpha: 0.04),
             blurRadius: 20,
             spreadRadius: 5,
             offset: const Offset(0, 10),
@@ -926,7 +926,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
         color: Colors.white,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))
         ],
       ),
       child: Stack(
@@ -952,7 +952,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 color: const Color(0xFFF25C15),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFFF25C15).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5))
+                  BoxShadow(color: const Color(0xFFF25C15).withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 5))
                 ],
               ),
               child: const Column(
@@ -1040,7 +1040,7 @@ class _PolaroidCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 15,
               offset: const Offset(5, 10),
             )

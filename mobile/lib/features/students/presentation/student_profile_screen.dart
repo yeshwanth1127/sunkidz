@@ -137,7 +137,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
               children: [
                 CircleAvatar(
                   radius: 48,
-                  backgroundColor: AppColors.primary.withOpacity(0.2),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                   child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 ),
                 const SizedBox(height: 16),
@@ -145,7 +145,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(999)),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(999)),
                   child: Text(admissionNo, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
                 ),
                 if (classInfo.isNotEmpty) ...[
@@ -235,7 +235,7 @@ class _DetailsTab extends StatelessWidget {
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
                   child: Icon(Icons.person, color: AppColors.primary),
                 ),
                 const SizedBox(width: 16),
@@ -389,7 +389,7 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.primary.withOpacity(0.6), size: 20),
+          Icon(icon, color: AppColors.primary.withValues(alpha: 0.6), size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -655,7 +655,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
                 child: Container(
                   height: 140,
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(16)),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -713,7 +713,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
                   return Container(
                     margin: const EdgeInsets.all(4),
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withOpacity(0.2))),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withValues(alpha: 0.2))),
                     child: Text('${day.day}', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
                   );
                 },
@@ -730,7 +730,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
             const Text('Recent Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ...records.take(5).map((r) => ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(backgroundColor: (r['status'] == 'present' ? Colors.green : Colors.red).withOpacity(0.1), radius: 16, child: Icon(r['status'] == 'present' ? Icons.check : Icons.close, size: 14, color: r['status'] == 'present' ? Colors.green : Colors.red)),
+              leading: CircleAvatar(backgroundColor: (r['status'] == 'present' ? Colors.green : Colors.red).withValues(alpha: 0.1), radius: 16, child: Icon(r['status'] == 'present' ? Icons.check : Icons.close, size: 14, color: r['status'] == 'present' ? Colors.green : Colors.red)),
               title: Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(r['date'])), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
               trailing: Text((r['status'] as String).toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: r['status'] == 'present' ? Colors.green : Colors.red)),
             )),
@@ -753,7 +753,7 @@ class _SummaryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.1))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withValues(alpha: 0.1))),
       child: Row(children: [
         Icon(icon, color: color, size: 14), const SizedBox(width: 8),
         Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
@@ -873,7 +873,7 @@ class _FeesTabState extends ConsumerState<_FeesTab> {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.red.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.withOpacity(0.1))),
+          decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.withValues(alpha: 0.1))),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             const Text('Pending Balance', style: TextStyle(fontWeight: FontWeight.w500)),
             Text('₹${(_feeData!['total_balance'] ?? 0).toStringAsFixed(0)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 20)),

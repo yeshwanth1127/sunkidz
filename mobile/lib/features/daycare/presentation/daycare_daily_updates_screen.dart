@@ -170,7 +170,7 @@ class _UpdateCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: const Color(0xFF85CDCA).withOpacity(0.3),
+                  backgroundColor: const Color(0xFF85CDCA).withValues(alpha: 0.3),
                   child: Text(
                     studentName.isNotEmpty ? studentName[0].toUpperCase() : '?',
                     style: const TextStyle(color: Color(0xFF85CDCA), fontWeight: FontWeight.bold),
