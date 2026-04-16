@@ -128,30 +128,42 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
             _buildAppBar(),
             _buildFilters(),
             Expanded(
-              child: _loading
-                  ? const _StudentLoadingPlaceholder()
-                  : _error != null
+              child:
+                  _loading
+                      ? const _StudentLoadingPlaceholder()
+                      : _error != null
                       ? _buildErrorState()
                       : _students.isEmpty
-                          ? _buildEmptyState()
-                          : RefreshIndicator(
-                              onRefresh: _loadStudents,
-                              color: AppColors.primary,
-                              child: ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                itemCount: _students.length,
-                                itemBuilder: (context, i) => AnimatedListItem(
-                                  index: i,
-                                  child: _StudentCard(
-                                    student: _students[i],
-                                    onTap: () => context.push('/students/${_students[i]['id']}'),
-                                    onDelete: () => _confirmDeleteStudent(_students[i]),
-                                    onBusOptToggle: () => _toggleBusOpt(_students[i]),
-                                    onShiftBranch: () => _showShiftBranchDialog(_students[i]),
-                                  ),
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                        onRefresh: _loadStudents,
+                        color: AppColors.primary,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          itemCount: _students.length,
+                          itemBuilder:
+                              (context, i) => AnimatedListItem(
+                                index: i,
+                                child: _StudentCard(
+                                  student: _students[i],
+                                  onTap:
+                                      () => context.push(
+                                        '/students/${_students[i]['id']}',
+                                      ),
+                                  onDelete:
+                                      () => _confirmDeleteStudent(_students[i]),
+                                  onBusOptToggle:
+                                      () => _toggleBusOpt(_students[i]),
+                                  onShiftBranch:
+                                      () =>
+                                          _showShiftBranchDialog(_students[i]),
                                 ),
                               ),
-                            ),
+                        ),
+                      ),
             ),
           ],
         ),
@@ -185,12 +197,19 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
           const SizedBox(width: 8),
           const Text(
             'Student Directory',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
           ),
           const Spacer(),
           IconButton(
             onPressed: _loading ? null : _loadStudents,
-            icon: Icon(Icons.refresh_rounded, color: _loading ? Colors.grey : AppColors.primary),
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: _loading ? Colors.grey : AppColors.primary,
+            ),
           ),
         ],
       ),
@@ -209,47 +228,70 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       ),
       child: Column(
         children: [
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String>(
-                value: _selectedBranchId,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
-                  hintText: 'Branch',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+          DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: _selectedBranchId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
+                hintText: 'Branch',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('All Branches')),
-                  ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Flexible(child: Text(b['name']?.toString() ?? '—', overflow: TextOverflow.ellipsis)))),
-                ],
-                onChanged: _onBranchChanged,
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
               ),
+              items: [
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('All Branches'),
+                ),
+                ..._branches.map(
+                  (b) => DropdownMenuItem(
+                    value: b['id'] as String?,
+                    child: Text(
+                      b['name']?.toString() ?? '—',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: _onBranchChanged,
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String>(
-                value: _selectedClassId,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.grid_3x3_rounded, size: 18),
-                  hintText: 'Grade',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+          DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: _selectedClassId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.grid_3x3_rounded, size: 18),
+                hintText: 'Grade',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('All Grades')),
-                  ..._classes.map((c) => DropdownMenuItem(value: c['id'] as String?, child: Flexible(child: Text(c['name']?.toString() ?? '—', overflow: TextOverflow.ellipsis)))),
-                ],
-                onChanged: _onClassChanged,
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
               ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('All Grades')),
+                ..._classes.map(
+                  (c) => DropdownMenuItem(
+                    value: c['id'] as String?,
+                    child: Flexible(
+                      child: Text(
+                        c['name']?.toString() ?? '—',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: _onClassChanged,
             ),
           ),
         ],
@@ -258,7 +300,12 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   }
 
   Widget _buildErrorState() {
-    return Center(child: Text(_error ?? 'Unknown Error', style: const TextStyle(color: Colors.red)));
+    return Center(
+      child: Text(
+        _error ?? 'Unknown Error',
+        style: const TextStyle(color: Colors.red),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {
@@ -266,9 +313,16 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_search_rounded, size: 80, color: Colors.grey.shade300),
+          Icon(
+            Icons.person_search_rounded,
+            size: 80,
+            color: Colors.grey.shade300,
+          ),
           const SizedBox(height: 16),
-          const Text('No students found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const Text(
+            'No students found',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
         ],
       ),
     );
@@ -277,26 +331,37 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   void _confirmDeleteStudent(Map<String, dynamic> student) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Student?'),
-        content: Text('Are you sure you want to remove ${student['name']}? This action cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref.read(adminApiProvider)!.deleteStudent(student['id']);
-                _loadStudents();
-              } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-              }
-            },
-            child: const Text('Delete'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Delete Student?'),
+            content: Text(
+              'Are you sure you want to remove ${student['name']}? This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await ref
+                        .read(adminApiProvider)!
+                        .deleteStudent(student['id']);
+                    _loadStudents();
+                  } catch (e) {
+                    if (mounted)
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -305,7 +370,10 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       await ref.read(adminApiProvider)!.toggleBusOpt(student['id']);
       _loadStudents();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -322,7 +390,13 @@ class _StudentCard extends StatelessWidget {
   final VoidCallback onBusOptToggle;
   final VoidCallback onShiftBranch;
 
-  const _StudentCard({required this.student, required this.onTap, required this.onDelete, required this.onBusOptToggle, required this.onShiftBranch});
+  const _StudentCard({
+    required this.student,
+    required this.onTap,
+    required this.onDelete,
+    required this.onBusOptToggle,
+    required this.onShiftBranch,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -353,50 +427,135 @@ class _StudentCard extends StatelessWidget {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [Colors.indigo.shade400, Colors.indigo.shade700]),
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.indigo.shade400,
+                          Colors.indigo.shade700,
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.face_retouching_natural_rounded, color: Colors.white, size: 28),
+                    child: const Icon(
+                      Icons.face_retouching_natural_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF0F172A))),
-                        Text('$branch ${className.isNotEmpty ? "• $className" : ""}', 
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '$branch ${className.isNotEmpty ? "• $className" : ""}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF94A3B8)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     onSelected: (v) {
                       if (v == 'delete') onDelete();
                       if (v == 'bus') onBusOptToggle();
                     },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(value: 'bus', child: Row(children: [Icon(busOpted ? Icons.bus_alert : Icons.directions_bus, size: 18), const SizedBox(width: 8), Text(busOpted ? 'Disable Bus' : 'Enable Bus')])),
-                      const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, color: Colors.red, size: 18), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))])),
-                    ],
+                    itemBuilder:
+                        (context) => [
+                          PopupMenuItem(
+                            value: 'bus',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  busOpted
+                                      ? Icons.bus_alert
+                                      : Icons.directions_bus,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(busOpted ? 'Disable Bus' : 'Enable Bus'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                   ),
                 ],
               ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: Color(0xFFF1F5F9))),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+              ),
               Row(
                 children: [
-                  Text('ID: $admissionNo', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+                  Text(
+                    'ID: $admissionNo',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
                   const Spacer(),
                   if (busOpted)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.directions_bus_rounded, size: 12, color: Colors.amber.shade700),
+                          Icon(
+                            Icons.directions_bus_rounded,
+                            size: 12,
+                            color: Colors.amber.shade700,
+                          ),
                           const SizedBox(width: 4),
-                          Text('BUS OPTED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.amber.shade700)),
+                          Text(
+                            'BUS OPTED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.amber.shade700,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -418,27 +577,34 @@ class _StudentLoadingPlaceholder extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 5,
-      itemBuilder: (_, __) => Column(
-        children: [
-          Row(
+      itemBuilder:
+          (_, __) => Column(
             children: [
-              const ShimmerLoading.circular(width: 56, height: 56),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ShimmerLoading.rectangular(height: 16, width: MediaQuery.of(context).size.width * 0.5),
-                    const SizedBox(height: 8),
-                    ShimmerLoading.rectangular(height: 12, width: MediaQuery.of(context).size.width * 0.3),
-                  ],
-                ),
+              Row(
+                children: [
+                  const ShimmerLoading.circular(width: 56, height: 56),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoading.rectangular(
+                          height: 16,
+                          width: MediaQuery.of(context).size.width * 0.5,
+                        ),
+                        const SizedBox(height: 8),
+                        ShimmerLoading.rectangular(
+                          height: 12,
+                          width: MediaQuery.of(context).size.width * 0.3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 24),
             ],
           ),
-          const SizedBox(height: 24),
-        ],
-      ),
     );
   }
 }

@@ -47,7 +47,7 @@ class ToddlerDashboardScreen extends ConsumerWidget {
           NotificationBell(notificationsRoute: '/toddler/notifications'),
           CircleAvatar(
             radius: 18,
-            backgroundColor: primaryColor.withOpacity(0.2),
+            backgroundColor: primaryColor.withValues(alpha: 0.2),
             child: Text(
               userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
               style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 16),
@@ -123,8 +123,8 @@ class ToddlerDashboardScreen extends ConsumerWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    primaryColor.withOpacity(0.2),
-                    Colors.orange.withOpacity(0.15),
+                    primaryColor.withValues(alpha: 0.2),
+                    Colors.orange.withValues(alpha: 0.15),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
@@ -179,10 +179,10 @@ class _ActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -193,7 +193,7 @@ class _ActionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 28, color: color),

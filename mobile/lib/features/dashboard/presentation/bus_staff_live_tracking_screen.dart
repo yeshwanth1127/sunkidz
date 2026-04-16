@@ -34,7 +34,7 @@ class BusStaffLiveTrackingScreen extends ConsumerWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.3),
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
         elevation: 0,
         leading: IconButton(
           icon: Container(
@@ -53,7 +53,7 @@ class BusStaffLiveTrackingScreen extends ConsumerWidget {
             Text(activeRide.routeName ?? 'Active Ride',
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             Text('Live GPS Active',
-              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
           ],
         ),
       ),
@@ -81,7 +81,7 @@ class BusStaffLiveTrackingScreen extends ConsumerWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   ),
@@ -96,7 +96,7 @@ class BusStaffLiveTrackingScreen extends ConsumerWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
+                      color: Colors.grey.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -135,7 +135,7 @@ class BusStaffLiveTrackingScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.05),
+                        color: AppColors.primary.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(

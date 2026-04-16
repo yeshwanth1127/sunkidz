@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/teacher_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
 
 class TeacherSendMessageScreen extends ConsumerStatefulWidget {
   const TeacherSendMessageScreen({super.key});
@@ -36,7 +35,15 @@ class _TeacherSendMessageScreenState
   }
 
   Future<void> _searchParents(String query) async {
-    if (query.length < 3) return;
+    if (query.length < 3) {
+      if (mounted) {
+        setState(() {
+          _searching = false;
+          _searchResults = [];
+        });
+      }
+      return;
+    }
     final api = ref.read(teacherApiProvider);
     if (api == null) return;
 
@@ -78,9 +85,9 @@ class _TeacherSendMessageScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -101,7 +108,11 @@ class _TeacherSendMessageScreenState
         ),
         title: const Text(
           'Send Message',
-          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -147,63 +158,106 @@ class _TeacherSendMessageScreenState
                       onPressed: () => setState(() => _selectedParent = null),
                     ),
                     tileColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   )
                 else ...[
                   TextFormField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       labelText: 'Search by Student Name',
-                      hintText: 'Enter at least 3 characters',
-                      suffixIcon: _searching
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.search),
-                              onPressed: () => _searchParents(_searchController.text),
-                            ),
+                      hintText: 'Student name, parent name, or phone',
+                      suffixIcon:
+                          _searching
+                              ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : IconButton(
+                                icon: const Icon(Icons.search),
+                                onPressed:
+                                    () =>
+                                        _searchParents(_searchController.text),
+                              ),
                     ),
                     onChanged: _searchParents,
                   ),
+                  if (!_searching &&
+                      _searchController.text.trim().length >= 3 &&
+                      _searchResults.isEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'No parents found. Try full student name, parent name, or phone.',
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                    ),
                   if (_searchResults.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(top: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _searchResults.length,
-                        separatorBuilder: (ctx, i) => const Divider(height: 1),
-                        itemBuilder: (ctx, i) {
-                          final p = _searchResults[i];
-                          return ListTile(
-                            title: Text(p['full_name'] ?? ''),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (p['students'] != null && (p['students'] as List).isNotEmpty)
-                                  Text(
-                                    'Student: ${(p['students'] as List).join(", ")}',
-                                    style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
-                                  )
-                                else
-                                  Text(p['phone'] ?? '', style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _selectedParent = p;
-                                _searchResults = [];
-                              });
-                            },
-                          );
-                        },
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 260),
+                        child: ListView.separated(
+                          padding: EdgeInsets.zero,
+                          itemCount: _searchResults.length,
+                          separatorBuilder:
+                              (ctx, i) => const Divider(height: 1),
+                          itemBuilder: (ctx, i) {
+                            final p = _searchResults[i];
+                            return ListTile(
+                              title: Text(p['full_name'] ?? ''),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (p['students'] != null &&
+                                      (p['students'] as List).isNotEmpty)
+                                    Text(
+                                      'Student: ${(p['students'] as List).join(", ")}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      p['phone'] ?? '',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                ],
+                              ),
+                              onTap: () {
+                                setState(() {
+                                  _selectedParent = p;
+                                  _searchResults = [];
+                                });
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                 ],
@@ -215,7 +269,8 @@ class _TeacherSendMessageScreenState
                   labelText: 'Subject',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                validator:
+                    (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -226,18 +281,20 @@ class _TeacherSendMessageScreenState
                   alignLabelWithHint: true,
                 ),
                 maxLines: 5,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                validator:
+                    (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _sending ? null : _send,
-                icon: _sending
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send),
+                icon:
+                    _sending
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.send),
                 label: Text(_sending ? 'Sending...' : 'Send Message'),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,

@@ -149,6 +149,7 @@ def create_notifications_for_users(
     title: str,
     message: str,
     sender_id: UUID | None = None,
+    target_student_id: UUID | None = None,
 ) -> int:
     """Create one notification per recipient and send push if they have OneSignal ID."""
     count = 0
@@ -159,6 +160,7 @@ def create_notifications_for_users(
         n = Notification(
             user_id=uid,
             sender_id=sender_id,
+            target_student_id=target_student_id,
             title=title,
             message=message,
         )

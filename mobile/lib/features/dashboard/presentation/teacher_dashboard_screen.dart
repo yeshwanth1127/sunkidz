@@ -108,7 +108,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
               ),
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: teacherPrimary.withOpacity(0.1),
+                backgroundColor: teacherPrimary.withValues(alpha: 0.1),
                 child: Text(
                   userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
                   style: TextStyle(
@@ -127,7 +127,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
           child: Divider(
             height: 1,
             thickness: 1,
-            color: Colors.green.shade50.withOpacity(0.5),
+            color: Colors.green.shade50.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -155,7 +155,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: teacherPrimary.withOpacity(0.1),
+                      color: teacherPrimary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -305,8 +305,8 @@ class TeacherDashboardScreen extends ConsumerWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      teacherPrimary.withOpacity(0.3),
-                      Colors.blue.withOpacity(0.2),
+                      teacherPrimary.withValues(alpha: 0.3),
+                      Colors.blue.withValues(alpha: 0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -329,7 +329,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
                     ElevatedButton(
                       onPressed: () => context.go('/teacher/marks'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.8),
+                        backgroundColor: Colors.white.withValues(alpha: 0.8),
                       ),
                       child: Text(
                         'View Marks',
@@ -391,16 +391,16 @@ class _TeacherActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isOutlined ? color.withOpacity(0.1) : color,
+          color: isOutlined ? color.withValues(alpha: 0.1) : color,
           borderRadius: BorderRadius.circular(12),
           border: isOutlined
-              ? Border.all(color: color.withOpacity(0.5))
+              ? Border.all(color: color.withValues(alpha: 0.5))
               : null,
           boxShadow: isOutlined
               ? null
               : [
                   BoxShadow(
-                    color: color.withOpacity(0.3),
+                    color: color.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

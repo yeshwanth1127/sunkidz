@@ -139,7 +139,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                           gradient: LinearGradient(
                             colors: [
                               AppColors.primary,
-                              AppColors.primary.withOpacity(0.8),
+                              AppColors.primary.withValues(alpha: 0.8),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -147,7 +147,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
+                              color: AppColors.primary.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -169,7 +169,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                               height: 120,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 border: Border.all(color: Colors.white, width: 4),
                               ),
                               child: Center(
@@ -187,7 +187,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                                     Text(
                                       '${_attendanceData?['total_days'] ?? 0} days',
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
+                                        color: Colors.white.withValues(alpha: 0.9),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -245,7 +245,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                               color: Theme.of(context).cardTheme.color,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: color.withOpacity(0.3),
+                                color: color.withValues(alpha: 0.3),
                                 width: 1.5,
                               ),
                             ),
@@ -255,7 +255,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: color.withOpacity(0.1),
+                                    color: color.withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(icon, color: color, size: 24),
@@ -286,7 +286,7 @@ class _ParentAttendanceScreenState extends ConsumerState<ParentAttendanceScreen>
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: color.withOpacity(0.1),
+                                    color: color.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
@@ -340,7 +340,7 @@ class _SummaryItem extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: color.withOpacity(0.9),
+            color: color.withValues(alpha: 0.9),
             fontSize: 12,
           ),
         ),

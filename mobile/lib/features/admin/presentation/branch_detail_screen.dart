@@ -221,7 +221,7 @@ class _InfoCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (branch['status'] == 'active' ? Colors.green : Colors.grey).withOpacity(0.1),
+                          color: (branch['status'] == 'active' ? Colors.green : Colors.grey).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text((branch['status'] as String? ?? '').toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: branch['status'] == 'active' ? Colors.green : Colors.grey)),

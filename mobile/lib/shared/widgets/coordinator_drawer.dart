@@ -15,7 +15,7 @@ class CoordinatorDrawer extends ConsumerWidget {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: AppColors.primaryLight.withOpacity(0.1),
+              color: AppColors.primaryLight.withValues(alpha: 0.1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -347,7 +347,7 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
                             _parentContactCtrl.clear();
                           }),
                         ),
-                        tileColor: Colors.blue.withOpacity(0.05),
+                        tileColor: Colors.blue.withValues(alpha: 0.05),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       )
                     else ...[
@@ -368,7 +368,7 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
                           ),
                           child: ListView.separated(
                             shrinkWrap: true,
@@ -386,6 +386,8 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
                                       if (p['students'] != null && (p['students'] as List).isNotEmpty)
                                         Text(
                                           'Parent of: ${(p['students'] as List).join(", ")}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold),
                                         ),
                                     ],

@@ -227,14 +227,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                                   padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
-                                      colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                                      colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     ),
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.3),
+                                        color: AppColors.primary.withValues(alpha: 0.3),
                                         blurRadius: 12,
                                         offset: const Offset(0, 6),
                                       ),
@@ -245,7 +245,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                                       Container(
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.2),
+                                          color: Colors.white.withValues(alpha: 0.2),
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
@@ -356,7 +356,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             onTap: () => context.go('/admin/settings'),
             child: CircleAvatar(
               radius: 20,
-              backgroundColor: const Color(0xFF0F172A).withOpacity(0.08),
+              backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.08),
               child: const Icon(Icons.person_rounded, size: 22, color: Color(0xFF0F172A)),
             ),
           ),

@@ -323,7 +323,7 @@ class _DayCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.1),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
           child: Text('$day', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
         ),
         title: Text('Day $day', style: const TextStyle(fontWeight: FontWeight.bold)),

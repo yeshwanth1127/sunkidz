@@ -27,7 +27,7 @@ class AdmissionsChart extends StatelessWidget {
         border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -67,7 +67,7 @@ class AdmissionsChart extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.purple.withOpacity(0.1),
+              color: Colors.purple.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -93,7 +93,7 @@ class AdmissionsChart extends StatelessWidget {
                 Icon(
                   Icons.trending_up,
                   size: 32,
-                  color: Colors.purple.withOpacity(0.5),
+                  color: Colors.purple.withValues(alpha: 0.5),
                 ),
               ],
             ),
@@ -147,7 +147,7 @@ class _BarItem extends StatelessWidget {
           child: LinearProgressIndicator(
             value: percentage,
             minHeight: 24,
-            backgroundColor: color.withOpacity(0.1),
+            backgroundColor: color.withValues(alpha: 0.1),
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),

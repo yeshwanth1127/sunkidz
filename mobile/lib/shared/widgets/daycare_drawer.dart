@@ -19,7 +19,7 @@ class DaycareDrawer extends ConsumerWidget {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: const Color(0xFF85CDCA).withOpacity(0.3),
+              color: const Color(0xFF85CDCA).withValues(alpha: 0.3),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

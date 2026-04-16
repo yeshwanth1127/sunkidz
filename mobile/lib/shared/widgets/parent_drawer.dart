@@ -14,7 +14,7 @@ class ParentDrawer extends ConsumerWidget {
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(color: AppColors.primaryLight.withOpacity(0.1)),
+            decoration: BoxDecoration(color: AppColors.primaryLight.withValues(alpha: 0.1)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,

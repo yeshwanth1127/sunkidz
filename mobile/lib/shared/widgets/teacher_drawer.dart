@@ -15,7 +15,7 @@ class TeacherDrawer extends ConsumerWidget {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: const Color(0xFF42F07C).withOpacity(0.2),
+              color: const Color(0xFF42F07C).withValues(alpha: 0.2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
