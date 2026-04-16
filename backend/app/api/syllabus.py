@@ -671,11 +671,31 @@ async def upload_homework(
     db.commit()
     db.refresh(homework)
     
-    # Send WhatsApp notification to parents (non-blocking)
+    # Send notifications (Push and In-App)
     try:
+        # 1. Push Notification
         send_homework_notification(homework, db)
+        
+        # 2. In-App Notification
+        from app.services import messaging_service
+        students = db.query(Student).filter(Student.class_id == homework.class_id).all()
+        parent_user_ids = []
+        for student in students:
+            links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student.id).all()
+            for link in links:
+                parent_user_ids.append(link.user_id)
+        
+        if parent_user_ids:
+            parent_user_ids = list(set(parent_user_ids))
+            messaging_service.create_notifications_for_users(
+                db, 
+                parent_user_ids, 
+                f"New Homework: {homework.title}", 
+                f"Homework for {class_.name} has been assigned. Due date: {homework.due_date.strftime('%b %d, %Y') if homework.due_date else 'N/A'}",
+                sender_id=current_user.id
+            )
     except Exception as ex:
-        logger.error(f"Failed to send homework notification for homework {homework.id}: {str(ex)}")
+        logger.error(f"Failed to send homework notifications: {str(ex)}")
     
     return HomeworkResponse(
         id=homework.id,
@@ -736,10 +756,8 @@ def list_homework(
         elif current_user.role in ["toddlers", "daycare"]:
             pass  # see all homework
     
-    # For coordinators/parents, show only admin-uploaded homework
-    if current_user.role in ["coordinator", "parent"]:
-        admin_ids = db.query(User.id).filter(User.role == "admin").subquery()
-        query = query.filter(Homework.uploaded_by.in_(admin_ids))
+    # Coordinators/parents should see homework assigned to their class, regardless of who uploaded it.
+    # We already filter by class_id above.
     
     # Filter by date if specified
     if upload_date:
@@ -790,11 +808,7 @@ def get_homework(
             detail="You don't have permission to view this homework"
         )
     
-    # For coordinators/parents, only allow viewing admin-uploaded homework
-    if current_user.role in ["coordinator", "parent"]:
-        uploader = db.query(User).filter(User.id == homework.uploaded_by).first()
-        if uploader is None or uploader.role != "admin":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only view homework uploaded by admin")
+    # Anyone with class view permission can see individual homework
     
     class_ = db.query(Class).filter(Class.id == homework.class_id).first()
     uploader = db.query(User).filter(User.id == homework.uploaded_by).first()
@@ -913,9 +927,7 @@ def view_homework_file(
     if not _can_view_class(db, user, homework.class_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view this homework")
 
-    uploader = db.query(User).filter(User.id == homework.uploaded_by).first()
-    if user.role in ["coordinator", "parent"] and (uploader is None or uploader.role != "admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only view homework uploaded by admin")
+    # Anyone with class view permission can see individual homework files
 
     if not os.path.exists(homework.file_path):
         raise HTTPException(status_code=404, detail="File not found")

@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -854,3 +854,25 @@ def create_enquiry(
         "status": e.status or "pending",
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
+
+
+@router.get("/parents/search")
+def search_parents(
+    phone: str = Query(..., description="Phone number to search for"),
+    user: User = Depends(require_coordinator),
+    db: Session = Depends(get_db),
+):
+    """Search for existing parents by phone number."""
+    users = db.query(User).filter(
+        User.role == "parent",
+        User.phone.contains(phone),
+    ).all()
+    return [
+        {
+            "id": str(u.id),
+            "full_name": u.full_name,
+            "phone": u.phone,
+            "email": u.email,
+        }
+        for u in users
+    ]

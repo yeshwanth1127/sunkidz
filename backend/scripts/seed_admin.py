@@ -49,7 +49,7 @@ def seed():
             if not db.query(Class).filter(Class.branch_id == branch.id, Class.name == class_name).first():
                 db.add(Class(branch_id=branch.id, name=class_name, academic_year="2024-25"))
         db.commit()
-        cls = db.query(Class).filter(Class.branch_id == branch.id, Class.name == "ig1").first()
+        cls = db.query(Class).filter(Class.branch_id == branch.id, Class.name == "IG-1").first()
 
         # Create coordinator and teacher for demo
         coord = db.query(User).filter(User.email == "coord@sunkidz.com").first()

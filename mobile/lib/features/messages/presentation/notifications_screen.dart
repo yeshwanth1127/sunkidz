@@ -130,15 +130,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     isThreeLine: true,
                     onTap: () async {
                       if (!isRead) {
-                        await ref.read(messagesApiProvider)?.markNotificationRead(
-                              n['id'] as String,
-                            );
-                        ref.invalidate(notificationsProvider);
-                        ref.invalidate(unreadCountProvider);
+                        try {
+                          await ref.read(messagesApiProvider)?.markNotificationRead(
+                                n['id'] as String,
+                              );
+                          ref.invalidate(notificationsProvider);
+                          ref.invalidate(unreadCountProvider);
+                        } catch (_) {}
                       }
-                      final enquiryId = n['related_enquiry_id'] as String?;
-                      if (enquiryId != null) {
-                        context.push('/enquiries');
+                      
+                      if (mounted) {
+                        _showNotificationDetails(context, n);
                       }
                     },
                   ),
@@ -149,5 +151,89 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         },
       ),
     );
+  }
+
+  void _showNotificationDetails(BuildContext context, Map<String, dynamic> notification) {
+    final title = notification['title'] as String? ?? 'Message';
+    final message = notification['message'] as String? ?? '';
+    final senderName = notification['sender_name'] as String?;
+    final createdAtStr = notification['created_at'] as String?;
+    
+    DateTime? createdAt;
+    if (createdAtStr != null) {
+      try {
+        createdAt = DateTime.parse(createdAtStr);
+      } catch (_) {}
+    }
+
+    final enquiryId = notification['related_enquiry_id'] as String?;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (senderName != null && senderName.isNotEmpty) ...[
+                Text(
+                  'From: $senderName',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Text(
+                message,
+                style: const TextStyle(fontSize: 16, height: 1.4),
+              ),
+              if (createdAt != null) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Received on: ${_formatDateTime(createdAt)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          if (enquiryId != null)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                context.push('/enquiries');
+              },
+              child: const Text('View Enquiry'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    // Basic formatting without adding new dependencies if possible
+    // Use local time
+    final local = dt.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final mon = _monthName(local.month);
+    return '$day $mon, $h:$m';
+  }
+
+  String _monthName(int m) {
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[m];
   }
 }

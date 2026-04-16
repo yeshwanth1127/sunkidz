@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_shadows.dart';
-import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
 
@@ -29,7 +28,6 @@ class AdminNotificationsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AdminDrawer(),
       body: SafeArea(
         child: Column(
           children: [

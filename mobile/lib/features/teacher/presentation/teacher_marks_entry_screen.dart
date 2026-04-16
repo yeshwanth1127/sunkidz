@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/teacher_provider.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../shared/widgets/marks_card_form.dart';
 
 class TeacherMarksEntryScreen extends ConsumerStatefulWidget {
@@ -68,13 +67,13 @@ class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScree
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const TeacherDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(_student?['name'] ?? 'Marks'),
         actions: [
@@ -109,8 +108,8 @@ class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScree
           DropdownButton<String>(
             value: _academicYear,
             items: const [
-              DropdownMenuItem(value: '2024-25', child: Text('2024-25')),
               DropdownMenuItem(value: '2025-26', child: Text('2025-26')),
+              DropdownMenuItem(value: '2026-27', child: Text('2026-27')),
             ],
             onChanged: (v) {
               if (v != null) {

@@ -60,9 +60,14 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
   final _emergencyNameCtrl = TextEditingController();
   final _emergencyPhoneCtrl = TextEditingController();
 
-  // ── Parent login ──
   final _parentNameCtrl = TextEditingController();
   final _parentContactCtrl = TextEditingController();
+  String? _parentUserId;
+
+  // ── Parent Search ──
+  final _parentSearchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _parentSearchResults = [];
+  bool _parentSearching = false;
 
   // ── Previous school ──
   bool _attendedPreviously = false;
@@ -101,10 +106,44 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
       _emergencyNameCtrl, _emergencyPhoneCtrl,
       _parentNameCtrl, _parentContactCtrl,
       _prevSchoolNameCtrl, _prevSchoolDurationCtrl, _prevSchoolClassCtrl,
+      _parentSearchCtrl,
     ]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _searchParents(String query) async {
+    if (query.length < 3) {
+      setState(() => _parentSearchResults = []);
+      return;
+    }
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+
+    setState(() => _parentSearching = true);
+    try {
+      final results = await api.searchParents(query);
+      if (mounted) setState(() => _parentSearchResults = results);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _parentSearching = false);
+    }
+  }
+
+  void _onParentSelected(Map<String, dynamic> parent) {
+    setState(() {
+      _parentUserId = parent['id'];
+      _parentNameCtrl.text = parent['full_name'] ?? '';
+      _parentContactCtrl.text = parent['phone'] ?? '';
+      _parentSearchCtrl.clear();
+      _parentSearchResults = [];
+      
+      // Attempt to auto-populate other fields if they were in the search results
+      // Actually, searchParents might not return everything.
+      // But we can at least fill the basics.
+      // If we need more, we could fetch full parent profile.
+    });
   }
 
   Future<void> _loadBranches() async {
@@ -201,6 +240,7 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
         'passport': _passport,
         'other_medical_report': _otherMedical,
         'transport_required': _transportRequired,
+        if (_parentUserId != null) 'parent_user_id': _parentUserId,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admission created successfully! Parent can login with Admission No & DOB.')));
@@ -294,8 +334,73 @@ class _AdmissionNewScreenState extends ConsumerState<AdmissionNewScreen> {
 
                   // ── Parent (Login) ──
                   _section('Parent Login Details', Icons.login_rounded, [
-                    _field(_parentNameCtrl, 'Parent Name (for login) *', Icons.person),
-                    _field(_parentContactCtrl, 'Parent Contact', Icons.phone, keyboard: TextInputType.phone),
+                    if (_parentUserId != null)
+                      ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        title: Text(_parentNameCtrl.text),
+                        subtitle: Text('ID: $_parentUserId'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => setState(() {
+                            _parentUserId = null;
+                            _parentNameCtrl.clear();
+                            _parentContactCtrl.clear();
+                          }),
+                        ),
+                        tileColor: Colors.blue.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      )
+                    else ...[
+                      TextFormField(
+                        controller: _parentSearchCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Search Existing Parent (Phone)',
+                          hintText: 'Enter at least 3 digits to find existing data',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _parentSearching ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)) : null,
+                          border: const OutlineInputBorder(),
+                        ),
+                        onChanged: _searchParents,
+                      ),
+                      if (_parentSearchResults.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8, bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _parentSearchResults.length,
+                            separatorBuilder: (ctx, i) => const Divider(height: 1),
+                            itemBuilder: (ctx, i) {
+                              final p = _parentSearchResults[i];
+                                return ListTile(
+                                  title: Text(p['full_name'] ?? ''),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(p['phone'] ?? ''),
+                                      if (p['students'] != null && (p['students'] as List).isNotEmpty)
+                                        Text(
+                                          'Parent of: ${(p['students'] as List).join(", ")}',
+                                          style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold),
+                                        ),
+                                    ],
+                                  ),
+                                  onTap: () => _onParentSelected(p),
+                                );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      const Text('Or enter new parent details below:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      _field(_parentNameCtrl, 'Parent Name (for login) *', Icons.person),
+                      _field(_parentContactCtrl, 'Parent Contact', Icons.phone, keyboard: TextInputType.phone),
+                    ],
                   ]),
 
                   // ── Father ──

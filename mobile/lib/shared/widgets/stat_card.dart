@@ -77,9 +77,11 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -87,52 +89,67 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
                       color: bg,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(widget.icon, color: ic, size: 24),
+                    child: Icon(widget.icon, color: ic, size: 22),
                   ),
                   if (widget.trend != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: (widget.trendUp ? Colors.green : Colors.red).withValues(alpha:0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            widget.trendUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                            size: 14,
-                            color: widget.trendUp ? Colors.green : Colors.red,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.trend!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (widget.trendUp ? Colors.green : Colors.red).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              widget.trendUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                              size: 12,
                               color: widget.trendUp ? Colors.green : Colors.red,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                widget.trend!,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.trendUp ? Colors.green : Colors.red,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Text(
-                widget.value,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+              const SizedBox(height: 10),
+              Flexible(
+                child: Text(
+                  widget.value,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF0F172A),
+                    fontSize: 26,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 5),
               Text(
                 widget.label.toUpperCase(),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: const Color(0xFF64748B),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 9,
+                  letterSpacing: 0.5,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

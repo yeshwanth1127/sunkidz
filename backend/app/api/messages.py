@@ -5,10 +5,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_admin, require_coordinator, require_parent
-from app.models.user import User
+from app.core.auth import get_current_user, require_admin, require_coordinator, require_parent, require_teacher
+from app.models.user import User, UserRole
 from app.models.notification import Notification
 from app.models.branch import BranchAssignment
+from app.models.student import Student, ParentStudentLink
 from app.services.messaging_service import (
     get_admin_recipients,
     get_coordinator_recipients,
@@ -26,13 +27,20 @@ class SendMessageRequest(BaseModel):
 
 
 class AdminSendMessageRequest(SendMessageRequest):
-    target_type: str  # all_staff, all_parents, all, branch_staff, branch_parents, branch_all, grade_teachers
+    target_type: str  # all_staff, all_parents, all, branch_staff, branch_parents, branch_all, grade_teachers, particular_user
     branch_id: UUID | None = None
     class_id: UUID | None = None
+    target_user_id: UUID | None = None
 
 
 class CoordinatorSendMessageRequest(SendMessageRequest):
-    target_type: str  # branch_teachers, branch_parents
+    target_type: str  # branch_teachers, branch_parents, particular_user
+    target_user_id: UUID | None = None
+
+
+class TeacherSendMessageRequest(SendMessageRequest):
+    target_type: str  # class_parents, particular_user
+    target_user_id: UUID | None = None
 
 
 class SendMessageResponse(BaseModel):
@@ -132,12 +140,18 @@ def admin_send_message(
         raise HTTPException(status_code=400, detail="Title and message are required")
 
     target = data.target_type
-    if target in ("branch_staff", "branch_parents", "branch_all") and not data.branch_id:
-        raise HTTPException(status_code=400, detail="branch_id required for this target type")
-    if target == "grade_teachers" and not data.class_id:
-        raise HTTPException(status_code=400, detail="class_id required for grade_teachers")
+    if target == "particular_user":
+        if not data.target_user_id:
+            raise HTTPException(status_code=400, detail="target_user_id required for particular_user")
+        recipient_ids = [data.target_user_id]
+    else:
+        if target in ("branch_staff", "branch_parents", "branch_all") and not data.branch_id:
+            raise HTTPException(status_code=400, detail="branch_id required for this target type")
+        if target == "grade_teachers" and not data.class_id:
+            raise HTTPException(status_code=400, detail="class_id required for grade_teachers")
 
-    recipient_ids = get_admin_recipients(db, target, data.branch_id, data.class_id)
+        recipient_ids = get_admin_recipients(db, target, data.branch_id, data.class_id)
+    
     if not recipient_ids:
         raise HTTPException(status_code=400, detail="No recipients found for the given criteria")
 
@@ -176,10 +190,15 @@ def coordinator_send_message(
     if not branch_id:
         raise HTTPException(status_code=400, detail="Coordinator has no branch assigned")
 
-    if data.target_type not in ("branch_teachers", "branch_parents"):
-        raise HTTPException(status_code=400, detail="target_type must be branch_teachers or branch_parents")
+    if data.target_type == "particular_user":
+        if not data.target_user_id:
+            raise HTTPException(status_code=400, detail="target_user_id required for particular_user")
+        recipient_ids = [data.target_user_id]
+    elif data.target_type in ("branch_teachers", "branch_parents"):
+        recipient_ids = get_coordinator_recipients(db, branch_id, data.target_type)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target_type")
 
-    recipient_ids = get_coordinator_recipients(db, branch_id, data.target_type)
     if not recipient_ids:
         raise HTTPException(status_code=400, detail="No recipients found for your branch")
 
@@ -220,4 +239,49 @@ def parent_send_message(
         success=True,
         recipients_count=count,
         message=f"Message sent to {count} teacher(s)",
+    )
+
+
+# --- Teacher: Send messages ---
+@router.post("/teacher/send", response_model=SendMessageResponse)
+def teacher_send_message(
+    data: TeacherSendMessageRequest,
+    user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """Teacher sends message to class parents or a particular user."""
+    title = (data.title or "").strip()
+    message = (data.message or "").strip()
+    if not title or not message:
+        raise HTTPException(status_code=400, detail="Title and message are required")
+
+    # Get teacher's assignment
+    ba = db.query(BranchAssignment).filter(BranchAssignment.user_id == user.id).first()
+    if not ba or not ba.class_id:
+        raise HTTPException(status_code=400, detail="Teacher has no class assigned")
+
+    if data.target_type == "particular_user":
+        if not data.target_user_id:
+            raise HTTPException(status_code=400, detail="target_user_id required for particular_user")
+        recipient_ids = [data.target_user_id]
+    elif data.target_type == "class_parents":
+        # Get all students in this class
+        student_ids = db.query(Student.id).filter(Student.class_id == ba.class_id).all()
+        student_ids = [s[0] for s in student_ids]
+        # Get parents linked to these students
+        links = db.query(ParentStudentLink.user_id).filter(ParentStudentLink.student_id.in_(student_ids)).all()
+        recipient_ids = list(set([l[0] for l in links]))
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target_type")
+
+    if not recipient_ids:
+        raise HTTPException(status_code=400, detail="No recipients found")
+
+    count = create_notifications_for_users(
+        db, recipient_ids, title, message, sender_id=user.id
+    )
+    return SendMessageResponse(
+        success=True,
+        recipients_count=count,
+        message=f"Message sent to {count} recipient(s)",
     )

@@ -4,7 +4,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
 
@@ -138,7 +137,6 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AdminDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -186,8 +184,8 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu_rounded, color: Color(0xFF1E293B)),
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF1E293B)),
           ),
           const SizedBox(width: 8),
           const Text(
@@ -325,7 +323,7 @@ class _StaffCard extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.1),
+                color: accentColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
@@ -434,6 +432,13 @@ class _AddUserSheetState extends State<_AddUserSheet> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>> _getClassesForBranch(String branchId) {
+    final branch = widget.branches.firstWhere((b) => b['id'] == branchId, orElse: () => {});
+    if (branch.isEmpty) return [];
+    final classes = branch['classes'] as List? ?? [];
+    return List<Map<String, dynamic>>.from(classes);
+  }
+
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
@@ -442,6 +447,8 @@ class _AddUserSheetState extends State<_AddUserSheet> {
     if (name.isEmpty) { setState(() => _error = 'Full name is required'); return; }
     if (email.isEmpty) { setState(() => _error = 'Email is required'); return; }
     if (pass.isEmpty) { setState(() => _error = 'Password is required'); return; }
+    if (_branchId == null) { setState(() => _error = 'Branch is required'); return; }
+    if (_classId == null) { setState(() => _error = 'Class is required'); return; }
     setState(() { _loading = true; _error = null; });
     try {
       await widget.api.createUser(
@@ -450,6 +457,8 @@ class _AddUserSheetState extends State<_AddUserSheet> {
         fullName: name,
         role: widget.role,
         phone: phone.isEmpty ? null : phone,
+        branchId: _branchId,
+        classId: _classId,
       );
       widget.onSaved();
     } catch (e) {
@@ -462,37 +471,84 @@ class _AddUserSheetState extends State<_AddUserSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedBranchClasses = _branchId != null ? _getClassesForBranch(_branchId!) : [];
+    
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 24),
-          const Text('New Staff Member', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 24),
-          TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline_rounded))),
-          const SizedBox(height: 16),
-          TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.alternate_email_rounded))),
-          const SizedBox(height: 16),
-          TextField(controller: _passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline_rounded))),
-          if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))],
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-               onPressed: _loading ? null : _submit,
-               child: _loading
-                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                   : const Text('CREATE ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            const Text('New Staff Member', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
+            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline_rounded))),
+            const SizedBox(height: 16),
+            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.alternate_email_rounded))),
+            const SizedBox(height: 16),
+            TextField(controller: _passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline_rounded))),
+            const SizedBox(height: 16),
+            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number (Optional)', prefixIcon: Icon(Icons.phone_outlined))),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _branchId,
+              decoration: const InputDecoration(
+                labelText: 'Branch *',
+                prefixIcon: Icon(Icons.location_city_rounded),
+                border: OutlineInputBorder(),
+              ),
+              items: widget.branches.map((branch) {
+                return DropdownMenuItem(
+                  value: branch['id'] as String,
+                  child: Text(branch['name'] as String? ?? 'Unknown Branch'),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _branchId = value;
+                  _classId = null; // Reset class when branch changes
+                });
+              },
             ),
-          ),
-        ],
+            if (_branchId != null) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _classId,
+                decoration: const InputDecoration(
+                  labelText: 'Class *',
+                  prefixIcon: Icon(Icons.school_rounded),
+                  border: OutlineInputBorder(),
+                ),
+                items: selectedBranchClasses.map((cls) {
+                  return DropdownMenuItem(
+                    value: cls['id'] as String,
+                    child: Text(cls['name'] as String? ?? 'Unknown Class'),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() => _classId = value);
+                },
+              ),
+            ],
+            if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))],
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                 onPressed: _loading ? null : _submit,
+                 child: _loading
+                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                     : const Text('CREATE ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

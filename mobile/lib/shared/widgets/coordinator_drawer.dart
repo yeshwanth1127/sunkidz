@@ -74,7 +74,7 @@ class CoordinatorDrawer extends ConsumerWidget {
           ),
           _DrawerTile(
             icon: Icons.settings,
-            label: 'Settings',
+            label: 'Profile & Settings',
             onTap: () => _navigate(context, '/coordinator/settings'),
           ),
           const Divider(),

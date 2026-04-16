@@ -201,16 +201,31 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     }
     try {
       final res = await api.getMarksCards();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _marksCards = List<Map<String, dynamic>>.from(
             res['marks_cards'] as List? ?? [],
           );
           _loadingMarks = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingMarks = false);
     }
+  }
+
+  void _onChildSwitched(Map<String, dynamic> child) {
+    if (_selectedChild?['id'] == child['id']) return;
+
+    ref.read(selectedChildProvider.notifier).state = child;
+    setState(() {
+      _selectedChild = child;
+    });
+
+    // Refresh child-specific data
+    _loadHomework();
+    _loadFees();
+    _loadGallery();
   }
 
   void _showMarksCard(BuildContext context, Map<String, dynamic> mc) {
@@ -375,13 +390,20 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                         padding: EdgeInsets.all(40),
                         child: Center(child: CircularProgressIndicator(color: Colors.orange)),
                       )
-                    else if (_selectedChild != null)
+                    else if (_selectedChild != null) ...[
+                      if (_children.length > 1)
+                        _buildChildSwitcher(),
                       _buildProfileCard(childName, childClass, childBranch, childAvatarLetter, profilePhotoUrl),
+                    ],
                     
                     const SizedBox(height: 10),
 
                     // Quick Actions
                     _buildQuickActions(context),
+
+                    // Recent Homework
+                    if (_homework.isNotEmpty)
+                      _buildRecentHomework(),
 
                     const SizedBox(height: 30),
 
@@ -415,6 +437,41 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChildSwitcher() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.orange.shade100),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _selectedChild?['id'],
+            isExpanded: true,
+            icon: const Icon(Icons.swap_horiz, color: Colors.orange),
+            hint: const Text('Select Child'),
+            items: _children.map((child) {
+              return DropdownMenuItem<String>(
+                value: child['id'],
+                child: Text(
+                  child['name'],
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              );
+            }).toList(),
+            onChanged: (childId) {
+              final child = _children.firstWhere((c) => c['id'] == childId);
+              _onChildSwitched(child);
+            },
+          ),
         ),
       ),
     );
@@ -520,6 +577,88 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRecentHomework() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 30),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Recent Assignments',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF2D2323),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: math.min(_homework.length, 5), // Only show top 5
+            itemBuilder: (context, index) {
+              final hw = _homework[index];
+              return Container(
+                width: 200,
+                margin: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.orange.shade100),
+                ),
+                child: InkWell(
+                  onTap: () => context.push('/parent/homework'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.edit_note, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              hw.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Text(
+                          hw.description ?? 'No description provided.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Due: ${hw.dueDate != null ? DateFormat('MMM dd').format(hw.dueDate!) : 'N/A'}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

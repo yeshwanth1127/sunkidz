@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/current_user_provider.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/stat_card.dart';
 import '../data/teacher_dashboard_provider.dart';
 
 class TeacherDashboardScreen extends ConsumerWidget {
@@ -33,60 +35,101 @@ class TeacherDashboardScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFFFFF4E0),
       drawer: const TeacherDrawer(),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
         leading: Builder(
           builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
+            icon: const Icon(Icons.menu, color: Colors.black87),
             onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
         ),
-        backgroundColor: Colors.white,
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFFE8F5E9), // Light green for teacher
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Image.asset(
                 'assets/images/sunkidz_logo_hd.png',
-                height: 32,
+                height: 28,
                 errorBuilder: (context, error, stackTrace) {
-                  return Icon(Icons.school, color: teacherPrimary, size: 24);
+                  return const Icon(Icons.school, color: Colors.green, size: 24);
                 },
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(className, style: Theme.of(context).textTheme.titleMedium),
-                Text(
-                  'Branch: $branchName',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    className,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2D2323),
+                      letterSpacing: -0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Branch: $branchName',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
-          NotificationBell(notificationsRoute: '/teacher/notifications'),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: teacherPrimary.withOpacity(0.2),
-            child: Text(
-              userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
-              style: TextStyle(
-                color: teacherPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
+          NotificationBell(
+            notificationsRoute: '/teacher/notifications',
+            iconColor: Colors.black87,
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => context.go('/teacher/settings'),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.green.shade100),
+              ),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: teacherPrimary.withOpacity(0.1),
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
+                  style: TextStyle(
+                    color: teacherPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: Colors.green.shade50.withOpacity(0.5),
+          ),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -127,96 +170,34 @@ class TeacherDashboardScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
                 children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: teacherPrimary.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.groups,
-                                color: teacherPrimary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Total Students',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: teacherPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '$studentsCount',
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
-                          Text(
-                            genderStr,
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
+                  StatCard(
+                    icon: Icons.groups,
+                    label: 'Total Students',
+                    value: '$studentsCount',
+                    trend: genderStr,
+                    backgroundColor: AppColors.pastelGreen,
+                    iconColor: Colors.green.shade600,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: teacherPrimary.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.how_to_reg,
-                                color: teacherPrimary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Attendance Today',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: teacherPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '$attendanceToday',
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
-                          Text(
-                            attendanceToday > 0
-                                ? 'of $studentsCount present'
-                                : '—',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
+                  StatCard(
+                    icon: Icons.how_to_reg,
+                    label: 'Attendance Today',
+                    value: '$attendanceToday',
+                    trend: studentsCount > 0
+                        ? '${(attendanceToday / studentsCount * 100).toStringAsFixed(0)}% present'
+                        : '—',
+                    trendUp:
+                        studentsCount > 0 &&
+                        attendanceToday >= studentsCount * 0.8,
+                    backgroundColor: AppColors.pastelYellow,
+                    iconColor: Colors.orange.shade600,
                   ),
                 ],
               ),

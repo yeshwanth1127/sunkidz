@@ -1,4 +1,5 @@
 """Messaging service: resolve recipients and create notifications per user."""
+import logging
 from uuid import UUID
 from sqlalchemy.orm import Session
 from app.models.user import User
@@ -7,6 +8,8 @@ from app.models.student import Student
 from app.models.notification import Notification
 from app.models.student import ParentStudentLink
 from app.services.notification_service import send_onesignal_notification
+
+logger = logging.getLogger(__name__)
 
 
 def _staff_roles() -> list[str]:
@@ -149,7 +152,9 @@ def create_notifications_for_users(
 ) -> int:
     """Create one notification per recipient and send push if they have OneSignal ID."""
     count = 0
-    subscription_ids: list[str] = []
+    subscription_ids: set[str] = set()
+    logger.info(f"Creating notifications for {len(recipient_ids)} recipients. Title: {title}")
+    
     for uid in recipient_ids:
         n = Notification(
             user_id=uid,
@@ -160,9 +165,22 @@ def create_notifications_for_users(
         db.add(n)
         count += 1
         user = db.query(User).filter(User.id == uid).first()
-        if user and user.onesignal_player_id:
-            subscription_ids.append(user.onesignal_player_id)
+        if user:
+            if user.onesignal_player_id:
+                sid = user.onesignal_player_id.strip()
+                if sid:
+                    subscription_ids.add(sid)
+            else:
+                logger.debug(f"User {uid} has no onesignal_player_id registered.")
+        else:
+            logger.warning(f"User {uid} not found in database.")
+
     db.commit()
+    
     if subscription_ids:
-        send_onesignal_notification(subscription_ids, title, message)
+        logger.info(f"Triggering push for {len(subscription_ids)} unique subscription IDs.")
+        send_onesignal_notification(list(subscription_ids), title, message)
+    else:
+        logger.info("No subscription IDs found for these recipients. Push skipped.")
+        
     return count

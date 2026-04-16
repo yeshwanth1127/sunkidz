@@ -302,11 +302,15 @@ class _MarksCardFormState extends State<MarksCardForm> {
     final v = _getStr(key);
     return Padding(
       padding: const EdgeInsets.all(4),
-      child: DropdownButtonFormField<String>(
-        value: grades.contains(v) ? v : '—',
-        decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4), border: OutlineInputBorder()),
-        items: grades.map((g) => DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 11)))).toList(),
-        onChanged: (val) => _set(key, val ?? '—'),
+      child: SizedBox(
+        width: 60,
+        child: DropdownButtonFormField<String>(
+          value: grades.contains(v) ? v : '—',
+          isExpanded: true,
+          decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6), border: OutlineInputBorder()),
+          items: grades.map((g) => DropdownMenuItem(value: g, child: Align(alignment: Alignment.center, child: Text(g, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)))).toList(),
+          onChanged: (val) => _set(key, val ?? '—'),
+        ),
       ),
     );
   }

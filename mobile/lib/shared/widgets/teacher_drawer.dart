@@ -63,8 +63,13 @@ class TeacherDrawer extends ConsumerWidget {
             onTap: () => _navigate(context, '/teacher/marks'),
           ),
           _DrawerTile(
+            icon: Icons.send,
+            label: 'Send Message',
+            onTap: () => _navigate(context, '/teacher/send-message'),
+          ),
+          _DrawerTile(
             icon: Icons.settings,
-            label: 'Settings',
+            label: 'Profile & Settings',
             onTap: () => _navigate(context, '/teacher/settings'),
           ),
           const Divider(),

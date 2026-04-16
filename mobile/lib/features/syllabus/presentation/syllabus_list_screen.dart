@@ -5,9 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
-import '../../../shared/widgets/coordinator_drawer.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
+
 import '../../../core/api/admin_provider.dart';
 import '../../../core/api/coordinator_provider.dart';
 import '../../../core/api/teacher_provider.dart';
@@ -208,31 +206,29 @@ class _SyllabusListScreenState extends ConsumerState<SyllabusListScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: switch (auth.role) {
-        UserRole.admin => const AdminDrawer(),
-        UserRole.coordinator => const CoordinatorDrawer(),
-        UserRole.teacher => const TeacherDrawer(),
-        _ => const TeacherDrawer(),
-      },
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Syllabus'),
+        title: const Text(
+          'Syllabus',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         centerTitle: true,
         actions: [
           if (isAdmin)
             IconButton(
-              icon: const Icon(Icons.event_busy),
+              icon: const Icon(Icons.event_busy, color: Colors.black87),
               tooltip: 'Mark Holiday',
               onPressed: _showHolidayDialog,
             ),
           if (canUpload)
             IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, color: Colors.black87),
               onPressed: _navigateToUpload,
             ),
         ],

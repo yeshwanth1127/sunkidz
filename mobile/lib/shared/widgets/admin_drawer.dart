@@ -51,7 +51,15 @@ class AdminDrawer extends ConsumerWidget {
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      const SunkidzLogo(size: 80),
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: AppColors.primary.withOpacity(0.1),
+                        child: Icon(
+                          Icons.person,
+                          size: 40,
+                          color: AppColors.primary,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         displayName,
@@ -161,7 +169,7 @@ class AdminDrawer extends ConsumerWidget {
                       ),
                       _DrawerTile(
                         icon: Icons.settings_suggest_rounded,
-                        label: 'Settings',
+                        label: 'Profile & Settings',
                         isActive: currentRoute == '/admin/settings',
                         onTap: () => _navigate(context, '/admin/settings'),
                       ),

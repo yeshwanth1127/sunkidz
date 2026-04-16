@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
 import 'fee_receipt_pdf.dart';
@@ -72,7 +71,6 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AdminDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -101,9 +99,9 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
             } else if (_selectedBranchId != null) {
               setState(() => _selectedBranchId = null);
             } else {
-              Scaffold.of(context).openDrawer();
+              Navigator.of(context).pop();
             }
-          }, icon: Icon((_selectedBranchId != null || _selectedStudentId != null) ? Icons.arrow_back_ios_new_rounded : Icons.menu_rounded, size: 20)),
+          }, icon: Icon((_selectedBranchId != null || _selectedStudentId != null) ? Icons.arrow_back_ios_new_rounded : Icons.arrow_back, size: 20)),
           const SizedBox(width: 8),
           Text(_selectedStudentId != null ? 'Fee Statement' : _selectedBranchId != null ? 'Select Student' : 'Finance Terminal', 
                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),

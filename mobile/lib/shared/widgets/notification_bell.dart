@@ -6,9 +6,14 @@ import '../../features/messages/data/messages_provider.dart';
 /// Notification bell that works for any role - uses /me/notifications API.
 /// Pass the route to navigate to when tapped (e.g. /admin/notifications).
 class NotificationBell extends ConsumerWidget {
-  const NotificationBell({required this.notificationsRoute, super.key});
+  const NotificationBell({
+    required this.notificationsRoute,
+    this.iconColor,
+    super.key,
+  });
 
   final String notificationsRoute;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,7 +25,7 @@ class NotificationBell extends ConsumerWidget {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Icon(Icons.notifications_outlined, size: 26),
+          Icon(Icons.notifications_outlined, size: 26, color: iconColor),
           if (unreadCount > 0)
             Positioned(
               right: -4,

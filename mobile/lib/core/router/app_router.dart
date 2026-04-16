@@ -47,6 +47,7 @@ import '../../features/admin/presentation/admin_reports_screen.dart';
 import '../../features/messages/presentation/notifications_screen.dart';
 import '../../features/messages/presentation/admin_send_message_screen.dart';
 import '../../features/messages/presentation/coordinator_send_message_screen.dart';
+import '../../features/messages/presentation/teacher_send_message_screen.dart';
 import '../../features/messages/presentation/parent_send_message_screen.dart';
 import '../../features/parent/presentation/parent_fees_screen.dart';
 import '../../features/parent/presentation/parent_receipts_screen.dart';
@@ -252,6 +253,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'notifications',
             builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const TeacherSendMessageScreen(),
           ),
         ],
       ),

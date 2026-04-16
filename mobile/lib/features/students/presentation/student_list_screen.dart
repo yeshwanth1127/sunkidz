@@ -6,7 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../core/api/admin_api.dart';
-import '../../../shared/widgets/admin_drawer.dart';
+
 import '../../../shared/widgets/dob_picker.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
@@ -122,7 +122,6 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: const AdminDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -178,16 +177,11 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                 context.go('/admin');
               }
             },
-            icon: Icon(
-              context.canPop() ? Icons.arrow_back_rounded : Icons.menu_rounded,
-              color: const Color(0xFF1E293B),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF1E293B),
             ),
           ),
-          if (!context.canPop())
-            IconButton(
-              onPressed: () => Scaffold.of(context).openDrawer(),
-              icon: const Icon(Icons.menu_rounded, color: Color(0xFF1E293B)),
-            ),
           const SizedBox(width: 8),
           const Text(
             'Student Directory',
@@ -213,12 +207,13 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
         boxShadow: [AppShadows.soft],
         border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
-      child: Row(
+      child: Column(
         children: [
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButtonFormField<String>(
                 value: _selectedBranchId,
+                isExpanded: true,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
                   hintText: 'Branch',
@@ -229,17 +224,18 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                 ),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('All Branches')),
-                  ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Text(b['name']?.toString() ?? '—'))),
+                  ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Flexible(child: Text(b['name']?.toString() ?? '—', overflow: TextOverflow.ellipsis)))),
                 ],
                 onChanged: _onBranchChanged,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(height: 12),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButtonFormField<String>(
                 value: _selectedClassId,
+                isExpanded: true,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.grid_3x3_rounded, size: 18),
                   hintText: 'Grade',
@@ -250,7 +246,7 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                 ),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('All Grades')),
-                  ..._classes.map((c) => DropdownMenuItem(value: c['id'] as String?, child: Text(c['name']?.toString() ?? '—'))),
+                  ..._classes.map((c) => DropdownMenuItem(value: c['id'] as String?, child: Flexible(child: Text(c['name']?.toString() ?? '—', overflow: TextOverflow.ellipsis)))),
                 ],
                 onChanged: _onClassChanged,
               ),
