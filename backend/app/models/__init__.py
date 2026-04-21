@@ -12,6 +12,8 @@ from app.models.daycare import DaycareGroup, DaycareGroupStudent, DaycareDailyUp
 from app.models.syllabus import Syllabus, Homework, GalleryImage
 from app.models.syllabus_holiday import SyllabusHoliday
 from app.models.fees import FeeStructure, FeePayment
+from app.models.message import MessageThread, Message
+from app.models.leave import LeaveApplication
 
 __all__ = [
     "Base",
@@ -39,4 +41,7 @@ __all__ = [
     "GalleryImage",
     "FeeStructure",
     "FeePayment",
+    "MessageThread",
+    "Message",
+    "LeaveApplication",
 ]

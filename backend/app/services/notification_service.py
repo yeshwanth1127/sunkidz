@@ -166,11 +166,10 @@ def send_onesignal_notification(
     }
 
     # OneSignal v5 uses include_subscription_ids; legacy used include_player_ids
-    # We include both for maximum compatibility across SDK versions and accounts
+    # Only one of these fields should be sent (v5: include_subscription_ids)
     payload = {
         "app_id": app_id,
         "include_subscription_ids": subscription_ids,
-        "include_player_ids": subscription_ids,
         "headings": {"en": title},
         "contents": {"en": message},
     }

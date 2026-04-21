@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -122,10 +123,12 @@ class _AdminSendMessageScreenState
     try {
       final res =
           needsParent
-              ? await api.sendMessageToStudentParent(
+              ? await api.sendMessage(
                 title: _titleController.text.trim(),
                 message: _messageController.text.trim(),
-                studentId: _selectedStudent!['id'].toString(),
+                targetType: 'particular_user',
+                targetUserId: _selectedStudent!['parent_user_id']?.toString(),
+                targetStudentId: _selectedStudent!['id'].toString(),
               )
               : await api.sendMessage(
                 title: _titleController.text.trim(),
@@ -142,9 +145,19 @@ class _AdminSendMessageScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        String errorMsg = 'Failed to send message';
+        if (e is DioException && e.response?.data != null) {
+          final data = e.response!.data;
+          if (data is Map && data['detail'] != null) {
+            errorMsg = data['detail'].toString();
+          }
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -184,6 +197,7 @@ class _AdminSendMessageScreenState
                     children: [
                       DropdownButtonFormField<String>(
                         value: _targetType,
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Send to'),
                         items: const [
                           DropdownMenuItem(

@@ -582,6 +582,7 @@ class AdminApi {
     String? branchId,
     String? classId,
     String? targetUserId,
+    String? targetStudentId,
   }) async {
     final data = <String, dynamic>{
       'title': title,
@@ -591,6 +592,7 @@ class AdminApi {
     if (branchId != null) data['branch_id'] = branchId;
     if (classId != null) data['class_id'] = classId;
     if (targetUserId != null) data['target_user_id'] = targetUserId;
+    if (targetStudentId != null) data['target_student_id'] = targetStudentId;
     final r = await _dio.post('/admin/messages/send', data: data);
     return r.data as Map<String, dynamic>;
   }
