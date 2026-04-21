@@ -22,6 +22,8 @@ from app.api import bus_tracking as bus_tracking_api
 from app.api import syllabus as syllabus_api
 from app.api import daycare as daycare_api
 from app.api import messages as messages_api
+from app.api import chat as chat_api
+from app.api import leave as leave_api
 from app.api import device as device_api
 from app.api import legal as legal_api
 
@@ -62,6 +64,8 @@ app.include_router(bus_tracking_api.router, prefix="/api/v1")
 app.include_router(syllabus_api.router, prefix="/api/v1")
 app.include_router(daycare_api.router, prefix="/api/v1")
 app.include_router(messages_api.router, prefix="/api/v1")
+app.include_router(chat_api.router, prefix="/api/v1")
+app.include_router(leave_api.router, prefix="/api/v1")
 app.include_router(device_api.router, prefix="/api/v1")
 app.include_router(legal_api.router)
 

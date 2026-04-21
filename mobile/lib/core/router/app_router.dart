@@ -49,6 +49,10 @@ import '../../features/messages/presentation/admin_send_message_screen.dart';
 import '../../features/messages/presentation/coordinator_send_message_screen.dart';
 import '../../features/messages/presentation/teacher_send_message_screen.dart';
 import '../../features/messages/presentation/parent_send_message_screen.dart';
+import '../../features/messages/presentation/chat_threads_screen.dart';
+import '../../features/messages/presentation/chat_thread_screen.dart';
+import '../../features/leave/presentation/parent_leave_screen.dart';
+import '../../features/leave/presentation/staff_leave_screen.dart';
 import '../../features/parent/presentation/parent_fees_screen.dart';
 import '../../features/parent/presentation/parent_receipts_screen.dart';
 import '../../features/syllabus/presentation/syllabus_list_screen.dart';
@@ -161,6 +165,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'send-message',
             builder: (_, __) => const AdminSendMessageScreen(),
           ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const StaffLeaveScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -207,6 +215,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'send-message',
             builder: (_, __) => const CoordinatorSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const StaffLeaveScreen(),
           ),
         ],
       ),
@@ -257,6 +269,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'send-message',
             builder: (_, __) => const TeacherSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const StaffLeaveScreen(),
           ),
         ],
       ),
@@ -309,6 +325,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'send-message',
             builder: (_, __) => const ParentSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const ParentLeaveScreen(),
           ),
         ],
       ),
@@ -405,6 +425,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/attendance',
         builder: (_, __) => const StudentAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (_, __) => const ChatThreadsScreen(),
+        routes: [
+          GoRoute(
+            path: 'thread',
+            builder: (_, state) => ChatThreadScreen(
+              thread: (state.extra as Map<String, dynamic>?) ?? const {},
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/syllabus',

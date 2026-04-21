@@ -42,6 +42,26 @@ FastAPI backend with PostgreSQL, JWT auth, and SQLAlchemy.
 - **Docs**: http://localhost:9889/docs
 - **Health**: http://localhost:9889/health
 
+## OpenAI Setup
+
+1. Add your API key in `.env`:
+   ```
+   OPENAI_API_KEY=your_new_key_here
+   OPENAI_MODEL=gpt-4.1-mini
+   OPENAI_BASE_URL=https://api.openai.com/v1
+   ```
+
+2. Restart backend.
+
+3. Use admin token and test endpoint:
+   - `GET /api/v1/ai/status`
+   - `POST /api/v1/ai/test` with JSON body:
+   ```json
+   {
+     "prompt": "Write a short welcome message for parents"
+   }
+   ```
+
 ## Auth
 
 **Staff login** (POST `/api/v1/auth/login`):

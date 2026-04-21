@@ -168,6 +168,18 @@ class AdminDrawer extends ConsumerWidget {
                         onTap: () => _navigate(context, '/admin/send-message'),
                       ),
                       _DrawerTile(
+                        icon: Icons.chat_rounded,
+                        label: 'Chats',
+                        isActive: currentRoute == '/chat' || currentRoute.startsWith('/chat/'),
+                        onTap: () => _navigate(context, '/chat'),
+                      ),
+                      _DrawerTile(
+                        icon: Icons.event_available_rounded,
+                        label: 'Leave Requests',
+                        isActive: currentRoute == '/admin/leave',
+                        onTap: () => _navigate(context, '/admin/leave'),
+                      ),
+                      _DrawerTile(
                         icon: Icons.settings_suggest_rounded,
                         label: 'Profile & Settings',
                         isActive: currentRoute == '/admin/settings',

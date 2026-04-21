@@ -348,7 +348,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             ),
           ),
           const Spacer(),
-          Image.asset('assets/images/sunkidz_logo_hd.png', height: 40, filterQuality: FilterQuality.high),
+          Flexible(
+            child: Image.asset(
+              'assets/images/sunkidz_logo_hd.png',
+              height: 40,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
           const Spacer(),
           const NotificationBell(notificationsRoute: '/admin/notifications'),
           const SizedBox(width: 8),
