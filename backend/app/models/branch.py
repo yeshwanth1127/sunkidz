@@ -15,6 +15,7 @@ class Branch(Base):
     address = Column(String(500), nullable=True)
     contact_no = Column(String(50), nullable=True)
     status = Column(String(50), default="active")
+    branch_type = Column(String(20), default="normal")  # 'creedo' or 'normal'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

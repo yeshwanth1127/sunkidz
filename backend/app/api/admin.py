@@ -135,9 +135,13 @@ def create_daycare_user(
     )
 
 
-def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
-    """Create default classes for a branch if missing."""
-    for name in settings.default_branch_classes:
+def _ensure_branch_classes(db: Session, branch_id: UUID, branch_type: str = "normal") -> None:
+    """Create default classes for a branch based on branch_type."""
+    if branch_type == "creedo":
+        class_names = ["ig1", "ig2", "ig3"]
+    else:
+        class_names = ["playschool", "nursery", "lkg", "ukg"]
+    for name in class_names:
         if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == name).first():
             db.add(Class(branch_id=branch_id, name=name, academic_year="2024-25"))
     db.commit()
@@ -197,6 +201,7 @@ def list_branches(
                 address=b.address,
                 contact_no=b.contact_no,
                 status=b.status,
+                branch_type=b.branch_type or "normal",
                 classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in b.classes],
                 coordinator_name=coord.user.full_name if coord else None,
                 student_count=student_count,
@@ -217,11 +222,12 @@ def create_branch(
         address=data.address,
         contact_no=data.contact_no,
         status=data.status,
+        branch_type=data.branch_type,
     )
     db.add(branch)
     db.commit()
     db.refresh(branch)
-    _ensure_branch_classes(db, branch.id)
+    _ensure_branch_classes(db, branch.id, branch_type=data.branch_type)
     db.refresh(branch)
     return BranchResponse(
         id=str(branch.id),
@@ -229,6 +235,7 @@ def create_branch(
         address=branch.address,
         contact_no=branch.contact_no,
         status=branch.status,
+        branch_type=branch.branch_type or "normal",
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
     )
 
@@ -250,6 +257,7 @@ def get_branch(
         address=branch.address,
         contact_no=branch.contact_no,
         status=branch.status,
+        branch_type=branch.branch_type or "normal",
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
         student_count=student_count,
@@ -276,6 +284,8 @@ def update_branch(
         branch.contact_no = data.contact_no
     if data.status is not None:
         branch.status = data.status
+    if data.branch_type is not None:
+        branch.branch_type = data.branch_type
     db.commit()
     db.refresh(branch)
     coord = next((a for a in branch.assignments if a.user.role == "coordinator" and a.class_id is None), None)
@@ -286,6 +296,7 @@ def update_branch(
         address=branch.address,
         contact_no=branch.contact_no,
         status=branch.status,
+        branch_type=branch.branch_type or "normal",
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
         student_count=student_count,
