@@ -3,5 +3,5 @@ from typing import Any
 
 
 class MarksCardUpsert(BaseModel):
-    academic_year: str = "2024-25"
+    academic_year: str = "2026-27"
     data: dict[str, Any] = {}

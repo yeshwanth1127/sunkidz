@@ -115,7 +115,7 @@ def get_parent_recipients(
     db: Session,
     parent_user_id: UUID,
 ) -> tuple[list[UUID], str | None]:
-    """Resolve recipient user IDs for parent send: teachers of their child's grade(s).
+    """Resolve recipient user IDs for parent send: grade teachers + admins.
     Returns (user_ids, error_message). error_message is set when no recipients found."""
     user_ids: set[UUID] = set()
     links = db.query(ParentStudentLink).filter(ParentStudentLink.user_id == parent_user_id).all()
@@ -140,6 +140,8 @@ def get_parent_recipients(
         if students_with_class == 0:
             return [], "Your child has no grade/class assigned. Contact admin."
         return [], "No teachers assigned to your child's grade yet. Contact admin."
+    admins = db.query(User).filter(User.role == "admin", User.is_active == "true").all()
+    user_ids.update(admin.id for admin in admins)
     return list(user_ids), None
 
 

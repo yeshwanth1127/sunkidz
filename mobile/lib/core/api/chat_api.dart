@@ -65,6 +65,23 @@ class ChatApi {
     await _dio.post('/chat/threads/$threadId/read');
   }
 
+  Future<Map<String, dynamic>> createLeaveFromThread({
+    required String threadId,
+    required String reason,
+    required String startDate,
+    required String endDate,
+  }) async {
+    final r = await _dio.post(
+      '/chat/threads/$threadId/leave',
+      data: {
+        'reason': reason,
+        'start_date': startDate,
+        'end_date': endDate,
+      },
+    );
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
   Future<List<Map<String, dynamic>>> eligibleParentsForStaff({String? query}) async {
     final r = await _dio.get(
       '/chat/staff/eligible_parents',

@@ -101,6 +101,37 @@ class SettingsService {
     }
   }
 
+  Future<Map<String, dynamic>> updateProfile({
+    required String fullName,
+    String? phone,
+    String? email,
+    String? dateOfBirth,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/auth/me',
+        data: {
+          'full_name': fullName,
+          'phone': phone,
+          'email': email,
+          'date_of_birth': dateOfBirth,
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update profile');
+      }
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      if (e.response?.data is Map && e.response?.data['detail'] != null) {
+        throw Exception(e.response?.data['detail']);
+      }
+      throw Exception('Failed to update profile. Please try again.');
+    } catch (e) {
+      throw Exception('An error occurred: $e');
+    }
+  }
+
   String getProfilePhotoUrl(String userId) {
     return '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/auth/profile-photo/$userId';
   }

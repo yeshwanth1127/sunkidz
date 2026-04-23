@@ -776,7 +776,7 @@ class _MarksTabState extends ConsumerState<_MarksTab> {
   Map<String, dynamic>? _marksData;
   bool _loading = true;
   String? _error;
-  String _selectedYear = '2024-25';
+  String _selectedYear = '2026-27';
 
   @override
   void initState() { super.initState(); _load(); }
@@ -803,7 +803,7 @@ class _MarksTabState extends ConsumerState<_MarksTab> {
           const Text('Academic Performance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           DropdownButton<String>(
             value: _selectedYear, isDense: true, style: const TextStyle(fontSize: 13, color: Colors.blue),
-            items: ['2023-24', '2024-25'].map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+            items: ['2026-27'].map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
             onChanged: (v) { if (v != null) { _selectedYear = v; _load(); } },
           ),
         ]),

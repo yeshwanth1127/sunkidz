@@ -21,7 +21,7 @@ class _MarksCardScreenState extends ConsumerState<MarksCardScreen> {
   String? _selectedClassId;
   Map<String, dynamic>? _selectedStudent;
   Map<String, dynamic> _data = {};
-  String _academicYear = '2024-25';
+  String _academicYear = '2026-27';
   bool _loading = false;
   bool _saving = false;
   bool _sendingToParent = false;
@@ -298,7 +298,6 @@ class _MarksCardScreenState extends ConsumerState<MarksCardScreen> {
             value: _academicYear,
             decoration: const InputDecoration(labelText: 'Academic Year', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
             items: const [
-              DropdownMenuItem(value: '2025-26', child: Text('2025-26')),
               DropdownMenuItem(value: '2026-27', child: Text('2026-27')),
             ],
             onChanged: (v) {

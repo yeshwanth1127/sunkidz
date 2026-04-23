@@ -21,7 +21,7 @@ class BranchUpdate(BaseModel):
 class ClassCreate(BaseModel):
     branch_id: UUID
     name: str
-    academic_year: str | None = "2024-25"
+    academic_year: str | None = "2026-27"
 
 
 class ClassUpdate(BaseModel):

@@ -15,7 +15,7 @@ def get_academic_year_for_date(d: date) -> tuple[int, int]:
 
 
 def get_academic_year_str(d: date) -> str:
-    """Return e.g. '2024-25' for June 2024 - March 2025."""
+    """Return e.g. '2026-27' for June 2026 - March 2027."""
     start, end = get_academic_year_for_date(d)
     return f"{start}-{str(end)[2:]}"
 

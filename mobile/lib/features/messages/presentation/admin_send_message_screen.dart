@@ -320,24 +320,19 @@ class _AdminSendMessageScreenState
                               ),
                             ),
                           if (_searchResults.isNotEmpty)
-                            Container(
-                              margin: const EdgeInsets.only(top: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 4,
-                                  ),
-                                ],
-                              ),
+                            Material(
+                              color: Colors.white,
+                              elevation: 2,
+                              shadowColor: Colors.black.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              clipBehavior: Clip.antiAlias,
                               child: ConstrainedBox(
                                 constraints: const BoxConstraints(
                                   maxHeight: 260,
                                 ),
                                 child: ListView.separated(
                                   padding: EdgeInsets.zero,
+                                  shrinkWrap: true, // Important for ListView in Column
                                   itemCount: _searchResults.length,
                                   separatorBuilder:
                                       (ctx, i) => const Divider(height: 1),
@@ -365,6 +360,7 @@ class _AdminSendMessageScreenState
                                         setState(() {
                                           _selectedStudent = s;
                                           _searchResults = [];
+                                          _searchController.clear();
                                         });
                                       },
                                     );

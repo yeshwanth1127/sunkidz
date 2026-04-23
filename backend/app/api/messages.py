@@ -278,7 +278,7 @@ def parent_send_message(
     user: User = Depends(require_parent),
     db: Session = Depends(get_db),
 ):
-    """Parent sends message to their child's grade teachers only."""
+    """Parent sends message to their child's grade teachers and admins."""
     title = (data.title or "").strip()
     message = (data.message or "").strip()
     if not title or not message:
@@ -297,7 +297,7 @@ def parent_send_message(
     return SendMessageResponse(
         success=True,
         recipients_count=count,
-        message=f"Message sent to {count} teacher(s)",
+        message=f"Message sent to {count} recipient(s) (teachers + admin)",
     )
 
 

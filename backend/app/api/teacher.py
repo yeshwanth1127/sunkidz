@@ -1,5 +1,6 @@
 from uuid import UUID
 from typing import Any
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -8,9 +9,12 @@ from datetime import date, timedelta
 
 from app.core.database import get_db
 from app.core.auth import require_teacher
-from app.models import User, Branch, Class, Student, BranchAssignment, MarksCard, Attendance
+from app.models import User, Branch, Class, Student, BranchAssignment, MarksCard, Attendance, ParentStudentLink
+from app.services.chat_event_service import post_event_message
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
+
+logger = logging.getLogger(__name__)
 
 
 def _teacher_class_id(user: User, db: Session) -> UUID | None:
@@ -170,14 +174,14 @@ def get_student(
 
 
 class MarksCardUpsert(BaseModel):
-    academic_year: str = "2024-25"
+    academic_year: str = "2026-27"
     data: dict[str, Any] = {}
 
 
 @router.get("/marks/{student_id}")
 def get_marks(
     student_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -200,7 +204,7 @@ def get_marks(
 @router.post("/marks/{student_id}/send-to-parent")
 def send_marks_to_parent(
     student_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -215,6 +219,32 @@ def send_marks_to_parent(
     card.sent_to_parent_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(card)
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).all()
+    parent_ids = {link.user_id for link in parent_links}
+    event_body = (
+        f"[Marks Card Sent] Marks card for {student.name if student else 'your child'} "
+        f"({academic_year}) is now available in the app."
+    )
+    for parent_id in parent_ids:
+        try:
+            post_event_message(
+                db,
+                parent_user_id=parent_id,
+                staff_user_id=user.id,
+                sender_id=user.id,
+                student_id=student_id,
+                body=event_body,
+                send_push=True,
+                push_title="Marks card sent",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to append marks-sent event into chat",
+                extra={"student_id": str(student_id), "teacher_id": str(user.id), "parent_id": str(parent_id)},
+            )
+
     return {
         "id": str(card.id),
         "student_id": str(card.student_id),
@@ -240,7 +270,7 @@ def upsert_marks(
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Extract academic_year and data from request body
-    academic_year = body.academic_year if body.academic_year else "2024-25"
+    academic_year = body.academic_year if body.academic_year else "2026-27"
     marks_data = body.data if body.data else {}
     
     card = db.query(MarksCard).filter(

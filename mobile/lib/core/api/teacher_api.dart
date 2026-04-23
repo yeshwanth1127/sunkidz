@@ -30,7 +30,7 @@ class TeacherApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getMarks(String studentId, {String academicYear = '2024-25'}) async {
+  Future<Map<String, dynamic>> getMarks(String studentId, {String academicYear = '2026-27'}) async {
     final r = await _dio.get('/teacher/marks/$studentId', queryParameters: {'academic_year': academicYear});
     return r.data as Map<String, dynamic>;
   }
@@ -40,7 +40,7 @@ class TeacherApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> sendMarksToParent(String studentId, {String academicYear = '2024-25'}) async {
+  Future<Map<String, dynamic>> sendMarksToParent(String studentId, {String academicYear = '2026-27'}) async {
     final r = await _dio.post('/teacher/marks/$studentId/send-to-parent', queryParameters: {'academic_year': academicYear});
     return r.data as Map<String, dynamic>;
   }

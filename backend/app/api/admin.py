@@ -9,6 +9,7 @@ from collections import defaultdict
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_admin
 from app.core.config import settings
+from app.core.class_names import normalize_class_name
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
 from app.models.branch import Branch, Class, BranchAssignment
@@ -142,8 +143,9 @@ def create_daycare_user(
 def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
     """Create default classes for a branch if missing."""
     for name in settings.default_branch_classes:
-        if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == name).first():
-            db.add(Class(branch_id=branch_id, name=name, academic_year="2024-25"))
+        normalized = normalize_class_name(name)
+        if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == normalized).first():
+            db.add(Class(branch_id=branch_id, name=normalized, academic_year="2026-27"))
     db.commit()
 
 
@@ -371,13 +373,14 @@ def create_class(
     branch = db.query(Branch).filter(Branch.id == data.branch_id).first()
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found")
-    existing = db.query(Class).filter(Class.branch_id == data.branch_id, Class.name == data.name).first()
+    class_name = normalize_class_name(data.name)
+    existing = db.query(Class).filter(Class.branch_id == data.branch_id, Class.name == class_name).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Class '{data.name}' already exists in this branch")
+        raise HTTPException(status_code=400, detail=f"Class '{class_name}' already exists in this branch")
     cls = Class(
         branch_id=data.branch_id,
-        name=data.name,
-        academic_year=data.academic_year or "2024-25",
+        name=class_name,
+        academic_year=data.academic_year or "2026-27",
     )
     db.add(cls)
     db.commit()
@@ -396,7 +399,7 @@ def update_class(
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
     if data.name is not None:
-        cls.name = data.name
+        cls.name = normalize_class_name(data.name)
     if data.academic_year is not None:
         cls.academic_year = data.academic_year
     db.commit()
@@ -463,6 +466,20 @@ def create_user(
         raise HTTPException(status_code=400, detail="Password is required")
     if email and db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    if data.class_id and not data.branch_id:
+        raise HTTPException(status_code=400, detail="Branch is required when class is selected")
+
+    if data.role == "teacher":
+        if not data.branch_id:
+            raise HTTPException(status_code=400, detail="Branch is required for teachers")
+        if not data.class_id:
+            raise HTTPException(status_code=400, detail="Class is required for teachers")
+    elif data.role == "coordinator":
+        if not data.branch_id:
+            raise HTTPException(status_code=400, detail="Branch is required for coordinators")
+        if data.class_id:
+            raise HTTPException(status_code=400, detail="Coordinators can only be assigned to a branch, not a class")
     
     user = User(
         email=email,
@@ -492,6 +509,8 @@ def create_user(
                 cls = db.query(Class).filter(Class.id == class_id).first()
                 if not cls:
                     raise HTTPException(status_code=400, detail=f"Class with ID {data.class_id} not found")
+                if cls.branch_id != branch_id:
+                    raise HTTPException(status_code=400, detail="Selected class does not belong to the selected branch")
             
             # Create BranchAssignment
             assignment = BranchAssignment(
@@ -513,6 +532,8 @@ def create_user(
         phone=user.phone,
         date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         is_active=user.is_active,
+        branch_id=data.branch_id if data.branch_id else None,
+        class_id=data.class_id if data.class_id else None,
     )
 
 

@@ -1,19 +1,23 @@
 from uuid import UUID
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import require_admin
-from app.models import User, Student, MarksCard
+from app.models import User, Student, MarksCard, ParentStudentLink
 from app.schemas.marks import MarksCardUpsert
+from app.services.chat_event_service import post_event_message
 
 router = APIRouter(prefix="/admin/marks", tags=["marks"])
+
+logger = logging.getLogger(__name__)
 
 
 @router.get("/{student_id}")
 def get_marks(
     student_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -71,9 +75,9 @@ def upsert_marks(
 @router.post("/{student_id}/send-to-parent")
 def send_marks_to_parent(
     student_id: UUID,
-    academic_year: str = Query("2024-25"),
+    academic_year: str = Query("2026-27"),
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     """Mark marks card as sent to parent. Parent will see it in their dashboard."""
     card = (
@@ -87,6 +91,32 @@ def send_marks_to_parent(
     card.sent_to_parent_at = datetime.now(timezone.utc)  # noqa: F811
     db.commit()
     db.refresh(card)
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).all()
+    parent_ids = {link.user_id for link in parent_links}
+    event_body = (
+        f"[Marks Card Sent] Marks card for {student.name if student else 'your child'} "
+        f"({academic_year}) is now available in the app."
+    )
+    for parent_id in parent_ids:
+        try:
+            post_event_message(
+                db,
+                parent_user_id=parent_id,
+                staff_user_id=current_user.id,
+                sender_id=current_user.id,
+                student_id=student_id,
+                body=event_body,
+                send_push=True,
+                push_title="Marks card sent",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to append marks-sent event into chat",
+                extra={"student_id": str(student_id), "admin_id": str(current_user.id), "parent_id": str(parent_id)},
+            )
+
     return {
         "id": str(card.id),
         "student_id": str(card.student_id),
@@ -98,7 +128,7 @@ def send_marks_to_parent(
 @router.get("/class/{class_id}/summary")
 def get_class_marks_summary(
     class_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -142,7 +172,7 @@ def get_class_marks_summary(
 @router.get("/branch/{branch_id}/summary")
 def get_branch_marks_summary(
     branch_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):

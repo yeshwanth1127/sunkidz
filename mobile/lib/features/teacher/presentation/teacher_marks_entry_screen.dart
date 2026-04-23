@@ -16,7 +16,7 @@ class TeacherMarksEntryScreen extends ConsumerStatefulWidget {
 class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScreen> {
   Map<String, dynamic>? _student;
   Map<String, dynamic> _data = {};
-  String _academicYear = '2024-25';
+  String _academicYear = '2026-27';
   bool _loading = true;
   bool _sendingToParent = false;
   String? _sentToParentAt;
@@ -108,7 +108,6 @@ class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScree
           DropdownButton<String>(
             value: _academicYear,
             items: const [
-              DropdownMenuItem(value: '2025-26', child: Text('2025-26')),
               DropdownMenuItem(value: '2026-27', child: Text('2026-27')),
             ],
             onChanged: (v) {

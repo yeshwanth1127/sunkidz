@@ -11,13 +11,13 @@ Security model:
     any admin, the coordinator of their child's branch, or teachers of their child's class.
 - Message body is capped (<= 2000 chars). Rate limit: 30 messages / 60s / user.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import or_, and_, func as sqlfunc
+from sqlalchemy import or_, func as sqlfunc
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -26,6 +26,7 @@ from app.models.user import User
 from app.models.student import Student, ParentStudentLink
 from app.models.branch import BranchAssignment
 from app.models.message import MessageThread, Message
+from app.services.leave_service import create_leave_application
 from app.services.notification_service import send_onesignal_notification
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -33,6 +34,12 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 MAX_BODY = 2000
 RATE_LIMIT_COUNT = 30
 RATE_LIMIT_WINDOW_SECONDS = 60
+EVENT_PREFIXES = (
+    "[Leave Request]",
+    "[Leave Approved]",
+    "[Leave Rejected]",
+    "[Marks Card Sent]",
+)
 
 
 # ---------------- Schemas ----------------
@@ -50,6 +57,20 @@ class SendMessageRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Body cannot be empty")
+        return v
+
+
+class CreateThreadLeaveRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+    start_date: date
+    end_date: date
+
+    @field_validator("reason")
+    @classmethod
+    def strip_reason(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Reason cannot be empty")
         return v
 
 
@@ -186,6 +207,11 @@ def _thread_summary(db: Session, thread: MessageThread, me: User) -> dict:
     }
 
 
+def _message_type(body: Optional[str]) -> str:
+    text = (body or "").strip()
+    return "event" if any(text.startswith(prefix) for prefix in EVENT_PREFIXES) else "chat"
+
+
 # ---------------- Endpoints ----------------
 @router.get("/threads")
 def list_threads(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -292,6 +318,7 @@ def list_messages(
             "thread_id": str(m.thread_id),
             "sender_id": str(m.sender_id),
             "body": m.body,
+            "type": _message_type(m.body),
             "is_mine": m.sender_id == user.id,
             "created_at": m.created_at.isoformat() if m.created_at else None,
         }
@@ -338,6 +365,7 @@ def post_message(
         "thread_id": str(msg.thread_id),
         "sender_id": str(msg.sender_id),
         "body": msg.body,
+        "type": "chat",
         "is_mine": True,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }
@@ -357,6 +385,49 @@ def mark_read(
         thread.staff_last_read_at = now
     db.commit()
     return {"success": True}
+
+
+@router.post("/threads/{thread_id}/leave")
+def create_leave_from_thread(
+    thread_id: UUID,
+    data: CreateThreadLeaveRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a leave request directly from a student-scoped parent/staff chat thread."""
+    thread = _thread_or_403(db, thread_id, user)
+    if user.role != "parent" or user.id != thread.parent_user_id:
+        raise HTTPException(status_code=403, detail="Only the parent in this thread can request leave")
+    if not thread.student_id:
+        raise HTTPException(status_code=400, detail="Leave requests from chat require a student-specific thread")
+
+    staff = db.query(User).filter(User.id == thread.staff_user_id).first()
+    if not staff or not _is_staff(staff):
+        raise HTTPException(status_code=400, detail="Invalid staff participant for this thread")
+    if staff.role != "admin" and not _authority_over_student(db, staff, thread.student_id):
+        raise HTTPException(status_code=403, detail="This staff member is no longer assigned to the student")
+
+    app = create_leave_application(
+        db,
+        parent_user=user,
+        student_id=thread.student_id,
+        reason=data.reason,
+        start_date=data.start_date,
+        end_date=data.end_date,
+    )
+    return {
+        "success": True,
+        "leave": {
+            "id": str(app.id),
+            "student_id": str(app.student_id),
+            "parent_user_id": str(app.parent_user_id),
+            "reason": app.reason,
+            "start_date": app.start_date.isoformat() if app.start_date else None,
+            "end_date": app.end_date.isoformat() if app.end_date else None,
+            "status": app.status,
+            "created_at": app.created_at.isoformat() if app.created_at else None,
+        },
+    }
 
 
 # -------- Helpers for starting threads from staff-side UI --------

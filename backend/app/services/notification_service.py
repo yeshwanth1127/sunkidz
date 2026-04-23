@@ -149,6 +149,8 @@ def send_onesignal_notification(
     app_id = settings.onesignal_app_id
     api_key = settings.onesignal_api_key
 
+    subscription_ids = [sid.strip() for sid in (subscription_ids or []) if sid and sid.strip()]
+
     if not subscription_ids:
         logger.warning("🔔 OneSignal: No subscription IDs provided. Skipping.")
         return False
@@ -160,13 +162,8 @@ def send_onesignal_notification(
         logger.error("   → Add these to your .env file and restart backend")
         return False
 
-    headers = {
-        "Authorization": f"Basic {api_key}",
-        "Content-Type": "application/json",
-    }
-
     # OneSignal v5 uses include_subscription_ids; legacy used include_player_ids
-    # Only one of these fields should be sent (v5: include_subscription_ids)
+    # Only one of these fields should be sent (v5: include_subscription_ids).
     payload = {
         "app_id": app_id,
         "include_subscription_ids": subscription_ids,
@@ -183,29 +180,27 @@ def send_onesignal_notification(
         logger.debug(f"   • Message: {message}")
         logger.debug(f"   • Sample IDs: {subscription_ids[:3]}")
         
-        response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=12)
-        
-        if response.status_code == 200:
-            logger.info("✅ OneSignal push delivered successfully!")
-            logger.debug(f"   Response: {response.json()}")
-            return True
-            
-        elif response.status_code == 401:
-            logger.error("❌ OneSignal Auth Failed (401) - Invalid credentials")
-            logger.error(f"   Response: {response.text}")
-            logger.info("🔄 Retrying with 'Key' authorization format...")
-            
-            headers["Authorization"] = f"Key {api_key}"
+        auth_attempts = [
+            ("Key", f"Key {api_key}"),
+            ("Basic", f"Basic {api_key}"),
+        ]
+        for idx, (label, auth_header) in enumerate(auth_attempts):
+            headers = {
+                "Authorization": auth_header,
+                "Content-Type": "application/json",
+            }
             response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=12)
-            
             if response.status_code == 200:
-                logger.info("✅ Retry successful with 'Key' format!")
+                logger.info(f"✅ OneSignal push delivered successfully using {label} auth")
+                logger.debug(f"   Response: {response.json()}")
                 return True
-            else:
-                logger.error(f"❌ Retry also failed: {response.status_code} - {response.text}")
-                return False
-        else:
-            logger.error(f"❌ OneSignal API Error ({response.status_code})")
+
+            if response.status_code in (401, 403) and idx < len(auth_attempts) - 1:
+                logger.warning(f"⚠️ OneSignal auth rejected ({response.status_code}) using {label}, retrying alternate format")
+                logger.warning(f"   Response: {response.text}")
+                continue
+
+            logger.error(f"❌ OneSignal API Error ({response.status_code}) with {label} auth")
             logger.error(f"   Response: {response.text}")
             return False
             

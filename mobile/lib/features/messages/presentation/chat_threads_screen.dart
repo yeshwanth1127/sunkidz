@@ -14,6 +14,7 @@ class ChatThreadsScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
+  static const Duration _pollInterval = Duration(seconds: 6);
   List<Map<String, dynamic>> _threads = [];
   bool _loading = true;
   String? _error;
@@ -23,7 +24,7 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
   void initState() {
     super.initState();
     _refresh();
-    _poll = Timer.periodic(const Duration(seconds: 15), (_) => _refresh(silent: true));
+    _poll = Timer.periodic(_pollInterval, (_) => _refresh(silent: true));
   }
 
   @override
@@ -94,7 +95,7 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
     }
     if (!mounted) return null;
     if (staffList.isEmpty) {
-      _showError('No staff available to message yet. Contact admin.');
+      _showError('No teachers/admin available to message yet. Contact admin.');
       return null;
     }
     return showModalBottomSheet<Map<String, dynamic>>(
@@ -185,61 +186,105 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
     if (student != null && student.isNotEmpty) {
       subtitle = '($student) $last';
     }
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: AppColors.primaryLight,
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : '?',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+
+    return InkWell(
+      onTap: () => _openThread(t),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: AppColors.primaryLight,
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      if (role != null)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.pastelBlue.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            role.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: unread > 0 ? Colors.black87 : Colors.black54,
+                      fontSize: 14,
+                      fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (when != null)
+                  Text(
+                    _fmtTime(when),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: unread > 0 ? AppColors.accentGreen : Colors.black45,
+                      fontWeight: unread > 0 ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                if (unread > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentGreen,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unread > 99 ? '99+' : '$unread',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          if (role != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.pastelBlue,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(role, style: const TextStyle(fontSize: 10)),
-              ),
-            ),
-        ],
-      ),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (when != null) Text(_fmtTime(when), style: const TextStyle(fontSize: 10, color: Colors.black54)),
-          const SizedBox(height: 4),
-          if (unread > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: const BoxDecoration(
-                color: AppColors.accentGreen,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-              alignment: Alignment.center,
-              child: Text(
-                unread > 99 ? '99+' : '$unread',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              ),
-            ),
-        ],
-      ),
-      onTap: () => _openThread(t),
     );
   }
 
@@ -268,7 +313,7 @@ class _StaffPicker extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Select staff', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text('Select teacher/admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
             const Divider(height: 1),
             Flexible(

@@ -7,7 +7,7 @@ module.exports = {
     {
       name: 'sunkidz-api',
       script: 'venv/bin/python',
-      args: '-m uvicorn app.main:app --host 0.0.0.0 --port 8000',
+      args: '-m uvicorn app.main:app --host 0.0.0.0 --port 8001',
       cwd: __dirname,
       instances: 1,
       autorestart: true,

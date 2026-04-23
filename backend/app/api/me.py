@@ -6,9 +6,10 @@ from app.core.auth import get_current_user
 from app.core.security import verify_password, get_password_hash
 from app.models.user import User
 from app.models.branch import BranchAssignment
-from app.schemas.user import UserResponse, PasswordChangeRequest
+from app.schemas.user import UserResponse, PasswordChangeRequest, UserProfileUpdateRequest
 import os
 import uuid
+from datetime import date
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,6 +35,75 @@ def get_me(
         email=user.email,
         full_name=user.full_name,
         role=user.role,
+        phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
+        branch_id=branch_id,
+        class_id=class_id,
+        profile_photo=user.profile_photo,
+    )
+
+
+@router.put("/me", response_model=UserResponse)
+def update_me(
+    data: UserProfileUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if data.full_name is not None:
+        full_name = data.full_name.strip()
+        if not full_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Full name cannot be empty",
+            )
+        user.full_name = full_name
+
+    if data.phone is not None:
+        phone = data.phone.strip()
+        user.phone = phone or None
+
+    if data.email is not None:
+        email = data.email.strip().lower()
+        if email:
+            existing = db.query(User).filter(User.email == email, User.id != user.id).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already in use",
+                )
+            user.email = email
+        else:
+            user.email = None
+
+    if data.date_of_birth is not None:
+        dob_text = data.date_of_birth.strip()
+        if not dob_text:
+            user.date_of_birth = None
+        else:
+            try:
+                user.date_of_birth = date.fromisoformat(dob_text)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date format. Use YYYY-MM-DD",
+                )
+
+    db.commit()
+    db.refresh(user)
+
+    branch_id = None
+    class_id = None
+    assignment = db.query(BranchAssignment).filter(BranchAssignment.user_id == user.id).first()
+    if assignment:
+        branch_id = str(assignment.branch_id)
+        class_id = str(assignment.class_id) if assignment.class_id else None
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         branch_id=branch_id,
         class_id=class_id,
         profile_photo=user.profile_photo,

@@ -106,17 +106,22 @@ class _TeacherMarksScreenState extends ConsumerState<TeacherMarksScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Theme.of(context).dividerColor),
                           ),
-                          child: ListTile(
-                            leading: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(color: AppColors.pastelGreen, borderRadius: BorderRadius.circular(12)),
-                              child: Icon(Icons.grade, color: AppColors.primary),
+                          child: Material(
+                            color: Colors.transparent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            clipBehavior: Clip.hardEdge,
+                            child: ListTile(
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(color: AppColors.pastelGreen, borderRadius: BorderRadius.circular(12)),
+                                child: Icon(Icons.grade, color: AppColors.primary),
+                              ),
+                              title: Text(s['name'] as String? ?? ''),
+                              subtitle: Text(s['admission_number']?.toString() ?? ''),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => context.push('/teacher/marks/${s['id']}'),
                             ),
-                            title: Text(s['name'] as String? ?? ''),
-                            subtitle: Text(s['admission_number']?.toString() ?? ''),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.push('/teacher/marks/${s['id']}'),
                           ),
                         );
                       },
