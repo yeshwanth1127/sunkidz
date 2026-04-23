@@ -47,50 +47,12 @@ def send_fee_notification(student_id: UUID, db: Session) -> bool:
         student = db.query(Student).filter(Student.id == student_id).first()
         if not student: return False
         
-<<<<<<< HEAD
-        # Get parent links for this student
-        parent_links = db.query(ParentStudentLink).filter(
-            ParentStudentLink.student_id == student_id
-        ).all()
-        
-        if not parent_links:
-            logger.warning(f"No parent found for student {student_id}")
-            return False
-        
-        success_count = 0
-        total_attempts = len(parent_links)
-        
-        # Send notification to all parents
-        for parent_link in parent_links:
-            parent_user = db.query(User).filter(User.id == parent_link.user_id).first()
-            if not parent_user or not parent_user.phone:
-                logger.warning(f"Parent {parent_link.user_id} has no phone number")
-                continue
-            
-            try:
-                success = whatsapp_service.send_fee_notification(
-                    phone_number=parent_user.phone,
-                    student_name=student.name,
-                    child_name=student.name
-                )
-                if success:
-                    success_count += 1
-                    logger.info(f"Fee notification sent to parent: {parent_user.phone_no}")
-                else:
-                    logger.warning(f"Failed to send fee notification to {parent_user.phone_no}")
-            except Exception as e:
-                logger.error(f"Exception sending fee notification: {str(e)}")
-        
-        logger.info(f"Fee notifications sent to {success_count}/{total_attempts} parents")
-        return success_count > 0
-=======
         parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).all()
         subscription_ids = []
         for link in parent_links:
             parent = db.query(User).filter(User.id == link.user_id).first()
             if parent and parent.onesignal_player_id:
                 subscription_ids.append(parent.onesignal_player_id)
->>>>>>> ac1ff0b
         
         if subscription_ids:
             title = "Fee Structure Update 💰"
@@ -105,52 +67,6 @@ def send_fee_notification(student_id: UUID, db: Session) -> bool:
 def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
     """Notify staff when a new syllabus is uploaded."""
     try:
-<<<<<<< HEAD
-        # Get all staff (teachers and coordinators) in the class
-        from app.models.branch import BranchAssignment, Class
-
-        # Get staff assignments for this class
-        staff_assignments = db.query(BranchAssignment).filter(
-            BranchAssignment.class_id == syllabus.class_id
-        ).all()
-        
-        if not staff_assignments:
-            logger.warning(f"No staff assigned to class {syllabus.class_id}")
-            return False
-        
-        success_count = 0
-        
-        # Get uploader name
-        uploader = db.query(User).filter(User.id == syllabus.uploaded_by).first()
-        uploader_name = uploader.full_name if uploader else "Admin"
-        
-        # Send notification to all assigned staff
-        for assignment in staff_assignments:
-            staff = db.query(User).filter(User.id == assignment.user_id).first()
-            if not staff or not staff.phone:
-                continue
-            
-            try:
-                # Get class name
-                from app.models.branch import Class
-                class_obj = db.query(Class).filter(Class.id == syllabus.class_id).first()
-                class_name = class_obj.name if class_obj else "Unknown"
-                
-                success = whatsapp_service.send_syllabus_notification(
-                    phone_number=staff.phone,
-                    teacher_name=staff.full_name,
-                    class_name=class_name,
-                    syllabus_title=syllabus.title
-                )
-                if success:
-                    success_count += 1
-                    logger.info(f"Syllabus notification sent to staff: {staff.phone_no}")
-            except Exception as e:
-                logger.error(f"Exception sending syllabus notification to staff: {str(e)}")
-        
-        logger.info(f"Syllabus notifications sent to {success_count} staff members")
-        return success_count > 0
-=======
         from app.models.branch import BranchAssignment, Class
         class_obj = db.query(Class).filter(Class.id == syllabus.class_id).first()
         class_name = class_obj.name if class_obj else "Class"
@@ -161,7 +77,6 @@ def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
             staff = db.query(User).filter(User.id == assignment.user_id).first()
             if staff and staff.onesignal_player_id:
                 subscription_ids.append(staff.onesignal_player_id)
->>>>>>> ac1ff0b
         
         if subscription_ids:
             title = f"New Syllabus: {class_name} 📚"
@@ -183,42 +98,11 @@ def send_homework_notification(homework: Homework, db: Session) -> bool:
         students = db.query(Student).filter(Student.class_id == homework.class_id).all()
         subscription_ids = []
         for student in students:
-<<<<<<< HEAD
-            parent_links = db.query(ParentStudentLink).filter(
-                ParentStudentLink.student_id == student.id
-            ).all()
-            
-            for parent_link in parent_links:
-                parent_user = db.query(User).filter(User.id == parent_link.user_id).first()
-                if not parent_user or not parent_user.phone:
-                    continue
-                
-                try:
-                    # Format due date if available
-                    due_date_str = homework.due_date.strftime("%d-%m-%Y") if homework.due_date else None
-                    
-                    success = whatsapp_service.send_homework_notification(
-                        phone_number=parent_user.phone,
-                        child_name=student.name,
-                        class_name=class_name,
-                        homework_title=homework.title,
-                        due_date=due_date_str
-                    )
-                    if success:
-                        success_count += 1
-                        logger.info(f"Homework notification sent to parent: {parent_user.phone_no}")
-                except Exception as e:
-                    logger.error(f"Exception sending homework notification: {str(e)}")
-        
-        logger.info(f"Homework notifications sent to {success_count} parents")
-        return success_count > 0
-=======
             links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student.id).all()
             for link in links:
                 parent = db.query(User).filter(User.id == link.user_id).first()
                 if parent and parent.onesignal_player_id:
                     subscription_ids.append(parent.onesignal_player_id)
->>>>>>> ac1ff0b
         
         if subscription_ids:
             title = f"New Homework! ✏️ ({class_name})"

@@ -14,14 +14,10 @@ class Branch(Base):
     address = Column(String(500), nullable=True)
     contact_no = Column(String(50), nullable=True)
     status = Column(String(50), default="active")
-<<<<<<< HEAD
     branch_type = Column(String(20), default="normal")  # 'creedo' or 'normal'
-=======
     
     # NEW: Day of month fees are usually due (e.g. 5 for the 5th)
     default_fee_due_day = Column(Integer, default=5)
-    
->>>>>>> ac1ff0b
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
