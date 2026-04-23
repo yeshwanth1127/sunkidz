@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/student_profile_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/api/admin_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:table_calendar/table_calendar.dart';
+import '../../admin/presentation/marksheet_pdf.dart';
 
 class StudentProfileScreen extends ConsumerStatefulWidget {
   final String studentId;
@@ -166,8 +171,8 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
               children: [
                 _DetailsTab(student: s),
                 _AttendanceTab(studentId: widget.studentId),
-                const Center(child: Text('Report Cards tab')),
-                const Center(child: Text('Fees tab')),
+                _MarksTab(studentId: widget.studentId, student: s),
+                _FeesTab(studentId: widget.studentId),
               ],
             ),
           ),
@@ -541,7 +546,6 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
 
 class _AttendanceTab extends ConsumerStatefulWidget {
   final String studentId;
-
   const _AttendanceTab({required this.studentId});
 
   @override
@@ -562,43 +566,22 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
   Future<void> _loadAttendance() async {
     final api = ref.read(studentProfileApiProvider);
     if (api == null) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = 'Not authorized';
-        });
-      }
+      if (mounted) setState(() { _loading = false; _error = 'Not authorized'; });
       return;
     }
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+    if (mounted) setState(() { _loading = true; _error = null; });
     try {
       final attendance = await api.getStudentAttendance(widget.studentId);
-      if (mounted) {
-        setState(() {
-          _attendance = attendance;
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() { _attendance = attendance; _loading = false; });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString().replaceAll('Exception: ', '');
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
     }
   }
 
   Future<void> _editAttendance(String dateStr, String currentStatus) async {
     String newStatus = currentStatus;
-    final api = ref.read(studentProfileApiProvider);
-    
-    if (api == null || api.updateStudentAttendance == null) return;
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
     
     final result = await showDialog<String>(
       context: context,
@@ -616,18 +599,13 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
                 ButtonSegment(value: 'leave', label: Text('Leave'), icon: Icon(Icons.event_busy)),
               ],
               selected: {newStatus},
-              onSelectionChanged: (Set<String> newSelection) {
-                newStatus = newSelection.first;
-              },
+              onSelectionChanged: (Set<String> newSelection) { newStatus = newSelection.first; },
             ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, newStatus),
-            child: const Text('Save'),
-          ),
+          FilledButton(onPressed: () => Navigator.pop(ctx, newStatus), child: const Text('Save')),
         ],
       ),
     );
@@ -635,15 +613,11 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
     if (result != null && result != currentStatus && mounted) {
       setState(() => _loading = true);
       try {
-        await api.updateStudentAttendance!(widget.studentId, dateStr, result);
-        if (mounted) {
-          await _loadAttendance();
-        }
+        await api.updateStudentAttendance(widget.studentId, dateStr, result);
+        if (mounted) await _loadAttendance();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
           setState(() => _loading = false);
         }
       }
@@ -652,188 +626,276 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: _loadAttendance, child: const Text('Retry')),
-          ],
-        ),
-      );
-    }
-    if (_attendance == null || _attendance!['total_days'] == 0) {
-      return const Center(child: Text('No attendance records available'));
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!));
 
-    final att = _attendance!;
+    final att = _attendance ?? {};
     final totalDays = att['total_days'] as int? ?? 0;
     final present = att['present'] as int? ?? 0;
     final absent = att['absent'] as int? ?? 0;
     final leave = att['leave'] as int? ?? 0;
-    final percentage = att['attendance_percentage'] as double? ?? 0.0;
+    final percentage = (att['attendance_percentage'] as num? ?? 0.0).toDouble();
     final records = (att['records'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    final Map<DateTime, String> events = {};
+    for (var r in records) {
+      final d = DateTime.tryParse(r['date'] ?? '');
+      if (d != null) events[DateTime(d.year, d.month, d.day)] = r['status'] ?? 'present';
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Summary cards
           Row(
             children: [
-              _SummaryChip(label: 'Total: $totalDays', color: AppColors.primary),
-              const SizedBox(width: 8),
-              _SummaryChip(label: 'Present: $present', color: Colors.green),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _SummaryChip(label: 'Absent: $absent', color: Colors.red),
-              const SizedBox(width: 8),
-              _SummaryChip(label: 'Leave: $leave', color: Colors.amber),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          // Attendance percentage
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardTheme.color,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Attendance Percentage', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: percentage / 100,
-                          minHeight: 20,
-                          backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation(
-                            percentage >= 75 ? Colors.green : percentage >= 60 ? Colors.amber : Colors.red,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text('$percentage%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Attendance records
-          if (records.isNotEmpty) ...[
-            Text('Recent Attendance', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            ...records.map((record) {
-              final dateStr = record['date'] as String? ?? '';
-              final status = record['status'] as String? ?? 'present';
-              final date = DateTime.tryParse(dateStr);
-              String displayDate = dateStr;
-              if (date != null) {
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                displayDate = '${months[date.month - 1]} ${date.day}';
-              }
-              
-              Color statusColor = Colors.grey;
-              IconData statusIcon = Icons.help;
-              String statusLabel = status;
-              
-              if (status == 'present') {
-                statusColor = Colors.green;
-                statusIcon = Icons.check_circle;
-                statusLabel = 'Present';
-              } else if (status == 'absent') {
-                statusColor = Colors.red;
-                statusIcon = Icons.cancel;
-                statusLabel = 'Absent';
-              } else if (status == 'leave') {
-                statusColor = Colors.amber;
-                statusIcon = Icons.event_busy;
-                statusLabel = 'Leave';
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+              Expanded(
+                flex: 2,
                 child: Container(
+                  height: 140,
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(16)),
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Icon(statusIcon, color: statusColor),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(displayDate, style: const TextStyle(fontWeight: FontWeight.w500)),
-                            Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 12)),
+                      PieChart(
+                        PieChartData(
+                          sectionsSpace: 0, centerSpaceRadius: 35, startDegreeOffset: -90,
+                          sections: [
+                            PieChartSectionData(value: present.toDouble(), color: Colors.green, radius: 10, showTitle: false),
+                            PieChartSectionData(value: absent.toDouble(), color: Colors.red, radius: 10, showTitle: false),
+                            PieChartSectionData(value: leave.toDouble(), color: Colors.amber, radius: 10, showTitle: false),
+                            if (totalDays == 0) PieChartSectionData(value: 1, color: Colors.grey.shade300, radius: 10, showTitle: false),
                           ],
                         ),
                       ),
-                      if (ref.read(studentProfileApiProvider)?.updateStudentAttendance != null)
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 18),
-                          onPressed: () => _editAttendance(dateStr, status),
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(8),
-                        ),
+                      Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text('${percentage.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        const Text('Stats', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      ]),
                     ],
                   ),
                 ),
-              );
-            }).toList(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    _SummaryTile(label: 'Present', value: present.toString(), color: Colors.green, icon: Icons.check_circle),
+                    const SizedBox(height: 6),
+                    _SummaryTile(label: 'Absent', value: absent.toString(), color: Colors.red, icon: Icons.cancel),
+                    const SizedBox(height: 6),
+                    _SummaryTile(label: 'Leave', value: leave.toString(), color: Colors.amber, icon: Icons.event_busy),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text('Attendance Heatmap', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+            child: TableCalendar(
+              firstDay: DateTime.now().subtract(const Duration(days: 365)),
+              lastDay: DateTime.now().add(const Duration(days: 30)),
+              focusedDay: DateTime.now(),
+              calendarFormat: CalendarFormat.month,
+              headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
+              availableGestures: AvailableGestures.none,
+              calendarBuilders: CalendarBuilders(
+                defaultBuilder: (context, day, focusedDay) {
+                  final status = events[DateTime(day.year, day.month, day.day)];
+                  if (status == null) return null;
+                  Color color = status == 'present' ? Colors.green : status == 'absent' ? Colors.red : Colors.amber;
+                  return Container(
+                    margin: const EdgeInsets.all(4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withValues(alpha: 0.2))),
+                    child: Text('${day.day}', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+                  );
+                },
+                todayBuilder: (context, day, focusedDay) => Container(
+                  margin: const EdgeInsets.all(4), alignment: Alignment.center,
+                  decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
+                  child: Text('${day.day}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (records.isNotEmpty) ...[
+            const Text('Recent Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ...records.take(5).map((r) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(backgroundColor: (r['status'] == 'present' ? Colors.green : Colors.red).withValues(alpha: 0.1), radius: 16, child: Icon(r['status'] == 'present' ? Icons.check : Icons.close, size: 14, color: r['status'] == 'present' ? Colors.green : Colors.red)),
+              title: Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(r['date'])), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              trailing: Text((r['status'] as String).toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: r['status'] == 'present' ? Colors.green : Colors.red)),
+            )),
           ],
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 }
 
-class _SummaryChip extends StatelessWidget {
+class _SummaryTile extends StatelessWidget {
   final String label;
+  final String value;
   final Color color;
-
-  const _SummaryChip({required this.label, required this.color});
+  final IconData icon;
+  const _SummaryTile({required this.label, required this.value, required this.color, required this.icon});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
-        ),
-      ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withValues(alpha: 0.1))),
+      child: Row(children: [
+        Icon(icon, color: color, size: 14), const SizedBox(width: 8),
+        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        const Spacer(), Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+      ]),
     );
   }
 }
+
+class _MarksTab extends ConsumerStatefulWidget {
+  final String studentId;
+  final Map<String, dynamic> student;
+  const _MarksTab({required this.studentId, required this.student});
+
+  @override
+  ConsumerState<_MarksTab> createState() => _MarksTabState();
+}
+
+class _MarksTabState extends ConsumerState<_MarksTab> {
+  Map<String, dynamic>? _marksData;
+  bool _loading = true;
+  String? _error;
+  String _selectedYear = '2026-27';
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final res = await api.getMarks(widget.studentId, academicYear: _selectedYear);
+      if (mounted) setState(() { _marksData = res; _loading = false; });
+    } catch (e) { if (mounted) setState(() { _error = e.toString(); _loading = false; }); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    final marks = (_marksData?['data'] as Map<String, dynamic>?) ?? {};
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Academic Performance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          DropdownButton<String>(
+            value: _selectedYear, isDense: true, style: const TextStyle(fontSize: 13, color: Colors.blue),
+            items: ['2026-27'].map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+            onChanged: (v) { if (v != null) { _selectedYear = v; _load(); } },
+          ),
+        ]),
+        const SizedBox(height: 12),
+        if (marks.isEmpty) const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No results found for this term.', style: TextStyle(color: Colors.grey))))
+        else ...[
+          ...marks.entries.map((e) => Card(
+            elevation: 0, margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: ListTile(
+              title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text('Grade: ${e.value['grade'] ?? '—'}', style: const TextStyle(fontSize: 12)),
+              trailing: Text('${e.value['marks']}/${e.value['total']}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            ),
+          )),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () {
+              if (_marksData != null) {
+                MarksheetPdf.printMarksheet(
+                  marksData: _marksData!,
+                  student: widget.student,
+                  academicYear: _selectedYear,
+                );
+              }
+            },
+            icon: const Icon(Icons.picture_as_pdf, size: 18),
+            label: const Text('Download Marksheet'),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _FeesTab extends ConsumerStatefulWidget {
+  final String studentId;
+  const _FeesTab({required this.studentId});
+
+  @override
+  ConsumerState<_FeesTab> createState() => _FeesTabState();
+}
+
+class _FeesTabState extends ConsumerState<_FeesTab> {
+  Map<String, dynamic>? _feeData;
+  bool _loading = true;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    try {
+      final res = await api.getStudentFees(widget.studentId);
+      if (mounted) setState(() { _feeData = res; _loading = false; });
+    } catch (e) { if (mounted) setState(() { _loading = false; }); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_feeData == null) return const Center(child: Text('No data'));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.red.withValues(alpha: 0.1))),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Pending Balance', style: TextStyle(fontWeight: FontWeight.w500)),
+            Text('₹${(_feeData!['total_balance'] ?? 0).toStringAsFixed(0)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 20)),
+          ]),
+        ),
+        const SizedBox(height: 20),
+        _feeRow('Advance Fees', _feeData!['advance_fees_balance'] ?? 0.0),
+        _feeRow('Term Fee 1', _feeData!['term_fee_1_balance'] ?? 0.0),
+        _feeRow('Term Fee 2', _feeData!['term_fee_2_balance'] ?? 0.0),
+        _feeRow('Term Fee 3', _feeData!['term_fee_3_balance'] ?? 0.0),
+      ]),
+    );
+  }
+
+  Widget _feeRow(String label, double balance) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(color: Colors.grey)),
+        Text('₹${balance.toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, color: balance > 0 ? Colors.red : Colors.green)),
+      ]),
+    );
+  }
+}
+

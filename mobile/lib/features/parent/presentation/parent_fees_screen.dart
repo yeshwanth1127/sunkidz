@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/student_profile_provider.dart';
 import '../../admin/presentation/fee_receipt_pdf.dart';
@@ -66,6 +67,10 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: const Text('Fee Details'),
         elevation: 0,
       ),
@@ -185,7 +190,7 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: textColor.withOpacity(0.8),
+            color: textColor.withValues(alpha: 0.8),
           ),
         ),
         const SizedBox(height: 8),
@@ -451,28 +456,33 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
         border: Border(top: BorderSide(color: Colors.grey[200]!)),
         color: Colors.white,
       ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-        leading: const Icon(Icons.receipt_long_outlined,
-            color: Colors.blueGrey, size: 20),
-        title: Text(
-          '₹${amount.toStringAsFixed(2)}',
-          style:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        subtitle: Text(
-          '$dateStr  •  $mode',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.print_outlined,
-              color: Colors.indigo, size: 20),
-          tooltip: 'Print / Download Receipt',
-          onPressed: () => FeeReceiptPdf.printReceipt(
-            payment: payment,
-            feeData: _feeData!,
-            student: widget.student,
+      child: Material(
+        color: Colors.transparent,
+        shape: const RoundedRectangleBorder(),
+        clipBehavior: Clip.hardEdge,
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+          leading: const Icon(Icons.receipt_long_outlined,
+              color: Colors.blueGrey, size: 20),
+          title: Text(
+            '₹${amount.toStringAsFixed(2)}',
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          subtitle: Text(
+            '$dateStr  •  $mode',
+            style: const TextStyle(fontSize: 12),
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.print_outlined,
+                color: Colors.indigo, size: 20),
+            tooltip: 'Print / Download Receipt',
+            onPressed: () => FeeReceiptPdf.printReceipt(
+              payment: payment,
+              feeData: _feeData!,
+              student: widget.student,
+            ),
           ),
         ),
       ),

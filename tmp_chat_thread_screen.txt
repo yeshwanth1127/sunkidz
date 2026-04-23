@@ -1,0 +1,189 @@
+﻿import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/api/chat_provider.dart';
+import '../../../core/theme/app_theme.dart';
+import 'message_bubble.dart';
+import 'message_composer.dart';
+
+class ChatThreadScreen extends ConsumerStatefulWidget {
+  const ChatThreadScreen({super.key, required this.thread});
+  final Map<String, dynamic> thread;
+
+  @override
+  ConsumerState<ChatThreadScreen> createState() => _ChatThreadScreenState();
+}
+
+class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen>
+    with WidgetsBindingObserver {
+  static const Duration _pollInterval = Duration(seconds: 3);
+  final _scroll = ScrollController();
+  final _input = TextEditingController();
+  final List<Map<String, dynamic>> _messages = [];
+  String? _lastId;
+  Timer? _poll;
+  bool _loading = true;
+  bool _sending = false;
+  bool _screenActive = true;
+
+  String get _threadId => widget.thread['id']?.toString() ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initialLoad();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
+    _scroll.dispose();
+    _input.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _screenActive = state == AppLifecycleState.resumed;
+    if (_screenActive) {
+      _poll?.cancel();
+      _poll = Timer.periodic(_pollInterval, (_) => _pollNew());
+    } else {
+      _poll?.cancel();
+    }
+  }
+
+  Future<void> _initialLoad() async {
+    final api = ref.read(chatApiProvider);
+    if (api == null) return;
+    try {
+      final msgs = await api.listMessages(_threadId);
+      if (!mounted) return;
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(msgs);
+        if (_messages.isNotEmpty) _lastId = _messages.last['id']?.toString();
+        _loading = false;
+      });
+      await api.markRead(_threadId);
+      _scrollToBottom();
+      _poll = Timer.periodic(_pollInterval, (_) => _pollNew());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pollNew() async {
+    if (!_screenActive) return;
+    final api = ref.read(chatApiProvider);
+    if (api == null) return;
+    try {
+      final msgs = await api.listMessages(_threadId, afterId: _lastId);
+      if (!mounted || msgs.isEmpty) return;
+      setState(() {
+        _messages.addAll(msgs);
+        _lastId = _messages.last['id']?.toString();
+      });
+      await api.markRead(_threadId);
+      _scrollToBottom();
+    } catch (_) {
+      // silent poll failure
+    }
+  }
+
+  Future<void> _send() async {
+    final body = _input.text.trim();
+    if (body.isEmpty || _sending) return;
+    final api = ref.read(chatApiProvider);
+    if (api == null) return;
+    setState(() => _sending = true);
+    final text = body;
+    _input.clear();
+    try {
+      final m = await api.sendMessage(_threadId, text);
+      if (!mounted) return;
+      setState(() {
+        _messages.add(m);
+        _lastId = m['id']?.toString();
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      _input.text = text;
+      final err = e.toString();
+      String msg = 'Could not send';
+      if (err.contains('429')) msg = 'Too many messages. Slow down.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final otherName = widget.thread['other_user_name']?.toString() ?? 'Chat';
+    final role = widget.thread['other_user_role']?.toString();
+    final student = widget.thread['student_name']?.toString();
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(otherName, style: const TextStyle(fontSize: 16)),
+            if (role != null || (student != null && student.isNotEmpty))
+              Text(
+                [
+                  if (role != null) role,
+                  if (student != null && student.isNotEmpty) 'about $student',
+                ].join(' Â· '),
+                style: const TextStyle(fontSize: 11, color: Colors.white70),
+              ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'No messages yet. Say hi!',
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _messages.length,
+                        itemBuilder: (_, i) => MessageBubble(message: _messages[i]),
+                      ),
+          ),
+          MessageComposer(controller: _input, sending: _sending, onSend: _send),
+        ],
+      ),
+    );
+  }
+}

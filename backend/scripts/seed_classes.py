@@ -1,4 +1,4 @@
-"""Create classes: playgroup, ig1, ig2, ig3. Remove Nursery A.
+"""Create classes: playgroup, IG-1, IG-2, IG-3. Remove Nursery A.
 Run: python -m scripts.seed_classes
 """
 import sys
@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.branch import Branch, BranchAssignment, Class
 
-ACADEMIC_YEAR = "2024-25"
+ACADEMIC_YEAR = "2026-27"
 
 
 def seed():
@@ -24,7 +24,7 @@ def seed():
         if nursery_classes:
             print(f"Removed {len(nursery_classes)} nursery class(es)")
 
-        # Create playgroup, ig1, ig2, ig3 for each branch
+        # Create playgroup, IG-1, IG-2, IG-3 for each branch
         branches = db.query(Branch).all()
         created = 0
         for branch in branches:
@@ -44,17 +44,17 @@ def seed():
 
         db.commit()
 
-        # Reassign teacher (who had class_id) to ig1
-        ig1 = db.query(Class).filter(Class.name == "ig1").first()
-        if ig1:
+        # Reassign teacher (who had class_id) to IG-1
+        IG1 = db.query(Class).filter(Class.name == "IG-1").first()
+        if IG1:
             unassigned = db.query(BranchAssignment).filter(
-                BranchAssignment.branch_id == ig1.branch_id,
+                BranchAssignment.branch_id == IG1.branch_id,
                 BranchAssignment.class_id.is_(None),
             ).first()
             if unassigned:
-                unassigned.class_id = ig1.id
+                unassigned.class_id = IG1.id
                 db.commit()
-                print("Reassigned teacher to ig1")
+                print("Reassigned teacher to IG-1")
 
         print(f"Done. Created {created} classes.")
 

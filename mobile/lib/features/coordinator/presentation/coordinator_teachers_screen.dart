@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/coordinator_provider.dart';
 import '../../../features/dashboard/data/coordinator_dashboard_provider.dart';
-import '../../../shared/widgets/coordinator_drawer.dart';
 
 class CoordinatorTeachersScreen extends ConsumerStatefulWidget {
   const CoordinatorTeachersScreen({super.key});
@@ -58,13 +57,28 @@ class _CoordinatorTeachersScreenState extends ConsumerState<CoordinatorTeachersS
     final branchName = ref.watch(coordinatorDashboardDataProvider).valueOrNull?.branchName ?? 'Branch';
 
     return Scaffold(
-      drawer: const CoordinatorDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Teachers — $branchName'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loading ? null : _load)],
+        title: Text(
+          'Teachers — $branchName',
+          style: const TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            onPressed: _loading ? null : _load,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

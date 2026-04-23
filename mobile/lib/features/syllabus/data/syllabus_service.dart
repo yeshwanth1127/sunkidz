@@ -9,20 +9,40 @@ class SyllabusService {
 
   // ========== Syllabus API Calls ==========
 
+  Future<SyllabusCalendar> fetchSyllabusCalendar({
+    required String classId,
+    int? academicYear,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{'class_id': classId};
+      if (academicYear != null) queryParams['academic_year'] = academicYear;
+      final response = await _apiClient.dio.get(
+        '/syllabus/calendar',
+        queryParameters: queryParams,
+      );
+      if (response.statusCode == 200) {
+        return SyllabusCalendar.fromJson(response.data as Map<String, dynamic>);
+      }
+      throw Exception('Failed to fetch syllabus calendar');
+    } catch (e) {
+      throw Exception('Error fetching syllabus calendar: $e');
+    }
+  }
+
   Future<List<Syllabus>> fetchSyllabus({
     String? classId,
-    String? uploadDate,
+    int? schoolDay,
+    String? academicYearStart,
   }) async {
     try {
       final queryParams = <String, dynamic>{};
       if (classId != null) queryParams['class_id'] = classId;
-      if (uploadDate != null) queryParams['upload_date'] = uploadDate;
-
+      if (schoolDay != null) queryParams['school_day'] = schoolDay;
+      if (academicYearStart != null) queryParams['academic_year_start'] = academicYearStart;
       final response = await _apiClient.dio.get(
         '/syllabus',
         queryParameters: queryParams,
       );
-
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => Syllabus.fromJson(json)).toList();
@@ -45,18 +65,34 @@ class SyllabusService {
     }
   }
 
+  Future<List<String>> fetchGradeNames() async {
+    try {
+      final response = await _apiClient.dio.get('/syllabus/grades');
+      if (response.statusCode == 200) {
+        return (response.data as List).map((e) => e.toString()).toList();
+      }
+      throw Exception('Failed to fetch grades');
+    } catch (e) {
+      throw Exception('Error fetching grades: $e');
+    }
+  }
+
   Future<Syllabus> uploadSyllabus({
-    required String classId,
+    String? classId,
+    String? className,
     required String title,
-    required DateTime uploadDate,
+    required int schoolDay,
+    String? academicYearStart,
     String? description,
     required MultipartFile file,
   }) async {
     try {
       final formData = FormData.fromMap({
-        'class_id': classId,
+        if (classId != null) 'class_id': classId,
+        if (className != null) 'class_name': className,
         'title': title,
-        'upload_date': uploadDate.toIso8601String(),
+        'school_day': schoolDay,
+        if (academicYearStart != null) 'academic_year_start_str': academicYearStart,
         if (description != null) 'description': description,
         'file': file,
       });
@@ -79,19 +115,17 @@ class SyllabusService {
     required String syllabusId,
     String? title,
     String? description,
-    DateTime? uploadDate,
+    int? schoolDay,
   }) async {
     try {
       final data = <String, dynamic>{};
       if (title != null) data['title'] = title;
       if (description != null) data['description'] = description;
-      if (uploadDate != null) data['upload_date'] = uploadDate.toIso8601String();
-
+      if (schoolDay != null) data['school_day'] = schoolDay;
       final response = await _apiClient.dio.put(
         '/syllabus/$syllabusId',
         data: data,
       );
-
       if (response.statusCode == 200) {
         return Syllabus.fromJson(response.data);
       }
@@ -109,6 +143,36 @@ class SyllabusService {
       }
     } catch (e) {
       throw Exception('Error deleting syllabus: $e');
+    }
+  }
+
+  Future<void> addSyllabusHoliday({
+    required DateTime holidayDate,
+    String? reason,
+  }) async {
+    try {
+      await _apiClient.dio.post('/syllabus/holidays', data: {
+        'holiday_date': holidayDate.toIso8601String().split('T')[0],
+        if (reason != null) 'reason': reason,
+      });
+    } catch (e) {
+      throw Exception('Error adding holiday: $e');
+    }
+  }
+
+  Future<void> addSyllabusHolidayRange({
+    required DateTime startDate,
+    int numDays = 1,
+    String? reason,
+  }) async {
+    try {
+      await _apiClient.dio.post('/syllabus/holidays/range', data: {
+        'start_date': startDate.toIso8601String().split('T')[0],
+        'num_days': numDays,
+        if (reason != null) 'reason': reason,
+      });
+    } catch (e) {
+      throw Exception('Error adding holidays: $e');
     }
   }
 

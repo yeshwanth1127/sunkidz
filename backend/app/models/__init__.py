@@ -10,7 +10,10 @@ from app.models.bus_route import BusRoute, RouteStudent
 from app.models.ride_session import RideSession, LocationUpdate
 from app.models.daycare import DaycareGroup, DaycareGroupStudent, DaycareDailyUpdate
 from app.models.syllabus import Syllabus, Homework, GalleryImage
+from app.models.syllabus_holiday import SyllabusHoliday
 from app.models.fees import FeeStructure, FeePayment
+from app.models.message import MessageThread, Message
+from app.models.leave import LeaveApplication
 
 __all__ = [
     "Base",
@@ -33,8 +36,12 @@ __all__ = [
     "DaycareGroupStudent",
     "DaycareDailyUpdate",
     "Syllabus",
+    "SyllabusHoliday",
     "Homework",
     "GalleryImage",
     "FeeStructure",
     "FeePayment",
+    "MessageThread",
+    "Message",
+    "LeaveApplication",
 ]

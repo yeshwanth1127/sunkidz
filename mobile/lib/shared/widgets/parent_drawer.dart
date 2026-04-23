@@ -31,6 +31,8 @@ class ParentDrawer extends ConsumerWidget {
           _DrawerTile(icon: Icons.directions_bus, label: 'Bus Tracking', onTap: () => _navigate(context, '/parent/bus-tracking')),
           _DrawerTile(icon: Icons.notes, label: 'Daycare Updates', onTap: () => _navigate(context, '/parent/daycare-updates')),
           _DrawerTile(icon: Icons.event_available, label: 'Attendance', onTap: () => _navigate(context, '/parent/attendance')),
+          _DrawerTile(icon: Icons.chat_outlined, label: 'Chats', onTap: () => _navigate(context, '/chat')),
+          _DrawerTile(icon: Icons.event_note_outlined, label: 'Apply Leave', onTap: () => _navigate(context, '/parent/leave')),
           _DrawerTile(icon: Icons.settings, label: 'Settings', onTap: () => _navigate(context, '/parent/settings')),
           const Divider(),
           _DrawerTile(icon: Icons.logout, label: 'Logout', onTap: () => _logout(context, ref)),
@@ -47,6 +49,9 @@ class ParentDrawer extends ConsumerWidget {
   void _logout(BuildContext context, WidgetRef ref) {
     Navigator.pop(context);
     ref.read(authProvider.notifier).logout();
+    while (GoRouter.of(context).canPop()) {
+      context.pop();
+    }
     context.go('/login');
   }
 }

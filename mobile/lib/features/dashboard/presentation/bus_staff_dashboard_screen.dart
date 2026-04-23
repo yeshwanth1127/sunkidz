@@ -6,6 +6,7 @@ import '../../../core/api/bus_tracking_provider.dart';
 import '../../../core/providers/active_ride_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../data/bus_staff_dashboard_provider.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class BusStaffDashboardScreen extends ConsumerStatefulWidget {
   const BusStaffDashboardScreen({super.key});
@@ -74,7 +75,7 @@ class _BusStaffDashboardScreenState
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Image.asset(
-                'images/new_logo.png',
+                'assets/images/sunkidz_logo_hd.png',
                 height: 32,
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(
@@ -104,6 +105,7 @@ class _BusStaffDashboardScreenState
           ],
         ),
         actions: [
+          NotificationBell(notificationsRoute: '/bus-staff/notifications'),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
@@ -659,10 +661,15 @@ class _BusStaffDashboardScreenState
   }
 }
 
-class _StudentPickupTile extends StatelessWidget {
+class _StudentPickupTile extends StatefulWidget {
   final Map<String, dynamic> student;
-
   const _StudentPickupTile({required this.student});
+  @override
+  State<_StudentPickupTile> createState() => _StudentPickupTileState();
+}
+
+class _StudentPickupTileState extends State<_StudentPickupTile> {
+  bool _pickedUp = false;
 
   @override
   Widget build(BuildContext context) {
@@ -673,13 +680,10 @@ class _StudentPickupTile extends StatelessWidget {
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: AppColors.pastelGreen,
+              backgroundColor: _pickedUp ? Colors.green.shade100 : AppColors.pastelGreen,
               child: Text(
-                (student['name'] as String? ?? 'S')[0].toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+                (widget.student['name'] as String? ?? 'S')[0].toUpperCase(),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _pickedUp ? Colors.green : null),
               ),
             ),
             const SizedBox(width: 12),
@@ -688,21 +692,26 @@ class _StudentPickupTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    student['name'] as String? ?? 'Unknown',
-                    style: Theme.of(context).textTheme.titleSmall,
+                    widget.student['name'] as String? ?? 'Unknown',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      decoration: _pickedUp ? TextDecoration.lineThrough : null,
+                      color: _pickedUp ? Colors.grey : null,
+                    ),
                   ),
                   Text(
-                    student['pickup_address'] as String? ?? 'No address',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    widget.student['pickup_address'] as String? ?? 'No address',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Checkbox(value: false, onChanged: (_) {}),
+            Checkbox(
+              value: _pickedUp,
+              activeColor: Colors.green,
+              onChanged: (v) => setState(() => _pickedUp = v ?? false),
+            ),
           ],
         ),
       ),

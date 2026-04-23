@@ -13,89 +13,41 @@ from app.models.student import Student, ParentStudentLink
 from app.models.user import User
 from app.models.fees import FeeStructure
 from app.models.syllabus import Syllabus, Homework
-from app.services.whatsapp_service import whatsapp_service
+import requests
+
+from app.models.notification import Notification
+from app.schemas.notification import NotificationCreate
+
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def send_enquiry_notification(enquiry: Enquiry) -> bool:
-    """
-    Send WhatsApp notification to parent after enquiry submission.
-    
-    Business logic:
-    - Prefer father's contact number if available
-    - Fall back to mother's contact number if father's is not available
-    - Skip if no contact number is available
-    
-    Args:
-        enquiry: The enquiry object with parent contact information
-        
-    Returns:
-        True if notification was sent successfully, False otherwise
-    """
-    # Determine which contact to use
-    contact_number: Optional[str] = None
-    contact_type: str = ""
-    
-    if enquiry.father_contact_no:
-        contact_number = enquiry.father_contact_no
-        contact_type = "father"
-    elif enquiry.mother_contact_no:
-        contact_number = enquiry.mother_contact_no
-        contact_type = "mother"
-    else:
-        logger.warning(
-            f"No contact number available for enquiry ID {enquiry.id} (child: {enquiry.child_name})"
-        )
-        return False
-    
-    logger.info(
-        f"Sending enquiry notification for {enquiry.child_name} to {contact_type}'s number: {contact_number}"
-    )
-    
-    # Send WhatsApp message
+def send_enquiry_notification(enquiry: Enquiry, db: Session) -> bool:
+    """Notify admins when a new enquiry is submitted via OneSignal push."""
     try:
-        success = whatsapp_service.send_welcome_message(
-            phone_number=contact_number,
-            child_name=enquiry.child_name
-        )
+        title = "New Student Enquiry! 🎒"
+        message = f"New enquiry received for {enquiry.child_name} ({enquiry.gender or 'not specified'})."
         
-        if success:
-            logger.info(
-                f"Successfully sent enquiry notification for enquiry ID {enquiry.id}"
-            )
-        else:
-            logger.error(
-                f"Failed to send enquiry notification for enquiry ID {enquiry.id}"
-            )
+        # Get all admins to notify
+        admins = db.query(User).filter(User.role == "admin", User.is_active == "true").all()
+        subscription_ids = [a.onesignal_player_id for a in admins if a.onesignal_player_id]
         
-        return success
-        
+        if subscription_ids:
+            return send_onesignal_notification(subscription_ids, title, message)
+        return False
     except Exception as e:
-        logger.error(
-            f"Exception while sending enquiry notification for enquiry ID {enquiry.id}: {str(e)}"
-        )
+        logger.error(f"Error in send_enquiry_notification: {e}")
         return False
 
 
 def send_fee_notification(student_id: UUID, db: Session) -> bool:
-    """
-    Send WhatsApp notification to parents when fee structure is setup/updated.
-    
-    Args:
-        student_id: ID of the student whose fee was updated
-        db: Database session
-        
-    Returns:
-        True if notification was sent successfully, False otherwise
-    """
+    """Send push notification to parents when fee structure is updated."""
     try:
-        # Get student information
         student = db.query(Student).filter(Student.id == student_id).first()
-        if not student:
-            logger.warning(f"Student not found with ID {student_id}")
-            return False
+        if not student: return False
         
+<<<<<<< HEAD
         # Get parent links for this student
         parent_links = db.query(ParentStudentLink).filter(
             ParentStudentLink.student_id == student_id
@@ -131,24 +83,29 @@ def send_fee_notification(student_id: UUID, db: Session) -> bool:
         
         logger.info(f"Fee notifications sent to {success_count}/{total_attempts} parents")
         return success_count > 0
+=======
+        parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).all()
+        subscription_ids = []
+        for link in parent_links:
+            parent = db.query(User).filter(User.id == link.user_id).first()
+            if parent and parent.onesignal_player_id:
+                subscription_ids.append(parent.onesignal_player_id)
+>>>>>>> ac1ff0b
         
+        if subscription_ids:
+            title = "Fee Structure Update 💰"
+            message = f"The fee structure for {student.name} has been updated. Please check the app for details."
+            return send_onesignal_notification(subscription_ids, title, message)
+        return False
     except Exception as e:
-        logger.error(f"Exception in send_fee_notification: {str(e)}")
+        logger.error(f"Error in send_fee_notification: {e}")
         return False
 
 
 def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
-    """
-    Send WhatsApp notification to staff when syllabus is uploaded.
-    
-    Args:
-        syllabus: The syllabus object
-        db: Database session
-        
-    Returns:
-        True if notification was sent, False otherwise
-    """
+    """Notify staff when a new syllabus is uploaded."""
     try:
+<<<<<<< HEAD
         # Get all staff (teachers and coordinators) in the class
         from app.models.branch import BranchAssignment, Class
 
@@ -193,40 +150,40 @@ def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
         
         logger.info(f"Syllabus notifications sent to {success_count} staff members")
         return success_count > 0
+=======
+        from app.models.branch import BranchAssignment, Class
+        class_obj = db.query(Class).filter(Class.id == syllabus.class_id).first()
+        class_name = class_obj.name if class_obj else "Class"
         
+        staff_assignments = db.query(BranchAssignment).filter(BranchAssignment.class_id == syllabus.class_id).all()
+        subscription_ids = []
+        for assignment in staff_assignments:
+            staff = db.query(User).filter(User.id == assignment.user_id).first()
+            if staff and staff.onesignal_player_id:
+                subscription_ids.append(staff.onesignal_player_id)
+>>>>>>> ac1ff0b
+        
+        if subscription_ids:
+            title = f"New Syllabus: {class_name} 📚"
+            message = f"A new syllabus '{syllabus.title}' has been uploaded."
+            return send_onesignal_notification(subscription_ids, title, message)
+        return False
     except Exception as e:
-        logger.error(f"Exception in send_syllabus_notification: {str(e)}")
+        logger.error(f"Error in send_syllabus_notification: {e}")
         return False
 
 
 def send_homework_notification(homework: Homework, db: Session) -> bool:
-    """
-    Send WhatsApp notification to parents when homework is uploaded.
-    
-    Args:
-        homework: The homework object
-        db: Database session
-        
-    Returns:
-        True if notification was sent, False otherwise
-    """
+    """Notify parents when new homework is assigned."""
     try:
-        # Get all students in this class
-        students = db.query(Student).filter(Student.class_id == homework.class_id).all()
-        
-        if not students:
-            logger.warning(f"No students found in class {homework.class_id}")
-            return False
-        
-        success_count = 0
-        
-        # Get class name
         from app.models.branch import Class
         class_obj = db.query(Class).filter(Class.id == homework.class_id).first()
-        class_name = class_obj.name if class_obj else "Unknown"
+        class_name = class_obj.name if class_obj else "Class"
         
-        # Send notification to parents of all students
+        students = db.query(Student).filter(Student.class_id == homework.class_id).all()
+        subscription_ids = []
         for student in students:
+<<<<<<< HEAD
             parent_links = db.query(ParentStudentLink).filter(
                 ParentStudentLink.student_id == student.id
             ).all()
@@ -255,87 +212,135 @@ def send_homework_notification(homework: Homework, db: Session) -> bool:
         
         logger.info(f"Homework notifications sent to {success_count} parents")
         return success_count > 0
+=======
+            links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student.id).all()
+            for link in links:
+                parent = db.query(User).filter(User.id == link.user_id).first()
+                if parent and parent.onesignal_player_id:
+                    subscription_ids.append(parent.onesignal_player_id)
+>>>>>>> ac1ff0b
         
+        if subscription_ids:
+            title = f"New Homework! ✏️ ({class_name})"
+            message = f"Homework '{homework.title}' has been assigned. Please check the student portal."
+            return send_onesignal_notification(subscription_ids, title, message)
+        return False
     except Exception as e:
-        logger.error(f"Exception in send_homework_notification: {str(e)}")
+        logger.error(f"Error in send_homework_notification: {e}")
         return False
 
 
 def send_fee_receipt_notification(student_id: UUID, payment, fees_detail: dict, db: Session) -> bool:
-    """
-    Send WhatsApp receipt notification to parent(s) after a fee payment is recorded.
-
-    Args:
-        student_id: Student UUID
-        payment: FeePayment ORM object
-        fees_detail: dict built by _build_fees_detail (contains total_balance, etc.)
-        db: Database session
-
-    Returns:
-        True if at least one receipt was sent, False otherwise
-    """
-    component_labels = {
-        'advance_fees': 'Advance Fees',
-        'term_fee_1': 'Term Fee 1',
-        'term_fee_2': 'Term Fee 2',
-        'term_fee_3': 'Term Fee 3',
-    }
-
+    """Notify parents after a fee payment is recorded."""
     try:
         student = db.query(Student).filter(Student.id == student_id).first()
-        if not student:
-            logger.warning(f"Student not found: {student_id}")
-            return False
-
-        parent_links = db.query(ParentStudentLink).filter(
-            ParentStudentLink.student_id == student_id
-        ).all()
-
-        if not parent_links:
-            logger.warning(f"No parents linked to student {student_id}")
-            return False
-
-        component_label = component_labels.get(payment.component, payment.component)
-        amount_paid = float(payment.amount_paid or 0.0)
-        total_balance = float(fees_detail.get('total_balance', 0.0))
-        payment_date_str = (
-            payment.payment_date.strftime('%d %b %Y') if payment.payment_date else 'N/A'
-        )
-        receipt_ref = str(payment.id)[:8].upper()
-
-        message = (
-            f"*Fee Receipt — Sunkidz* 🌟\n\n"
-            f"*Student:* {student.name}\n"
-            f"*Receipt No:* #{receipt_ref}\n"
-            f"{'─' * 28}\n"
-            f"*Component:* {component_label}\n"
-            f"*Amount Paid:* ₹{amount_paid:,.2f}\n"
-            f"*Payment Mode:* {payment.payment_mode}\n"
-            f"*Date:* {payment_date_str}\n"
-            f"{'─' * 28}\n"
-            f"*Outstanding Balance:* ₹{total_balance:,.2f}\n\n"
-            f"Thank you for your payment!\nSunkidz Team 🎒"
-        )
-
-        success_count = 0
+        if not student: return False
+        
+        parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).all()
+        subscription_ids = []
         for link in parent_links:
             parent = db.query(User).filter(User.id == link.user_id).first()
-            if not parent or not parent.phone:
-                continue
-            try:
-                formatted = whatsapp_service._format_phone_number(parent.phone)
-                success = whatsapp_service._send_message_request(formatted, message)
-                if success:
-                    success_count += 1
-                    logger.info(f"Fee receipt sent to {parent.phone}")
-                else:
-                    logger.warning(f"Failed to send receipt to {parent.phone}")
-            except Exception as e:
-                logger.error(f"Exception sending receipt to {parent.phone}: {str(e)}")
-
-        logger.info(f"Fee receipts sent to {success_count}/{len(parent_links)} parents")
-        return success_count > 0
-
-    except Exception as e:
-        logger.error(f"Exception in send_fee_receipt_notification: {str(e)}")
+            if parent and parent.onesignal_player_id:
+                subscription_ids.append(parent.onesignal_player_id)
+        
+        if subscription_ids:
+            amount_paid = float(payment.amount_paid or 0.0)
+            title = "Fee Payment Received 🙏"
+            message = f"Payment of ₹{amount_paid:,.2f} for {student.name} has been processed successfully."
+            return send_onesignal_notification(subscription_ids, title, message)
         return False
+    except Exception as e:
+        logger.error(f"Error in send_fee_receipt_notification: {e}")
+        return False
+
+
+# OneSignal REST API URL
+ONESIGNAL_API_URL = "https://api.onesignal.com/notifications"
+
+
+def send_onesignal_notification(
+    subscription_ids: list[str], title: str, message: str, data: dict | None = None
+) -> bool:
+    """Send push via OneSignal using modern v5 compatible payload and logging."""
+    app_id = settings.onesignal_app_id
+    api_key = settings.onesignal_api_key
+
+    subscription_ids = [sid.strip() for sid in (subscription_ids or []) if sid and sid.strip()]
+
+    if not subscription_ids:
+        logger.warning("🔔 OneSignal: No subscription IDs provided. Skipping.")
+        return False
+    
+    if not app_id or not api_key:
+        logger.error("🔴 CRITICAL: OneSignal credentials NOT configured!")
+        logger.error(f"   ONESIGNAL_APP_ID: {'✓ SET' if app_id else '✗ MISSING'}")
+        logger.error(f"   ONESIGNAL_API_KEY: {'✓ SET' if api_key else '✗ MISSING'}")
+        logger.error("   → Add these to your .env file and restart backend")
+        return False
+
+    # OneSignal v5 uses include_subscription_ids; legacy used include_player_ids
+    # Only one of these fields should be sent (v5: include_subscription_ids).
+    payload = {
+        "app_id": app_id,
+        "include_subscription_ids": subscription_ids,
+        "headings": {"en": title},
+        "contents": {"en": message},
+    }
+    
+    if data:
+        payload["data"] = data
+
+    try:
+        logger.info(f"📤 OneSignal: Sending to {len(subscription_ids)} device(s)")
+        logger.debug(f"   • Title: {title}")
+        logger.debug(f"   • Message: {message}")
+        logger.debug(f"   • Sample IDs: {subscription_ids[:3]}")
+        
+        auth_attempts = [
+            ("Key", f"Key {api_key}"),
+            ("Basic", f"Basic {api_key}"),
+        ]
+        for idx, (label, auth_header) in enumerate(auth_attempts):
+            headers = {
+                "Authorization": auth_header,
+                "Content-Type": "application/json",
+            }
+            response = requests.post(ONESIGNAL_API_URL, json=payload, headers=headers, timeout=12)
+            if response.status_code == 200:
+                logger.info(f"✅ OneSignal push delivered successfully using {label} auth")
+                logger.debug(f"   Response: {response.json()}")
+                return True
+
+            if response.status_code in (401, 403) and idx < len(auth_attempts) - 1:
+                logger.warning(f"⚠️ OneSignal auth rejected ({response.status_code}) using {label}, retrying alternate format")
+                logger.warning(f"   Response: {response.text}")
+                continue
+
+            logger.error(f"❌ OneSignal API Error ({response.status_code}) with {label} auth")
+            logger.error(f"   Response: {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ OneSignal request exception: {e}")
+        import traceback
+        logger.error(f"   Traceback: {traceback.format_exc()}")
+        return False
+
+
+def push_admin_notification(db: Session, admin_user_id: UUID, title: str, message: str, related_enquiry_id: UUID | None = None):
+    # Create DB notification
+    notification = Notification(
+        user_id=admin_user_id,
+        title=title,
+        message=message,
+        related_enquiry_id=related_enquiry_id,
+        is_read=False
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    # Send OneSignal push
+    admin = db.query(User).filter(User.id == admin_user_id).first()
+    if admin and admin.onesignal_player_id:
+        send_onesignal_notification([admin.onesignal_player_id], title, message)  # stored subscription_id
+    return notification

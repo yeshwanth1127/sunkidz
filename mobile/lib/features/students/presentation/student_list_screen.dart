@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
+import '../../../core/api/admin_api.dart';
+
+import '../../../shared/widgets/dob_picker.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
+import '../../../shared/widgets/animated_list_item.dart';
 
 class StudentListScreen extends ConsumerStatefulWidget {
   const StudentListScreen({super.key});
@@ -35,12 +41,11 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     }
     try {
       final branches = await api.getBranches();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _branches = branches;
-          _classes = [];
-          _selectedClassId = null;
         });
+      }
       await _loadStudents();
       if (_selectedBranchId != null) await _loadClasses(_selectedBranchId!);
     } catch (_) {
@@ -53,11 +58,12 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     if (api == null) return;
     try {
       final classes = await api.getClasses(branchId: branchId);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _classes = classes;
           _selectedClassId = null;
         });
+      }
     } catch (_) {}
   }
 
@@ -67,27 +73,30 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       final students = await api.getAdmissions(
         branchId: _selectedBranchId,
         classId: _selectedClassId,
       );
-      if (mounted)
+      if (mounted) {
         setState(() {
           _students = students;
           _loading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString().replaceAll('Exception: ', '');
           _loading = false;
         });
+      }
     }
   }
 
@@ -109,432 +118,268 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
     _loadStudents();
   }
 
-  void _confirmDeleteStudent(Map<String, dynamic> student) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Student'),
-        content: Text(
-          'Are you sure you want to delete ${student['name']} (${student['admission_number']})? '
-          'This will remove all related data (attendance, marks cards, parent link) and cannot be undone.',
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            _buildFilters(),
+            Expanded(
+              child:
+                  _loading
+                      ? const _StudentLoadingPlaceholder()
+                      : _error != null
+                      ? _buildErrorState()
+                      : _students.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                        onRefresh: _loadStudents,
+                        color: AppColors.primary,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          itemCount: _students.length,
+                          itemBuilder:
+                              (context, i) => AnimatedListItem(
+                                index: i,
+                                child: _StudentCard(
+                                  student: _students[i],
+                                  onTap:
+                                      () => context.push(
+                                        '/students/${_students[i]['id']}',
+                                      ),
+                                  onDelete:
+                                      () => _confirmDeleteStudent(_students[i]),
+                                  onBusOptToggle:
+                                      () => _toggleBusOpt(_students[i]),
+                                  onShiftBranch:
+                                      () =>
+                                          _showShiftBranchDialog(_students[i]),
+                                ),
+                              ),
+                        ),
+                      ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref
-                    .read(adminApiProvider)!
-                    .deleteStudent(student['id'] as String);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Student deleted')),
-                  );
-                  _loadStudents();
-                }
-              } catch (e) {
-                if (mounted)
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/admissions/new'),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.person_add_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/admin');
               }
             },
-            child: const Text('Delete'),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Student Directory',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: _loading ? null : _loadStudents,
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: _loading ? Colors.grey : AppColors.primary,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [AppShadows.soft],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Column(
+        children: [
+          DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: _selectedBranchId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
+                hintText: 'Branch',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+              ),
+              items: [
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('All Branches'),
+                ),
+                ..._branches.map(
+                  (b) => DropdownMenuItem(
+                    value: b['id'] as String?,
+                    child: Text(
+                      b['name']?.toString() ?? '—',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: _onBranchChanged,
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: _selectedClassId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.grid_3x3_rounded, size: 18),
+                hintText: 'Grade',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('All Grades')),
+                ..._classes.map(
+                  (c) => DropdownMenuItem(
+                    value: c['id'] as String?,
+                    child: Flexible(
+                      child: Text(
+                        c['name']?.toString() ?? '—',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: _onClassChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Text(
+        _error ?? 'Unknown Error',
+        style: const TextStyle(color: Colors.red),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.person_search_rounded,
+            size: 80,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No students found',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteStudent(Map<String, dynamic> student) {
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Delete Student?'),
+            content: Text(
+              'Are you sure you want to remove ${student['name']}? This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await ref
+                        .read(adminApiProvider)!
+                        .deleteStudent(student['id']);
+                    _loadStudents();
+                  } catch (e) {
+                    if (mounted)
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
     );
   }
 
   Future<void> _toggleBusOpt(Map<String, dynamic> student) async {
-    final isCurrentlyBusOpted = student['bus_opted'] as bool? ?? false;
-
-    if (isCurrentlyBusOpted) {
-      final shouldDisable = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Disable Bus Service?'),
-          content: Text(
-            'Are you sure you want to mark ${student['name']} as not opted for bus service?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Disable'),
-            ),
-          ],
-        ),
-      );
-
-      if (shouldDisable != true) {
-        return;
-      }
-    }
-
     try {
-      final result = await ref
-          .read(adminApiProvider)!
-          .toggleBusOpt(student['id'] as String);
-      if (mounted) {
-        final busOpted = result['bus_opted'] as bool? ?? false;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              busOpted ? 'Bus service enabled' : 'Bus service disabled',
-            ),
-          ),
-        );
-        _loadStudents();
-      }
+      await ref.read(adminApiProvider)!.toggleBusOpt(student['id']);
+      _loadStudents();
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
     }
   }
 
   Future<void> _showShiftBranchDialog(Map<String, dynamic> student) async {
-    final api = ref.read(adminApiProvider);
-    if (api == null) return;
-
-    String? selectedBranchId = student['branch_id'] as String?;
-    String? selectedClassId = student['class_id'] as String?;
-    List<Map<String, dynamic>> branchClasses = [];
-    bool loadingClasses = false;
-
-    Future<void> loadClassesForBranch(
-      StateSetter setSheetState,
-      String branchId,
-    ) async {
-      setSheetState(() => loadingClasses = true);
-      try {
-        final classes = await api.getClasses(branchId: branchId);
-        setSheetState(() {
-          branchClasses = classes;
-          final classExists = classes.any((c) => c['id'] == selectedClassId);
-          if (!classExists) {
-            selectedClassId = classes.isNotEmpty
-                ? classes.first['id'] as String?
-                : null;
-          }
-        });
-      } finally {
-        setSheetState(() => loadingClasses = false);
-      }
-    }
-
-    if (selectedBranchId != null) {
-      try {
-        branchClasses = await api.getClasses(branchId: selectedBranchId);
-        final classExists = branchClasses.any(
-          (c) => c['id'] == selectedClassId,
-        );
-        if (!classExists) {
-          selectedClassId = branchClasses.isNotEmpty
-              ? branchClasses.first['id'] as String?
-              : null;
-        }
-      } catch (_) {
-        branchClasses = [];
-      }
-    }
-
-    if (!mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => AlertDialog(
-          title: const Text('Shift Student Branch'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${student['name']} (${student['admission_number'] ?? '—'})',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: selectedBranchId,
-                decoration: const InputDecoration(
-                  labelText: 'Target Branch',
-                  border: OutlineInputBorder(),
-                ),
-                items: _branches
-                    .map(
-                      (b) => DropdownMenuItem<String>(
-                        value: b['id'] as String,
-                        child: Text(b['name']?.toString() ?? '—'),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setSheetState(() {
-                    selectedBranchId = value;
-                    selectedClassId = null;
-                    branchClasses = [];
-                  });
-                  loadClassesForBranch(setSheetState, value);
-                },
-              ),
-              const SizedBox(height: 12),
-              if (loadingClasses)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              else
-                DropdownButtonFormField<String>(
-                  value: selectedClassId,
-                  decoration: const InputDecoration(
-                    labelText: 'Target Grade',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: branchClasses
-                      .map(
-                        (c) => DropdownMenuItem<String>(
-                          value: c['id'] as String,
-                          child: Text(c['name']?.toString() ?? '—'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: branchClasses.isEmpty
-                      ? null
-                      : (value) => setSheetState(() => selectedClassId = value),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: selectedBranchId == null
-                  ? null
-                  : () => Navigator.pop(ctx, true),
-              child: const Text('Shift'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed != true || selectedBranchId == null) return;
-
-    try {
-      final result = await api.transferStudentBranch(
-        student['id'] as String,
-        branchId: selectedBranchId!,
-        classId: selectedClassId,
-      );
-      if (mounted) {
-        final updatedAdmissionNo =
-            result['admission_number']?.toString() ??
-            (student['admission_number']?.toString() ?? '—');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Shifted to ${result['branch_name']} ${result['class_name'] != null ? '• ${result['class_name']}' : ''}. Admission No: $updatedAdmissionNo',
-            ),
-          ),
-        );
-        _loadStudents();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: const Text('Students'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _load,
-          ),
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Theme.of(context).cardTheme.color,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Filter',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(color: Colors.grey),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedBranchId,
-                        decoration: const InputDecoration(
-                          labelText: 'Branch',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All branches'),
-                          ),
-                          ..._branches.map(
-                            (b) => DropdownMenuItem(
-                              value: b['id'] as String?,
-                              child: Text(b['name']?.toString() ?? '—'),
-                            ),
-                          ),
-                        ],
-                        onChanged: _onBranchChanged,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedClassId,
-                        decoration: const InputDecoration(
-                          labelText: 'Grade',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All grades'),
-                          ),
-                          ..._classes.map(
-                            (c) => DropdownMenuItem(
-                              value: c['id'] as String?,
-                              child: Text(c['name']?.toString() ?? '—'),
-                            ),
-                          ),
-                        ],
-                        onChanged: _onClassChanged,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _students.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.school_outlined,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No students found',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _selectedBranchId != null || _selectedClassId != null
-                              ? 'Try adjusting your filters'
-                              : 'Convert enquiries to admissions from the Enquiries screen',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _students.length,
-                    itemBuilder: (_, i) => _StudentCard(
-                      student: _students[i],
-                      onTap: () =>
-                          context.go('/students/${_students[i]['id']}'),
-                      onDelete: () => _confirmDeleteStudent(_students[i]),
-                      onBusOptToggle: () => _toggleBusOpt(_students[i]),
-                      onShiftBranch: () => _showShiftBranchDialog(_students[i]),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _load() async {
-    await _loadBranches();
+    // Navigate to student profile where branch transfer is available
+    context.push('/students/${student['id']}');
   }
 }
 
@@ -555,144 +400,211 @@ class _StudentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = student['name'] as String? ?? '';
-    final admissionNo = student['admission_number'] as String? ?? '—';
-    final branch = student['branch_name'] as String? ?? '—';
-    final className = student['class_name'] as String? ?? '';
-    final age = student['age_years'] ?? student['age_months'];
-    final ageStr = age is int
-        ? (student['age_months'] != null ? '$age yrs' : 'Age $age')
-        : (age?.toString() ?? '—');
-    final busOpted = student['bus_opted'] as bool? ?? false;
-
-    final subtitle = [
-      branch,
-      if (className.isNotEmpty) className,
-      ageStr,
-    ].join(' • ');
+    final name = student['name'] ?? 'Unknown';
+    final admissionNo = student['admission_number'] ?? '—';
+    final branch = student['branch_name'] ?? 'Branch';
+    final className = student['class_name'] ?? '';
+    final busOpted = student['bus_opted'] ?? false;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [AppShadows.soft],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.indigo.shade400,
+                          Colors.indigo.shade700,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.face_retouching_natural_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '$branch ${className.isNotEmpty ? "• $className" : ""}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    onSelected: (v) {
+                      if (v == 'delete') onDelete();
+                      if (v == 'bus') onBusOptToggle();
+                    },
+                    itemBuilder:
+                        (context) => [
+                          PopupMenuItem(
+                            value: 'bus',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  busOpted
+                                      ? Icons.bus_alert
+                                      : Icons.directions_bus,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(busOpted ? 'Disable Bus' : 'Enable Bus'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+              ),
+              Row(
+                children: [
+                  Text(
+                    'ID: $admissionNo',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (busOpted)
                     Container(
-                      width: 48,
-                      height: 48,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.pastelGreen,
+                        color: Colors.amber.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(Icons.school, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          Icon(
+                            Icons.directions_bus_rounded,
+                            size: 12,
+                            color: Colors.amber.shade700,
                           ),
+                          const SizedBox(width: 4),
                           Text(
-                            subtitle,
+                            'BUS OPTED',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            admissionNo,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                              fontFamily: 'monospace',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.amber.shade700,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
-                      onSelected: (v) {
-                        if (v == 'shift_branch') onShiftBranch();
-                        if (v == 'delete') onDelete();
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'shift_branch',
-                          child: Text('Shift Branch'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text(
-                            'Delete',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onBusOptToggle,
-                        icon: Icon(
-                          busOpted ? Icons.check_circle : Icons.directions_bus,
-                          size: 18,
-                          color: busOpted ? Colors.green : Colors.grey,
-                        ),
-                        label: Text(
-                          busOpted ? 'Bus Opted' : 'Opt Bus',
-                          style: TextStyle(
-                            color: busOpted
-                                ? Colors.green
-                                : Colors.grey.shade700,
-                            fontWeight: busOpted
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: busOpted
-                                ? Colors.green
-                                : Colors.grey.shade300,
-                            width: busOpted ? 2 : 1,
-                          ),
-                          backgroundColor: busOpted
-                              ? Colors.green.withValues(alpha: 0.1)
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StudentLoadingPlaceholder extends StatelessWidget {
+  const _StudentLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 5,
+      itemBuilder:
+          (_, __) => Column(
+            children: [
+              Row(
+                children: [
+                  const ShimmerLoading.circular(width: 56, height: 56),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoading.rectangular(
+                          height: 16,
+                          width: MediaQuery.of(context).size.width * 0.5,
+                        ),
+                        const SizedBox(height: 8),
+                        ShimmerLoading.rectangular(
+                          height: 12,
+                          width: MediaQuery.of(context).size.width * 0.3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
     );
   }
 }

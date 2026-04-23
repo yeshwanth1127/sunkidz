@@ -11,6 +11,7 @@ from app.models import User, Branch, Class, BranchAssignment, Student, ParentStu
 from app.api import auth as auth_api
 from app.api import me as me_api
 from app.api import admin as admin_api
+from app.api import admin_notifications as admin_notifications_api
 from app.api import enquiry as enquiry_api
 from app.api import admission as admission_api
 from app.api import marks as marks_api
@@ -20,6 +21,11 @@ from app.api import parent as parent_api
 from app.api import bus_tracking as bus_tracking_api
 from app.api import syllabus as syllabus_api
 from app.api import daycare as daycare_api
+from app.api import messages as messages_api
+from app.api import chat as chat_api
+from app.api import leave as leave_api
+from app.api import device as device_api
+from app.api import legal as legal_api
 
 # Configure logging
 logging.basicConfig(
@@ -40,7 +46,6 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,6 +54,7 @@ app.include_router(auth_api.router, prefix="/api/v1")
 app.include_router(me_api.router, prefix="/api/v1")
 app.include_router(admission_api.router, prefix="/api/v1")
 app.include_router(admin_api.router, prefix="/api/v1")
+app.include_router(admin_notifications_api.router, prefix="/api/v1")
 app.include_router(enquiry_api.router, prefix="/api/v1")
 app.include_router(marks_api.router, prefix="/api/v1")
 app.include_router(teacher_api.router, prefix="/api/v1")
@@ -57,6 +63,11 @@ app.include_router(parent_api.router, prefix="/api/v1")
 app.include_router(bus_tracking_api.router, prefix="/api/v1")
 app.include_router(syllabus_api.router, prefix="/api/v1")
 app.include_router(daycare_api.router, prefix="/api/v1")
+app.include_router(messages_api.router, prefix="/api/v1")
+app.include_router(chat_api.router, prefix="/api/v1")
+app.include_router(leave_api.router, prefix="/api/v1")
+app.include_router(device_api.router, prefix="/api/v1")
+app.include_router(legal_api.router)
 
 
 @app.get("/")

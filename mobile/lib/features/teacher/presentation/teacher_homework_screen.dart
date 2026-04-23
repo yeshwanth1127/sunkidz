@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
 
 class TeacherHomeworkScreen extends StatelessWidget {
   const TeacherHomeworkScreen({super.key});
@@ -10,12 +9,18 @@ class TeacherHomeworkScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const TeacherDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Homework'),
+        title: const Text(
+          'Homework',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
       ),
       body: Center(
         child: Column(

@@ -20,4 +20,4 @@ flutter run -d android
 
 ## API
 
-Backend runs on **port 9889**. Default API URL: `https://sunkidz.org`.
+Backend runs on **port 9889**. Default API URL: `https://api.sunkidz.org`.

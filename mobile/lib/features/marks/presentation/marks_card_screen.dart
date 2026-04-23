@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
+
 
 /// Marks card screen matching Sun Kidz PERFORMANCE PROFILE design.
 /// Student selection, scholastic & co-scholastic marks input.
@@ -21,7 +21,7 @@ class _MarksCardScreenState extends ConsumerState<MarksCardScreen> {
   String? _selectedClassId;
   Map<String, dynamic>? _selectedStudent;
   Map<String, dynamic> _data = {};
-  String _academicYear = '2024-25';
+  String _academicYear = '2026-27';
   bool _loading = false;
   bool _saving = false;
   bool _sendingToParent = false;
@@ -157,15 +157,18 @@ class _MarksCardScreenState extends ConsumerState<MarksCardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AdminDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Marks Card'),
+        title: const Text(
+          'Marks Card',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         actions: [
           if (_selectedStudent != null) ...[
             if (_sentToParentAt != null)
@@ -295,8 +298,7 @@ class _MarksCardScreenState extends ConsumerState<MarksCardScreen> {
             value: _academicYear,
             decoration: const InputDecoration(labelText: 'Academic Year', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
             items: const [
-              DropdownMenuItem(value: '2024-25', child: Text('2024-25')),
-              DropdownMenuItem(value: '2025-26', child: Text('2025-26')),
+              DropdownMenuItem(value: '2026-27', child: Text('2026-27')),
             ],
             onChanged: (v) {
               if (v != null) {

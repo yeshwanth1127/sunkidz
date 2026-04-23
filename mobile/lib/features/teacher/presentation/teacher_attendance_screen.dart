@@ -118,14 +118,26 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const TeacherDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Attendance'),
+        title: const Text(
+          'Attendance',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: const Color(0xFFFF8C00),
+          unselectedLabelColor: Colors.grey,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          indicatorColor: const Color(0xFFFF8C00),
+          indicatorWeight: 3,
+          indicatorSize: TabBarIndicatorSize.label,
           tabs: const [
             Tab(text: 'Mark Today'),
             Tab(text: 'View History'),
@@ -134,6 +146,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const BouncingScrollPhysics(),
         children: [
           _buildMarkTodayTab(),
           _buildHistoryTab(),
@@ -278,38 +291,48 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('Weekly'),
-                  selected: _historyPeriod == 'week',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'week');
-                    await _loadHistory();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Monthly'),
-                  selected: _historyPeriod == 'month',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'month');
-                    await _loadHistory();
-                  },
-                ),
-                const Spacer(),
-                ChoiceChip(
-                  label: const Text('By Date'),
-                  selected: !_historyViewByStudent,
-                  onSelected: (_) => setState(() => _historyViewByStudent = false),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('By Student'),
-                  selected: _historyViewByStudent,
-                  onSelected: (_) => setState(() => _historyViewByStudent = true),
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('Weekly'),
+                    selected: _historyPeriod == 'week',
+                    onSelected: (_) async {
+                      setState(() => _historyPeriod = 'week');
+                      await _loadHistory();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Monthly'),
+                    selected: _historyPeriod == 'month',
+                    onSelected: (_) async {
+                      setState(() => _historyPeriod = 'month');
+                      await _loadHistory();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    height: 24,
+                    width: 1,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(width: 16),
+                  ChoiceChip(
+                    label: const Text('By Date'),
+                    selected: !_historyViewByStudent,
+                    onSelected: (_) => setState(() => _historyViewByStudent = false),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('By Student'),
+                    selected: _historyViewByStudent,
+                    onSelected: (_) => setState(() => _historyViewByStudent = true),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             if (_loading && _historyData == null)

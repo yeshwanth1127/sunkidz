@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong2.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../core/api/bus_tracking_provider.dart' show busTrackingApiProvider;
 import '../../../core/theme/app_theme.dart';
 
@@ -167,9 +167,11 @@ class _AdminLiveTrackingDashboardState extends ConsumerState<AdminLiveTrackingDa
         .toList();
 
     if (points.isNotEmpty) {
-      _mapController.fitBounds(
-        LatLngBounds.fromPoints(points),
-        options: const FitBoundsOptions(padding: EdgeInsets.all(100)),
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.all(100),
+        ),
       );
     }
   }
@@ -235,7 +237,7 @@ class _MapView extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected ? AppColors.primary : AppColors.success,
+                    color: isSelected ? AppColors.primary : AppColors.accentGreen,
                     border: isSelected
                         ? Border.all(color: Colors.white, width: 3)
                         : null,

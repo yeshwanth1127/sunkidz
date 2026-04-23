@@ -2,465 +2,553 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/api/current_user_provider.dart';
-import '../../../core/config/app_config.dart';
-import '../../../shared/widgets/stat_card.dart';
-import '../../../shared/widgets/admin_drawer.dart';
-import '../../../shared/widgets/admissions_chart.dart';
-import '../data/dashboard_provider.dart';
+import 'package:sunkidz_lms/core/theme/app_theme.dart';
+import 'package:sunkidz_lms/core/api/admin_provider.dart';
+import 'package:sunkidz_lms/shared/widgets/shimmer_loading.dart';
+import 'package:sunkidz_lms/shared/widgets/admin_drawer.dart';
+import 'package:sunkidz_lms/features/dashboard/data/dashboard_provider.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
-  static String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
-  static String _getConversionRate({
-    required int newEnquiries,
-    required int convertedEnquiries,
-  }) {
-    final total = newEnquiries + convertedEnquiries;
-    if (total == 0) return '0%';
-    final rate = (convertedEnquiries / total * 100).toStringAsFixed(1);
-    return '$rate%';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(currentUserProvider);
     final dashboardAsync = ref.watch(dashboardDataProvider);
-
-    final userName = userAsync.valueOrNull?['full_name']?.toString() ?? 'Admin';
-    final branchesCount = dashboardAsync.valueOrNull?.branchesCount ?? 0;
-    final studentsCount = dashboardAsync.valueOrNull?.studentsCount ?? 0;
-    final staffCount = dashboardAsync.valueOrNull?.staffCount ?? 0;
-    final feesTotalDue = dashboardAsync.valueOrNull?.feesTotalDue ?? 0.0;
-    final feesPending = dashboardAsync.valueOrNull?.feesPending ?? 0.0;
-    final feesCollected = dashboardAsync.valueOrNull?.feesCollected ?? 0.0;
-    final recentEnquiries = dashboardAsync.valueOrNull?.recentEnquiries ?? [];
-
-    final currency = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: '₹',
-      decimalDigits: 0,
-    );
+    final currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
+      backgroundColor: const Color(0xFFF8FAFC),
       drawer: const AdminDrawer(),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Image.asset(
-            'images/new_logo.png',
-            height: 32,
-            errorBuilder: (context, error, stackTrace) {
-              return Icon(Icons.grid_view, color: AppColors.primary, size: 24);
-            },
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications_outlined),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
+      body: RefreshIndicator(
+        onRefresh: () => ref.refresh(dashboardDataProvider.future),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 140,
+              pinned: true,
+              stretch: true,
+              backgroundColor: AppColors.primary,
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+                title: const Text(
+                  'SUNKIDZ ADMIN',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                    fontSize: 20,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withValues(alpha: 0.8),
+                            const Color(0xFFF59E0B),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -30,
+                      top: -20,
+                      child: Icon(
+                        Icons.wb_sunny_rounded,
+                        size: 200,
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+                  onPressed: () => context.push('/admin/notifications'),
+                ),
+                const SizedBox(width: 8),
               ],
             ),
-            onPressed: () {},
-          ),
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-            child: Text(
-              userName.isNotEmpty ? userName[0].toUpperCase() : 'A',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(currentUserProvider);
-          ref.invalidate(dashboardDataProvider);
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_greeting()}, $userName',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                branchesCount == 1
-                    ? "Here's what's happening across 1 branch."
-                    : "Here's what's happening across $branchesCount branches.",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.2,
-                children: [
-                  StatCard(
-                    icon: Icons.business,
-                    label: 'Branches',
-                    value: '$branchesCount',
-                    backgroundColor: AppColors.pastelBlue,
-                    iconColor: AppColors.primary,
-                  ),
-                  StatCard(
-                    icon: Icons.face,
-                    label: 'Students',
-                    value: '$studentsCount',
-                    backgroundColor: AppColors.pastelYellow,
-                    iconColor: const Color(0xFFCA8A04),
-                  ),
-                  StatCard(
-                    icon: Icons.groups,
-                    label: 'Staff',
-                    value: '$staffCount',
-                    backgroundColor: AppColors.pastelGreen,
-                    iconColor: const Color(0xFF16A34A),
-                  ),
-                  StatCard(
-                    icon: Icons.payments,
-                    label: 'Fees Pending',
-                    value: currency.format(feesPending),
-                    trend:
-                        'Collected ${currency.format(feesCollected)} / Due ${currency.format(feesTotalDue)}',
-                    trendUp: true,
-                    backgroundColor: const Color(0xFFFFF7ED),
-                    iconColor: const Color(0xFFEA580C),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Quick Metrics',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor,
+            SliverToBoxAdapter(
+              child: dashboardAsync.when(
+                loading: () => const _DashboardLoadingPlaceholder(),
+                error: (err, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error: $err'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => ref.refresh(dashboardDataProvider),
+                          child: const Text('Retry'),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'New Enquiries',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey),
-                              ),
-                              Icon(
-                                Icons.mail_outline,
-                                color: Colors.blue,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            (dashboardAsync.valueOrNull?.newEnquiries ?? 0)
-                                .toString(),
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Conversion Rate',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey),
-                              ),
-                              Icon(
-                                Icons.trending_up,
-                                color: Colors.green,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _getConversionRate(
-                              newEnquiries:
-                                  dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                              convertedEnquiries:
-                                  dashboardAsync
-                                      .valueOrNull
-                                      ?.convertedEnquiries ??
-                                  0,
-                            ),
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Admissions Analytics',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  TextButton(
-                    onPressed: () => context.push('/admin/reports'),
-                    child: Text(
-                      'View Report',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              AdmissionsChart(
-                newEnquiries: dashboardAsync.valueOrNull?.newEnquiries ?? 0,
-                convertedEnquiries:
-                    dashboardAsync.valueOrNull?.convertedEnquiries ?? 0,
-                rejectedEnquiries:
-                    dashboardAsync.valueOrNull?.rejectedEnquiries ?? 0,
-                admissionsThisMonth:
-                    dashboardAsync.valueOrNull?.admissionsThisMonth.length ?? 0,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recent Enquiries',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  TextButton(
-                    onPressed: () => context.push('/enquiries'),
-                    child: Text(
-                      'See All',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (recentEnquiries.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardTheme.color,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'No enquiries yet',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...recentEnquiries.map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _EnquiryTile(
-                      name: e['child_name']?.toString() ?? '—',
-                      branch: e['branch_name']?.toString() ?? '—',
-                      age: e['age_years'] ?? 0,
-                      status: e['status']?.toString() ?? 'pending',
+                      ],
                     ),
                   ),
                 ),
-            ],
-          ),
+                data: (data) {
+                  if (data == null) return const Center(child: Text('No data available'));
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Stats Grid
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.1,
+                          children: [
+                            StatCard(
+                              icon: Icons.apartment_rounded,
+                              label: 'Branches',
+                              value: '${data.branchesCount}',
+                              backgroundColor: AppColors.pastelBlue,
+                              iconColor: Colors.blue.shade600,
+                              onTap: () => context.push('/branches'),
+                            ),
+                            StatCard(
+                              icon: Icons.face_retouching_natural_rounded,
+                              label: 'Students',
+                              value: '${data.studentsCount}',
+                              backgroundColor: AppColors.pastelGreen,
+                              iconColor: Colors.green.shade600,
+                              onTap: () => context.push('/students'),
+                            ),
+                            StatCard(
+                              icon: Icons.groups_rounded,
+                              label: 'Staff',
+                              value: '${data.staffCount}',
+                              backgroundColor: AppColors.pastelYellow,
+                              iconColor: Colors.orange.shade600,
+                              onTap: () => context.push('/staff'),
+                            ),
+                            StatCard(
+                              icon: Icons.account_balance_wallet_rounded,
+                              label: 'Pending Fees',
+                              value: currencyFmt.format(data.feesPending),
+                              backgroundColor: AppColors.pastelOrange,
+                              iconColor: Colors.deepOrange.shade600,
+                              onTap: () => context.push('/admin/fees'),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 32),
+                        
+                        // Metrics Section
+                        AnimatedListItem(
+                          index: 3,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _StatusBox(
+                                  label: 'New Enquiries',
+                                  value: '${data.newEnquiries}',
+                                  icon: Icons.mail_rounded,
+                                  color: Colors.indigo,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _StatusBox(
+                                  label: 'Conversion Rate',
+                                  value: '${data.conversionRate.toStringAsFixed(1)}%',
+                                  icon: Icons.auto_graph_rounded,
+                                  color: AppColors.accentGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 32),
+
+                        // Messaging & Communication Section
+                        Text('Messaging & Communication', style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _AdminActionCard(
+                                icon: Icons.chat_rounded,
+                                label: 'Chats',
+                                color: Colors.indigo,
+                                onTap: () => context.push('/chat'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _AdminActionCard(
+                                icon: Icons.campaign_rounded,
+                                label: 'Broadcast',
+                                color: AppColors.primary,
+                                onTap: () => context.push('/admin/send-message'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _AdminActionCard(
+                                icon: Icons.event_note_rounded,
+                                label: 'Leaves',
+                                color: Colors.teal,
+                                onTap: () => context.push('/admin/leave'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Recent Enquiries
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Recent Enquiries', style: Theme.of(context).textTheme.titleLarge),
+                            TextButton(
+                              onPressed: () => context.push('/enquiries'),
+                              child: const Text('View All'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (data.recentEnquiries.isEmpty)
+                          const _EmptyEnquiries()
+                        else
+                          ...data.recentEnquiries.asMap().entries.map((e) => AnimatedListItem(
+                            index: e.key + 5,
+                            child: _EnquiryTile(
+                              name: e.value['parent_name'] ?? 'Unknown',
+                              date: _fmtDate(e.value['created_at']),
+                              status: e.value['status'] ?? 'pending',
+                            ),
+                          )),
+                        
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _fmtDate(String? dt) {
+    if (dt == null) return '';
+    try {
+      final date = DateTime.parse(dt);
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (_) {
+      return dt;
+    }
+  }
+}
+
+class _AdminActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AdminActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Color(0xFF1E293B),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _EnquiryTile extends StatelessWidget {
-  final String name;
-  final String branch;
-  final int age;
-  final String status;
+class StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color backgroundColor;
+  final Color iconColor;
+  final VoidCallback onTap;
 
-  const _EnquiryTile({
-    required this.name,
-    required this.branch,
-    required this.age,
-    required this.status,
+  const StatCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF000000).withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBox extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatusBox({required this.label, required this.value, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.pastelYellow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.mail, color: const Color(0xFFCA8A04), size: 20),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+              Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+            ],
           ),
-          const SizedBox(width: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class AnimatedListItem extends StatelessWidget {
+  final int index;
+  final Widget child;
+
+  const AnimatedListItem({super.key, required this.index, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return child; // Simple for now
+  }
+}
+
+class _EnquiryTile extends StatelessWidget {
+  final String name;
+  final String date;
+  final String status;
+
+  const _EnquiryTile({required this.name, required this.date, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.pastelBlue,
+            child: Text(name[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  '$branch • Age $age',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(date, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: status.toLowerCase() == 'new'
-                  ? Colors.blue.shade100
-                  : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(999),
+              color: _getStatusColor(status).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: status.toLowerCase() == 'new'
-                    ? Colors.blue.shade700
-                    : Colors.grey.shade700,
-              ),
+              status.toUpperCase(),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _getStatusColor(status)),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'converted': return Colors.green;
+      case 'rejected': return Colors.red;
+      default: return AppColors.primary;
+    }
+  }
+}
+
+class _DashboardLoadingPlaceholder extends StatelessWidget {
+  const _DashboardLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerLoading.rectangular(height: 20, width: 100),
+          const SizedBox(height: 32),
+          GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.1,
+            children: List.generate(4, (index) => const ShimmerLoading.rectangular(height: 100)),
+          ),
+          const SizedBox(height: 32),
+          const ShimmerLoading.rectangular(height: 80),
+          const SizedBox(height: 32),
+          const ShimmerLoading.rectangular(height: 80),
+          const SizedBox(height: 8),
+          const ShimmerLoading.rectangular(height: 80),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyEnquiries extends StatelessWidget {
+  const _EmptyEnquiries();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_rounded, size: 48, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text('No recent enquiries yet', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
         ],
       ),
     );

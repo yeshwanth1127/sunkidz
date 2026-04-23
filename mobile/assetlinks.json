@@ -1,0 +1,11 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lms.sun_kidz",
+      "sha256_cert_fingerprints":
+        ["57:0E:99:45:F5:85:4A:9A:06:79:3B:CA:3C:44:B1:35:AA:15:EE:F6:5E:E9:92:69:BE:AC:49:AD:69:C5:2B:CC"]
+    }
+  }
+]

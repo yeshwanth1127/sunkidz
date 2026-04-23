@@ -135,15 +135,17 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AdminDrawer(),
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
-        title: Text(_branch?['name'] as String? ?? 'Branch'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black87), onPressed: () => context.pop()),
+        title: Text(
+          _branch?['name'] as String? ?? 'Branch',
+          style: const TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         actions: [
-          Builder(
-            builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
-          ),
-          IconButton(icon: const Icon(Icons.edit), onPressed: _branch != null ? _showEditBranch : null),
+          IconButton(icon: const Icon(Icons.edit, color: Colors.black87), onPressed: _branch != null ? _showEditBranch : null),
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'delete') _confirmDeleteBranch();

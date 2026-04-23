@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/api/admin_api.dart';
+import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
-import '../../../shared/widgets/dob_picker.dart';
+
+import '../../../shared/widgets/shimmer_loading.dart';
+import '../../../shared/widgets/animated_list_item.dart';
 import '../../dashboard/data/dashboard_provider.dart';
 
 class EnquiryListScreen extends ConsumerStatefulWidget {
@@ -16,7 +18,6 @@ class EnquiryListScreen extends ConsumerStatefulWidget {
 
 class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
   List<Map<String, dynamic>> _enquiries = [];
-  List<Map<String, dynamic>> _branches = [];
   bool _loading = true;
   String? _error;
 
@@ -28,341 +29,924 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
 
   Future<void> _load() async {
     final api = ref.read(adminApiProvider);
-    if (api == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    if (mounted)
+    if (api == null) return;
+    if (mounted) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       final enquiries = await api.getEnquiries();
-      final branches = await api.getBranches();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _enquiries = enquiries;
-          _branches = branches;
           _loading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 
   void _showEnquiryForm() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      useRootNavigator: true,
       isScrollControlled: true,
-      builder: (ctx) => _EnquiryFormSheet(
-        branches: _branches,
-        onSaved: () {
-          Navigator.of(ctx).pop();
-          WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-        },
-        api: ref.read(adminApiProvider)!,
-      ),
-    );
-  }
-
-  void _showAdmissionForm(Map<String, dynamic> enquiry) {
-    if (enquiry['status'] == 'converted') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Already converted to admission')),
-      );
-      return;
-    }
-    if (enquiry['status'] == 'rejected') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot convert a rejected enquiry')),
-      );
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      builder: (ctx) => _AdmissionFormSheet(
-        enquiry: enquiry,
-        branches: _branches,
-        onSaved: () {
-          Navigator.of(ctx).pop();
-          // Invalidate dashboard to refresh analytics
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AddEnquirySheet(
+        onDone: () {
+          Navigator.pop(ctx);
+          _load();
           ref.invalidate(dashboardDataProvider);
-          WidgetsBinding.instance.addPostFrameCallback((_) => _load());
         },
-        api: ref.read(adminApiProvider)!,
       ),
     );
   }
 
   Future<void> _rejectEnquiry(Map<String, dynamic> enquiry) async {
+    final id = enquiry['id']?.toString();
+    if (id == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reject Enquiry'),
-        content: Text(
-          'Are you sure you want to reject the enquiry for ${enquiry['child_name']}?',
-        ),
+        title: const Text('Reject enquiry?'),
+        content: Text('Reject enquiry for ${enquiry['child_name'] ?? 'this child'}?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Reject'),
           ),
         ],
       ),
     );
-    if (confirmed != true) return;
-
+    if (confirmed != true || !mounted) return;
     final api = ref.read(adminApiProvider);
     if (api == null) return;
-
     try {
-      await api.rejectEnquiry(enquiry['id']);
+      await api.rejectEnquiry(id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enquiry rejected successfully')),
-        );
-        // Invalidate dashboard to refresh analytics
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enquiry rejected')));
+        await _load();
         ref.invalidate(dashboardDataProvider);
-        _load();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        );
       }
     }
+  }
+
+  Future<void> _convertEnquiry(Map<String, dynamic> enquiry) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ConvertEnquirySheet(
+        enquiry: enquiry,
+        onDone: () {
+          Navigator.pop(ctx);
+          _load();
+          ref.invalidate(dashboardDataProvider);
+        },
+      ),
+    );
   }
 
   void _showEnquiryDetails(Map<String, dynamic> enquiry) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 1,
-        expand: false,
-        builder: (_, controller) => Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Enquiry Details',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: controller,
-                  child: _EnquiryDetailView(enquiry: enquiry),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _EnquiryDetailSheet(enquiry: enquiry),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: const Text('Enquiries'),
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _showEnquiryForm),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _enquiries.length,
-              itemBuilder: (_, i) => _EnquiryCard(
-                enquiry: _enquiries[i],
-                onConvert: () => _showAdmissionForm(_enquiries[i]),
-                onReject: () => _rejectEnquiry(_enquiries[i]),
-                onTap: () => _showEnquiryDetails(_enquiries[i]),
-              ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            _buildSummaryHeader(),
+            Expanded(
+              child: _loading
+                  ? const _EnquiryLoadingPlaceholder()
+                  : _error != null
+                      ? _buildErrorState()
+                      : _enquiries.isEmpty
+                          ? _buildEmptyState()
+                          : RefreshIndicator(
+                              onRefresh: _load,
+                              color: AppColors.primary,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                itemCount: _enquiries.length,
+                                itemBuilder: (context, i) => AnimatedListItem(
+                                  index: i,
+                                  child: _EnquiryCard(
+                                    enquiry: _enquiries[i],
+                                    onTap: () => _showEnquiryDetails(_enquiries[i]),
+                                    onConvert: () => _convertEnquiry(_enquiries[i]),
+                                    onReject: () => _rejectEnquiry(_enquiries[i]),
+                                  ),
+                                ),
+                              ),
+                            ),
             ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showEnquiryForm,
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add_comment_rounded, color: Colors.white),
+      ),
     );
   }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1E293B)),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Admissions Enquiries',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: Icon(Icons.refresh_rounded, color: _loading ? Colors.grey : AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryHeader() {
+    final pendingCount = _enquiries.where((e) {
+      final s = e['status']?.toString().toLowerCase() ?? '';
+      return s != 'converted' && s != 'rejected';
+    }).length;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)]),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [AppShadows.glow(AppColors.primary)],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+                const Text('Active Enquiries', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text('$pendingCount Needs Attention', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() => Center(child: Text(_error ?? 'Error'));
+  Widget _buildEmptyState() => const Center(child: Text('No enquiries yet'));
 }
 
 class _EnquiryCard extends StatelessWidget {
   final Map<String, dynamic> enquiry;
+  final VoidCallback onTap;
   final VoidCallback onConvert;
   final VoidCallback onReject;
-  final VoidCallback onTap;
 
-  const _EnquiryCard({
-    required this.enquiry,
-    required this.onConvert,
-    required this.onReject,
-    required this.onTap,
-  });
+  const _EnquiryCard({required this.enquiry, required this.onTap, required this.onConvert, required this.onReject});
 
   @override
   Widget build(BuildContext context) {
-    final name = enquiry['child_name'] as String? ?? '';
-    final branch = enquiry['branch_name'] as String? ?? '—';
-    final age = enquiry['age_years'] ?? enquiry['age_months'] ?? '—';
-    final ageStr = age is int
-        ? (enquiry['age_months'] != null ? '$age yrs' : 'Age $age')
-        : age.toString();
-    final status = enquiry['status'] as String? ?? 'pending';
-    final isConverted = status == 'converted';
-    final isRejected = status == 'rejected';
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: status == 'pending'
-                        ? AppColors.pastelYellow
-                        : status == 'converted'
-                        ? AppColors.pastelGreen
-                        : AppColors.pastelBlue,
-                    borderRadius: BorderRadius.circular(12),
+    final status = enquiry['status']?.toString().toLowerCase() ?? 'pending';
+    final Color statusColor = status == 'converted' ? AppColors.accentGreen : status == 'rejected' ? Colors.red : Colors.amber;
+    final isActionable = status != 'converted' && status != 'rejected';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [AppShadows.soft],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.mail_outline_rounded, color: statusColor, size: 24),
                   ),
-                  child: Icon(
-                    Icons.mail,
-                    color: status == 'converted'
-                        ? const Color(0xFF16A34A)
-                        : AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        '$branch • $ageStr',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isConverted
-                        ? Colors.green.shade100
-                        : isRejected
-                        ? Colors.red.shade100
-                        : status == 'pending'
-                        ? Colors.amber.shade100
-                        : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isConverted
-                          ? Colors.green.shade700
-                          : isRejected
-                          ? Colors.red.shade700
-                          : Colors.grey.shade700,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(enquiry['child_name'] ?? 'Inquiry', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A))),
+                        Text(enquiry['branch_name'] ?? 'Branch', style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                    child: Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                  ),
+                ],
+              ),
             ),
-            if (!isConverted && !isRejected) ...[
-              const SizedBox(height: 12),
-              Row(
+          ),
+          if (isActionable) ...[
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Divider(height: 1, color: Color(0xFFF1F5F9))),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+              child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: TextButton.icon(
                       onPressed: onReject,
-                      icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Reject'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: BorderSide(color: Colors.red.shade300),
-                      ),
+                      icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                      label: const Text('REJECT', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800, fontSize: 12)),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: FilledButton.icon(
                       onPressed: onConvert,
-                      icon: const Icon(Icons.school, size: 18),
-                      label: const Text('Convert'),
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      icon: const Icon(Icons.school_rounded, size: 16),
+                      label: const Text('CONVERT TO STUDENT', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AddEnquirySheet extends ConsumerStatefulWidget {
+  final VoidCallback onDone;
+  const _AddEnquirySheet({required this.onDone});
+
+  @override
+  ConsumerState<_AddEnquirySheet> createState() => _AddEnquirySheetState();
+}
+
+class _AddEnquirySheetState extends ConsumerState<_AddEnquirySheet> {
+  List<Map<String, dynamic>> _branches = [];
+  String? _branchId;
+  String? _gender;
+  bool _loading = true;
+  bool _submitting = false;
+
+  // Child
+  final _childNameCtrl = TextEditingController();
+  final _dobCtrl = TextEditingController();
+  final _ageYearsCtrl = TextEditingController();
+  final _ageMonthsCtrl = TextEditingController();
+
+  // Father
+  final _fatherNameCtrl = TextEditingController();
+  final _fatherPhoneCtrl = TextEditingController();
+  final _fatherEmailCtrl = TextEditingController();
+  final _fatherOccupationCtrl = TextEditingController();
+  final _fatherWorkCtrl = TextEditingController();
+
+  // Mother
+  final _motherNameCtrl = TextEditingController();
+  final _motherPhoneCtrl = TextEditingController();
+  final _motherEmailCtrl = TextEditingController();
+  final _motherOccupationCtrl = TextEditingController();
+  final _motherWorkCtrl = TextEditingController();
+
+  // Address
+  final _addressCtrl = TextEditingController();
+  final _residentialPhoneCtrl = TextEditingController();
+
+  // Siblings
+  final _siblingsInfoCtrl = TextEditingController();
+  final _siblingsAgeCtrl = TextEditingController();
+
+  // School notes
+  final _challengesCtrl = TextEditingController();
+  final _expectationsCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBranches();
+  }
+
+  @override
+  void dispose() {
+    _childNameCtrl.dispose(); _dobCtrl.dispose(); _ageYearsCtrl.dispose(); _ageMonthsCtrl.dispose();
+    _fatherNameCtrl.dispose(); _fatherPhoneCtrl.dispose(); _fatherEmailCtrl.dispose();
+    _fatherOccupationCtrl.dispose(); _fatherWorkCtrl.dispose();
+    _motherNameCtrl.dispose(); _motherPhoneCtrl.dispose(); _motherEmailCtrl.dispose();
+    _motherOccupationCtrl.dispose(); _motherWorkCtrl.dispose();
+    _addressCtrl.dispose(); _residentialPhoneCtrl.dispose();
+    _siblingsInfoCtrl.dispose(); _siblingsAgeCtrl.dispose();
+    _challengesCtrl.dispose(); _expectationsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadBranches() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    try {
+      final branches = await api.getBranches();
+      if (mounted) {
+        setState(() {
+          _branches = branches;
+          if (branches.isNotEmpty) _branchId = branches.first['id']?.toString();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final initial = DateTime.tryParse(_dobCtrl.text) ?? DateTime.now().subtract(const Duration(days: 365 * 3));
+    final date = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: DateTime.now());
+    if (date != null) {
+      final now = DateTime.now();
+      int years = now.year - date.year;
+      int months = now.month - date.month;
+      if (now.day < date.day) months--;
+      if (months < 0) { years--; months += 12; }
+      setState(() {
+        _dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+        _ageYearsCtrl.text = years.toString();
+        _ageMonthsCtrl.text = months.toString();
+      });
+    }
+  }
+
+  String? _t(TextEditingController c) { final v = c.text.trim(); return v.isEmpty ? null : v; }
+
+  Future<void> _submit() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    if (_childNameCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Child name is required')));
+      return;
+    }
+    if (_branchId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a branch')));
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final payload = <String, dynamic>{
+        'child_name': _childNameCtrl.text.trim(),
+        if (_t(_dobCtrl) != null) 'date_of_birth': _t(_dobCtrl),
+        if (_t(_ageYearsCtrl) != null) 'age_years': int.tryParse(_ageYearsCtrl.text.trim()),
+        if (_t(_ageMonthsCtrl) != null) 'age_months': int.tryParse(_ageMonthsCtrl.text.trim()),
+        if (_gender != null) 'gender': _gender,
+        if (_t(_fatherNameCtrl) != null) 'father_name': _t(_fatherNameCtrl),
+        if (_t(_fatherPhoneCtrl) != null) 'father_contact_no': _t(_fatherPhoneCtrl),
+        if (_t(_fatherEmailCtrl) != null) 'father_email': _t(_fatherEmailCtrl),
+        if (_t(_fatherOccupationCtrl) != null) 'father_occupation': _t(_fatherOccupationCtrl),
+        if (_t(_fatherWorkCtrl) != null) 'father_place_of_work': _t(_fatherWorkCtrl),
+        if (_t(_motherNameCtrl) != null) 'mother_name': _t(_motherNameCtrl),
+        if (_t(_motherPhoneCtrl) != null) 'mother_contact_no': _t(_motherPhoneCtrl),
+        if (_t(_motherEmailCtrl) != null) 'mother_email': _t(_motherEmailCtrl),
+        if (_t(_motherOccupationCtrl) != null) 'mother_occupation': _t(_motherOccupationCtrl),
+        if (_t(_motherWorkCtrl) != null) 'mother_place_of_work': _t(_motherWorkCtrl),
+        if (_t(_addressCtrl) != null) 'residential_address': _t(_addressCtrl),
+        if (_t(_residentialPhoneCtrl) != null) 'residential_contact_no': _t(_residentialPhoneCtrl),
+        if (_t(_siblingsInfoCtrl) != null) 'siblings_info': _t(_siblingsInfoCtrl),
+        if (_t(_siblingsAgeCtrl) != null) 'siblings_age': _t(_siblingsAgeCtrl),
+        if (_t(_challengesCtrl) != null) 'challenges_specialities': _t(_challengesCtrl),
+        if (_t(_expectationsCtrl) != null) 'expectations_from_school': _t(_expectationsCtrl),
+        'branch_id': _branchId,
+        'status': 'pending',
+      };
+      payload.removeWhere((_, v) => v == null);
+      await api.createEnquiry(payload);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enquiry saved successfully!')));
+        widget.onDone();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Widget _sec(String title, IconData icon) => Padding(
+    padding: const EdgeInsets.only(top: 20, bottom: 10),
+    child: Row(children: [
+      Icon(icon, size: 16, color: AppColors.primary),
+      const SizedBox(width: 8),
+      Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
+      const SizedBox(width: 8),
+      Expanded(child: Divider(color: AppColors.primary.withValues(alpha: 0.25))),
+    ]),
+  );
+
+  Widget _f(TextEditingController c, String label, {IconData? ico, TextInputType? kb, int ml = 1, bool ro = false, VoidCallback? tap}) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextFormField(
+      controller: c, readOnly: ro, onTap: tap, keyboardType: kb, maxLines: ml,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true,
+        prefixIcon: ico != null ? Icon(ico, size: 18) : null),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.92,
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: _loading
+            ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
+            : Column(
+                children: [
+                  Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                  Row(children: [
+                    const Text('New Enquiry', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  ]),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(top: 4, bottom: 24),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+
+                        // ── CHILD ───────────────────────────────────────
+                        _sec('Child Information', Icons.child_care),
+                        _f(_childNameCtrl, 'Child Name *', ico: Icons.person_outline),
+                        _f(_dobCtrl, 'Date of Birth', ico: Icons.calendar_today_rounded, ro: true, tap: _pickDate),
+                        Row(children: [
+                          Expanded(child: _f(_ageYearsCtrl, 'Age (Years)', kb: TextInputType.number)),
+                          const SizedBox(width: 10),
+                          Expanded(child: _f(_ageMonthsCtrl, 'Age (Months)', kb: TextInputType.number)),
+                        ]),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: DropdownButtonFormField<String>(
+                            value: _gender,
+                            decoration: const InputDecoration(labelText: 'Gender', border: OutlineInputBorder(), isDense: true, prefixIcon: Icon(Icons.wc, size: 18)),
+                            items: const [
+                              DropdownMenuItem(value: 'Male', child: Text('Male')),
+                              DropdownMenuItem(value: 'Female', child: Text('Female')),
+                              DropdownMenuItem(value: 'Other', child: Text('Other')),
+                            ],
+                            onChanged: (v) => setState(() => _gender = v),
+                          ),
+                        ),
+
+                        // ── BRANCH ──────────────────────────────────────
+                        _sec('Branch', Icons.school_outlined),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: DropdownButtonFormField<String>(
+                            value: _branchId,
+                            decoration: const InputDecoration(labelText: 'Branch *', border: OutlineInputBorder(), isDense: true, prefixIcon: Icon(Icons.location_on_outlined, size: 18)),
+                            items: _branches.map((b) => DropdownMenuItem(value: b['id']?.toString(), child: Text(b['name']?.toString() ?? '—'))).toList(),
+                            onChanged: (v) => setState(() => _branchId = v),
+                          ),
+                        ),
+
+                        // ── FATHER ──────────────────────────────────────
+                        _sec("Father's Details", Icons.man),
+                        _f(_fatherNameCtrl, 'Father Name', ico: Icons.person_outline),
+                        _f(_fatherPhoneCtrl, 'Contact Number', ico: Icons.phone_outlined, kb: TextInputType.phone),
+                        _f(_fatherEmailCtrl, 'Email', ico: Icons.email_outlined, kb: TextInputType.emailAddress),
+                        _f(_fatherOccupationCtrl, 'Occupation', ico: Icons.work_outline),
+                        _f(_fatherWorkCtrl, 'Place of Work', ico: Icons.business_outlined),
+
+                        // ── MOTHER ──────────────────────────────────────
+                        _sec("Mother's Details", Icons.woman),
+                        _f(_motherNameCtrl, 'Mother Name', ico: Icons.person_outline),
+                        _f(_motherPhoneCtrl, 'Contact Number', ico: Icons.phone_outlined, kb: TextInputType.phone),
+                        _f(_motherEmailCtrl, 'Email', ico: Icons.email_outlined, kb: TextInputType.emailAddress),
+                        _f(_motherOccupationCtrl, 'Occupation', ico: Icons.work_outline),
+                        _f(_motherWorkCtrl, 'Place of Work', ico: Icons.business_outlined),
+
+                        // ── ADDRESS ─────────────────────────────────────
+                        _sec('Address & Contact', Icons.home_outlined),
+                        _f(_addressCtrl, 'Residential Address', ico: Icons.location_on_outlined, ml: 2),
+                        _f(_residentialPhoneCtrl, 'Residential Phone', ico: Icons.phone_outlined, kb: TextInputType.phone),
+
+                        // ── SIBLINGS ────────────────────────────────────
+                        _sec('Siblings (Optional)', Icons.people_outline),
+                        _f(_siblingsInfoCtrl, 'Siblings Info (name / school)'),
+                        _f(_siblingsAgeCtrl, 'Siblings Age(s)'),
+
+                        // ── SCHOOL NOTES ────────────────────────────────
+                        _sec('School Notes (Optional)', Icons.notes_outlined),
+                        _f(_challengesCtrl, 'Challenges / Special Needs', ml: 2),
+                        _f(_expectationsCtrl, 'Expectations from School', ml: 2),
+
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: _submitting ? null : _submit,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Text('Save Enquiry', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet: pick branch + class, then POST /admin/admissions/from-enquiry
+class _ConvertEnquirySheet extends ConsumerStatefulWidget {
+  final Map<String, dynamic> enquiry;
+  final VoidCallback onDone;
+
+  const _ConvertEnquirySheet({required this.enquiry, required this.onDone});
+
+  @override
+  ConsumerState<_ConvertEnquirySheet> createState() => _ConvertEnquirySheetState();
+}
+
+class _ConvertEnquirySheetState extends ConsumerState<_ConvertEnquirySheet> {
+  List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _classes = [];
+  String? _branchId;
+  String? _classId;
+  bool _loading = true;
+  bool _submitting = false;
+  String? _loadError;
+
+  final _nameCtrl = TextEditingController();
+  final _dobCtrl = TextEditingController();
+  final _parentNameCtrl = TextEditingController();
+  final _parentPhoneCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _dobCtrl.dispose();
+    _parentNameCtrl.dispose();
+    _parentPhoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) {
+      setState(() {
+        _loading = false;
+        _loadError = 'Not signed in';
+      });
+      return;
+    }
+    
+    // Prep form
+    final enq = widget.enquiry;
+    _nameCtrl.text = enq['child_name']?.toString().trim() ?? '';
+    _dobCtrl.text = _isoDateFromEnquiry() ?? '';
+    final fatherName = enq['father_name']?.toString().trim() ?? '';
+    _parentNameCtrl.text = fatherName.isNotEmpty ? fatherName : (enq['mother_name']?.toString().trim() ?? '');
+    _parentPhoneCtrl.text = enq['father_contact_no']?.toString() ?? enq['mother_contact_no']?.toString() ?? '';
+
+    try {
+      final branches = await api.getBranches();
+      final enqBranch = widget.enquiry['branch_id']?.toString();
+      String? branchId = enqBranch;
+      if (branchId == null || !branches.any((b) => b['id']?.toString() == branchId)) {
+        branchId = branches.isNotEmpty ? branches.first['id']?.toString() : null;
+      }
+      setState(() {
+        _branches = branches;
+        _branchId = branchId;
+        _loading = false;
+      });
+      if (branchId != null) await _loadClasses(branchId);
+    } catch (e) {
+      setState(() {
+        _loadError = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadClasses(String branchId) async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    try {
+      final classes = await api.getClasses(branchId: branchId);
+      if (!mounted) return;
+      setState(() {
+        _classes = classes;
+        _classId = classes.isNotEmpty ? classes.first['id']?.toString() : null;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _classes = [];
+          _classId = null;
+        });
+      }
+    }
+  }
+
+  String? _isoDateFromEnquiry() {
+    final v = widget.enquiry['date_of_birth'];
+    if (v == null) return null;
+    try {
+      final d = DateTime.parse(v.toString());
+      return DateFormat('yyyy-MM-dd').format(d);
+    } catch (_) {
+      return null;
+    }
+  }
+  
+  Future<void> _pickDate() async {
+    final initial = DateTime.tryParse(_dobCtrl.text) ?? DateTime.now().subtract(const Duration(days: 365*3));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (date != null) {
+      setState(() {
+        _dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    final api = ref.read(adminApiProvider);
+    if (api == null) return;
+    if (_branchId == null || _classId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select branch and class')),
+      );
+      return;
+    }
+    
+    final dob = _dobCtrl.text.trim();
+    if (dob.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Date of birth is required')),
+      );
+      return;
+    }
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Child name is required')),
+      );
+      return;
+    }
+    final parentName = _parentNameCtrl.text.trim();
+    if (parentName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Parent name is required')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await api.createAdmissionFromEnquiry({
+        'enquiry_id': widget.enquiry['id'].toString(),
+        'branch_id': _branchId,
+        'class_id': _classId,
+        'name': name,
+        'date_of_birth': dob,
+        'parent_name': parentName,
+        'parent_contact': _parentPhoneCtrl.text.trim(),
+        if (widget.enquiry['residential_address'] != null)
+          'residential_address': widget.enquiry['residential_address'].toString(),
+        if (widget.enquiry['gender'] != null) 'gender': widget.enquiry['gender'].toString(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Converted to admission — parent can log in with admission number and DOB')),
+        );
+        widget.onDone();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: _loading
+              ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
+              : _loadError != null
+                  ? Text(_loadError!, style: const TextStyle(color: Colors.red))
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Convert to student',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.enquiry['child_name']?.toString() ?? '',
+                          style: const TextStyle(color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Child Name *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _dobCtrl,
+                          readOnly: true,
+                          onTap: _pickDate,
+                          decoration: const InputDecoration(
+                            labelText: 'Date of Birth (YYYY-MM-DD) *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.calendar_today_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _parentNameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Parent/Guardian Name *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.people_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _parentPhoneCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Parent Contact (Optional)',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.phone_outlined),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 20),
+                        DropdownButtonFormField<String>(
+                          value: _branchId,
+                          decoration: const InputDecoration(
+                            labelText: 'Branch',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _branches
+                              .map((b) => DropdownMenuItem(
+                                    value: b['id']?.toString(),
+                                    child: Text(b['name']?.toString() ?? '—'),
+                                  ))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() {
+                              _branchId = v;
+                              _classId = null;
+                              _classes = [];
+                            });
+                            _loadClasses(v);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _classId,
+                          decoration: const InputDecoration(
+                            labelText: 'Class / grade',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _classes
+                              .map((c) => DropdownMenuItem(
+                                    value: c['id']?.toString(),
+                                    child: Text(c['name']?.toString() ?? '—'),
+                                  ))
+                              .toList(),
+                          onChanged: (v) => setState(() => _classId = v),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          onPressed: _submitting ? null : _submit,
+                          child: _submitting
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Create admission'),
+                        ),
+                      ],
+                    ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EnquiryLoadingPlaceholder extends StatelessWidget {
+  const _EnquiryLoadingPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 5,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Row(
+          children: [
+            const ShimmerLoading.circular(width: 48, height: 48),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerLoading.rectangular(height: 16, width: MediaQuery.of(context).size.width * 0.4),
+                  const SizedBox(height: 8),
+                  ShimmerLoading.rectangular(height: 12, width: MediaQuery.of(context).size.width * 0.2),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -370,139 +954,33 @@ class _EnquiryCard extends StatelessWidget {
   }
 }
 
-class _EnquiryDetailView extends StatelessWidget {
+class _EnquiryDetailSheet extends StatelessWidget {
   final Map<String, dynamic> enquiry;
-
-  const _EnquiryDetailView({required this.enquiry});
-
+  const _EnquiryDetailSheet({required this.enquiry});
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Section(title: 'Child Information'),
-        _InfoRow(label: 'Name', value: enquiry['child_name']),
-        _InfoRow(
-          label: 'Date of Birth',
-          value: enquiry['date_of_birth']?.toString().split('T').first ?? '—',
-        ),
-        _InfoRow(
-          label: 'Age',
-          value: enquiry['age_years'] != null
-              ? '${enquiry['age_years']} years ${enquiry['age_months'] ?? 0} months'
-              : '—',
-        ),
-        _InfoRow(label: 'Gender', value: enquiry['gender']),
-        const SizedBox(height: 16),
-        _Section(title: 'Branch'),
-        _InfoRow(label: 'Preferred Branch', value: enquiry['branch_name']),
-        const SizedBox(height: 16),
-        _Section(title: 'Father Details'),
-        _InfoRow(label: 'Name', value: enquiry['father_name']),
-        _InfoRow(label: 'Occupation', value: enquiry['father_occupation']),
-        _InfoRow(
-          label: 'Place of Work',
-          value: enquiry['father_place_of_work'],
-        ),
-        _InfoRow(label: 'Email', value: enquiry['father_email']),
-        _InfoRow(label: 'Contact', value: enquiry['father_contact_no']),
-        const SizedBox(height: 16),
-        _Section(title: 'Mother Details'),
-        _InfoRow(label: 'Name', value: enquiry['mother_name']),
-        _InfoRow(label: 'Occupation', value: enquiry['mother_occupation']),
-        _InfoRow(
-          label: 'Place of Work',
-          value: enquiry['mother_place_of_work'],
-        ),
-        _InfoRow(label: 'Email', value: enquiry['mother_email']),
-        _InfoRow(label: 'Contact', value: enquiry['mother_contact_no']),
-        const SizedBox(height: 16),
-        _Section(title: 'Siblings'),
-        _InfoRow(label: 'Siblings Info', value: enquiry['siblings_info']),
-        _InfoRow(label: 'Siblings Age', value: enquiry['siblings_age']),
-        const SizedBox(height: 16),
-        _Section(title: 'Address'),
-        _InfoRow(
-          label: 'Residential Address',
-          value: enquiry['residential_address'],
-        ),
-        _InfoRow(
-          label: 'Residential Contact',
-          value: enquiry['residential_contact_no'],
-        ),
-        const SizedBox(height: 16),
-        _Section(title: 'Additional Information'),
-        _InfoRow(
-          label: 'Challenges / Specialities',
-          value: enquiry['challenges_specialities'],
-        ),
-        _InfoRow(
-          label: 'Expectations from School',
-          value: enquiry['expectations_from_school'],
-        ),
-        const SizedBox(height: 16),
-        _Section(title: 'Status'),
-        _InfoRow(label: 'Status', value: enquiry['status']),
-        _InfoRow(
-          label: 'Created At',
-          value: enquiry['created_at']?.toString().split('T').first ?? '—',
-        ),
-      ],
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  final String title;
-
-  const _Section({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: AppColors.primary,
-          fontSize: 16,
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final dynamic value;
-
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final displayValue = value?.toString().trim();
-    if (displayValue == null ||
-        displayValue.isEmpty ||
-        displayValue == 'null') {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 24),
+          const Text('Inquiry Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 24),
+          _DetailRow(label: 'Child Name', value: enquiry['child_name']),
+          _DetailRow(label: 'Father Name', value: enquiry['father_name']),
+          _DetailRow(label: 'Contact', value: enquiry['father_contact_no'] ?? enquiry['mother_contact_no']),
+          _DetailRow(label: 'Residential', value: enquiry['residential_address']),
+          const SizedBox(height: 24),
           SizedBox(
-            width: 140,
-            child: Text(
-              '$label:',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              displayValue,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+            width: double.infinity,
+            height: 56,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFE2E8F0))),
+              child: const Text('CLOSE', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
             ),
           ),
         ],
@@ -511,945 +989,22 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _EnquiryFormSheet extends StatefulWidget {
-  final List<Map<String, dynamic>> branches;
-  final VoidCallback onSaved;
-  final AdminApi api;
-
-  const _EnquiryFormSheet({
-    required this.branches,
-    required this.onSaved,
-    required this.api,
-  });
-
-  @override
-  State<_EnquiryFormSheet> createState() => _EnquiryFormSheetState();
-}
-
-class _EnquiryFormSheetState extends State<_EnquiryFormSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _childName = TextEditingController();
-  DateTime? _selectedDob;
-  final _fatherName = TextEditingController();
-  final _fatherOccupation = TextEditingController();
-  final _fatherPlace = TextEditingController();
-  final _fatherEmail = TextEditingController();
-  final _fatherPhone = TextEditingController();
-  final _motherName = TextEditingController();
-  final _motherOccupation = TextEditingController();
-  final _motherPlace = TextEditingController();
-  final _motherEmail = TextEditingController();
-  final _motherPhone = TextEditingController();
-  final _siblingsInfo = TextEditingController();
-  final _siblingsAge = TextEditingController();
-  final _address = TextEditingController();
-  final _residentialPhone = TextEditingController();
-  final _challenges = TextEditingController();
-  final _expectations = TextEditingController();
-  String? _branchId;
-  String? _gender;
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _childName.dispose();
-    _fatherName.dispose();
-    _fatherOccupation.dispose();
-    _fatherPlace.dispose();
-    _fatherEmail.dispose();
-    _fatherPhone.dispose();
-    _motherName.dispose();
-    _motherOccupation.dispose();
-    _motherPlace.dispose();
-    _motherEmail.dispose();
-    _motherPhone.dispose();
-    _siblingsInfo.dispose();
-    _siblingsAge.dispose();
-    _address.dispose();
-    _residentialPhone.dispose();
-    _challenges.dispose();
-    _expectations.dispose();
-    super.dispose();
-  }
-
-  Map<String, dynamic> _toData() {
-    final (ageYears, ageMonths) = _selectedDob != null
-        ? DobPicker.calculateAge(_selectedDob!)
-        : (0, 0);
-    return {
-      'child_name': _childName.text.trim(),
-      'date_of_birth': _selectedDob?.toIso8601String().split('T').first,
-      'age_years': _selectedDob != null ? ageYears : null,
-      'age_months': _selectedDob != null ? ageMonths : null,
-      'gender': _gender,
-      'father_name': _fatherName.text.trim().isEmpty
-          ? null
-          : _fatherName.text.trim(),
-      'father_occupation': _fatherOccupation.text.trim().isEmpty
-          ? null
-          : _fatherOccupation.text.trim(),
-      'father_place_of_work': _fatherPlace.text.trim().isEmpty
-          ? null
-          : _fatherPlace.text.trim(),
-      'father_email': _fatherEmail.text.trim().isEmpty
-          ? null
-          : _fatherEmail.text.trim(),
-      'father_contact_no': _fatherPhone.text.trim().isEmpty
-          ? null
-          : _fatherPhone.text.trim(),
-      'mother_name': _motherName.text.trim().isEmpty
-          ? null
-          : _motherName.text.trim(),
-      'mother_occupation': _motherOccupation.text.trim().isEmpty
-          ? null
-          : _motherOccupation.text.trim(),
-      'mother_place_of_work': _motherPlace.text.trim().isEmpty
-          ? null
-          : _motherPlace.text.trim(),
-      'mother_email': _motherEmail.text.trim().isEmpty
-          ? null
-          : _motherEmail.text.trim(),
-      'mother_contact_no': _motherPhone.text.trim().isEmpty
-          ? null
-          : _motherPhone.text.trim(),
-      'siblings_info': _siblingsInfo.text.trim().isEmpty
-          ? null
-          : _siblingsInfo.text.trim(),
-      'siblings_age': _siblingsAge.text.trim().isEmpty
-          ? null
-          : _siblingsAge.text.trim(),
-      'residential_address': _address.text.trim().isEmpty
-          ? null
-          : _address.text.trim(),
-      'residential_contact_no': _residentialPhone.text.trim().isEmpty
-          ? null
-          : _residentialPhone.text.trim(),
-      'challenges_specialities': _challenges.text.trim().isEmpty
-          ? null
-          : _challenges.text.trim(),
-      'expectations_from_school': _expectations.text.trim().isEmpty
-          ? null
-          : _expectations.text.trim(),
-      'branch_id': _branchId,
-      'status': 'pending',
-    };
-  }
-
-  Future<void> _submit() async {
-    if (_childName.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Child name required')));
-      return;
-    }
-    setState(() => _loading = true);
-    try {
-      await widget.api.createEnquiry(_toData());
-      widget.onSaved();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
-        );
-      }
-    }
-  }
-
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final dynamic value;
+  const _DetailRow({required this.label, required this.value});
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      expand: false,
-      builder: (_, scrollController) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'New Enquiry',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                _section('Child'),
-                TextField(
-                  controller: _childName,
-                  decoration: const InputDecoration(labelText: 'Child Name *'),
-                ),
-                DobPicker(
-                  value: _selectedDob,
-                  onChanged: (d) => setState(() => _selectedDob = d),
-                ),
-                DropdownButtonFormField<String>(
-                  value: _gender,
-                  decoration: const InputDecoration(labelText: 'Gender'),
-                  items: const [
-                    DropdownMenuItem(value: 'male', child: Text('Male')),
-                    DropdownMenuItem(value: 'female', child: Text('Female')),
-                    DropdownMenuItem(value: 'other', child: Text('Other')),
-                  ],
-                  onChanged: (v) => setState(() => _gender = v),
-                ),
-                const SizedBox(height: 16),
-                _section('Father'),
-                TextField(
-                  controller: _fatherName,
-                  decoration: const InputDecoration(labelText: 'Father Name'),
-                ),
-                TextField(
-                  controller: _fatherOccupation,
-                  decoration: const InputDecoration(labelText: 'Occupation'),
-                ),
-                TextField(
-                  controller: _fatherPlace,
-                  decoration: const InputDecoration(labelText: 'Place of Work'),
-                ),
-                TextField(
-                  controller: _fatherEmail,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                TextField(
-                  controller: _fatherPhone,
-                  decoration: const InputDecoration(labelText: 'Contact'),
-                ),
-                const SizedBox(height: 16),
-                _section('Mother'),
-                TextField(
-                  controller: _motherName,
-                  decoration: const InputDecoration(labelText: 'Mother Name'),
-                ),
-                TextField(
-                  controller: _motherOccupation,
-                  decoration: const InputDecoration(labelText: 'Occupation'),
-                ),
-                TextField(
-                  controller: _motherPlace,
-                  decoration: const InputDecoration(labelText: 'Place of Work'),
-                ),
-                TextField(
-                  controller: _motherEmail,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                TextField(
-                  controller: _motherPhone,
-                  decoration: const InputDecoration(labelText: 'Contact'),
-                ),
-                const SizedBox(height: 16),
-                _section('Siblings'),
-                TextField(
-                  controller: _siblingsInfo,
-                  decoration: const InputDecoration(labelText: 'Siblings Info'),
-                  maxLines: 2,
-                ),
-                TextField(
-                  controller: _siblingsAge,
-                  decoration: const InputDecoration(labelText: 'Siblings Age'),
-                ),
-                const SizedBox(height: 16),
-                _section('Address'),
-                TextField(
-                  controller: _address,
-                  decoration: const InputDecoration(
-                    labelText: 'Residential Address',
-                  ),
-                  maxLines: 2,
-                ),
-                TextField(
-                  controller: _residentialPhone,
-                  decoration: const InputDecoration(
-                    labelText: 'Residential Contact',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _section('Other'),
-                TextField(
-                  controller: _challenges,
-                  decoration: const InputDecoration(
-                    labelText: 'Challenges / Specialities',
-                  ),
-                  maxLines: 2,
-                ),
-                TextField(
-                  controller: _expectations,
-                  decoration: const InputDecoration(
-                    labelText: 'Expectations from School',
-                  ),
-                  maxLines: 2,
-                ),
-                DropdownButtonFormField<String>(
-                  value: _branchId,
-                  decoration: const InputDecoration(
-                    labelText: 'Preferred Branch',
-                  ),
-                  items: widget.branches
-                      .map(
-                        (b) => DropdownMenuItem(
-                          value: b['id'] as String,
-                          child: Text(b['name'] as String),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _branchId = v),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save Enquiry'),
-                ),
-              ],
-            ),
-          ),
-        ),
+    if (value == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 100, child: Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w600, fontSize: 13))),
+          Expanded(child: Text(value.toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1E293B)))),
+        ],
       ),
     );
   }
-
-  Widget _section(String title) => Padding(
-    padding: const EdgeInsets.only(top: 8, bottom: 4),
-    child: Text(
-      title,
-      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-    ),
-  );
-}
-
-class _AdmissionFormSheet extends StatefulWidget {
-  final Map<String, dynamic> enquiry;
-  final List<Map<String, dynamic>> branches;
-  final VoidCallback onSaved;
-  final AdminApi api;
-
-  const _AdmissionFormSheet({
-    required this.enquiry,
-    required this.branches,
-    required this.onSaved,
-    required this.api,
-  });
-
-  @override
-  State<_AdmissionFormSheet> createState() => _AdmissionFormSheetState();
-}
-
-class _AdmissionFormSheetState extends State<_AdmissionFormSheet> {
-  late final TextEditingController _name;
-  DateTime? _selectedDob;
-  late final TextEditingController _address;
-  late final TextEditingController _contact;
-  late final TextEditingController _parentName;
-  late final TextEditingController _parentContact;
-  late final TextEditingController _fatherName;
-  late final TextEditingController _fatherOccupation;
-  late final TextEditingController _fatherContact;
-  late final TextEditingController _fatherEmail;
-  late final TextEditingController _motherName;
-  late final TextEditingController _motherOccupation;
-  late final TextEditingController _motherContact;
-  late final TextEditingController _motherEmail;
-  late final TextEditingController _guardianName;
-  late final TextEditingController _guardianRelation;
-  late final TextEditingController _guardianContact;
-  late final TextEditingController _emergencyName;
-  late final TextEditingController _emergencyPhone;
-  late final TextEditingController _placeOfBirth;
-  late final TextEditingController _nationality;
-  late final TextEditingController _religion;
-  late final TextEditingController _motherTongue;
-  late final TextEditingController _bloodGroup;
-  late final TextEditingController _medicalAllergies;
-  late final TextEditingController _medicalSurgeries;
-  late final TextEditingController _medicalChronic;
-  late final TextEditingController _prevSchool;
-  late final TextEditingController _prevDuration;
-  late final TextEditingController _prevClass;
-  String? _branchId;
-  String? _classId;
-  String? _gender;
-  bool _attendedPrev = false;
-  bool _transportRequired = false;
-  bool _birthCert = false;
-  bool _immunization = false;
-  bool _transferCert = false;
-  bool _passportPhotos = false;
-  bool _progressReport = false;
-  bool _passport = false;
-  bool _otherMedical = false;
-  bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _name = TextEditingController(
-      text: widget.enquiry['child_name'] as String? ?? '',
-    );
-    final dobStr = widget.enquiry['date_of_birth'] as String?;
-    if (dobStr != null && dobStr.isNotEmpty) {
-      _selectedDob = DateTime.tryParse(dobStr);
-    }
-    _address = TextEditingController(
-      text: widget.enquiry['residential_address'] as String? ?? '',
-    );
-    _contact = TextEditingController(
-      text:
-          widget.enquiry['residential_contact_no'] as String? ??
-          widget.enquiry['father_contact_no'] as String? ??
-          widget.enquiry['mother_contact_no'] as String? ??
-          '',
-    );
-    _parentName = TextEditingController(
-      text:
-          (widget.enquiry['father_name'] ?? widget.enquiry['mother_name'])
-              as String? ??
-          '',
-    );
-    _parentContact = TextEditingController(
-      text:
-          (widget.enquiry['father_contact_no'] ??
-                  widget.enquiry['mother_contact_no'])
-              as String? ??
-          '',
-    );
-    _fatherName = TextEditingController(
-      text: widget.enquiry['father_name'] as String? ?? '',
-    );
-    _fatherOccupation = TextEditingController(
-      text: widget.enquiry['father_occupation'] as String? ?? '',
-    );
-    _fatherContact = TextEditingController(
-      text: widget.enquiry['father_contact_no'] as String? ?? '',
-    );
-    _fatherEmail = TextEditingController(
-      text: widget.enquiry['father_email'] as String? ?? '',
-    );
-    _motherName = TextEditingController(
-      text: widget.enquiry['mother_name'] as String? ?? '',
-    );
-    _motherOccupation = TextEditingController(
-      text: widget.enquiry['mother_occupation'] as String? ?? '',
-    );
-    _motherContact = TextEditingController(
-      text: widget.enquiry['mother_contact_no'] as String? ?? '',
-    );
-    _motherEmail = TextEditingController(
-      text: widget.enquiry['mother_email'] as String? ?? '',
-    );
-    _guardianName = TextEditingController();
-    _guardianRelation = TextEditingController();
-    _guardianContact = TextEditingController();
-    _emergencyName = TextEditingController();
-    _emergencyPhone = TextEditingController();
-    _placeOfBirth = TextEditingController();
-    _nationality = TextEditingController();
-    _religion = TextEditingController();
-    _motherTongue = TextEditingController();
-    _bloodGroup = TextEditingController();
-    _medicalAllergies = TextEditingController();
-    _medicalSurgeries = TextEditingController();
-    _medicalChronic = TextEditingController();
-    _prevSchool = TextEditingController();
-    _prevDuration = TextEditingController();
-    _prevClass = TextEditingController();
-    _gender = widget.enquiry['gender'] as String?;
-    _branchId = widget.enquiry['branch_id'] as String?;
-    if (_branchId == null && widget.branches.isNotEmpty)
-      _branchId = widget.branches.first['id'] as String?;
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _address.dispose();
-    _contact.dispose();
-    _parentName.dispose();
-    _parentContact.dispose();
-    _fatherName.dispose();
-    _fatherOccupation.dispose();
-    _fatherContact.dispose();
-    _fatherEmail.dispose();
-    _motherName.dispose();
-    _motherOccupation.dispose();
-    _motherContact.dispose();
-    _motherEmail.dispose();
-    _guardianName.dispose();
-    _guardianRelation.dispose();
-    _guardianContact.dispose();
-    _emergencyName.dispose();
-    _emergencyPhone.dispose();
-    _placeOfBirth.dispose();
-    _nationality.dispose();
-    _religion.dispose();
-    _motherTongue.dispose();
-    _bloodGroup.dispose();
-    _medicalAllergies.dispose();
-    _medicalSurgeries.dispose();
-    _medicalChronic.dispose();
-    _prevSchool.dispose();
-    _prevDuration.dispose();
-    _prevClass.dispose();
-    super.dispose();
-  }
-
-  List<Map<String, dynamic>> get _classes {
-    if (_branchId == null) return [];
-    final b = widget.branches.cast<Map<String, dynamic>?>().firstWhere(
-      (x) => x!['id'] == _branchId,
-      orElse: () => null,
-    );
-    return (b?['classes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-  }
-
-  Future<void> _submit() async {
-    if (_name.text.trim().isEmpty || _selectedDob == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Name and Date of Birth required (tap to select)'),
-        ),
-      );
-      return;
-    }
-    if (_branchId == null || _classId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Select branch and class')));
-      return;
-    }
-    if (_parentName.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Parent name required (for login)')),
-      );
-      return;
-    }
-    if (mounted) setState(() => _loading = true);
-    try {
-      final res = await widget.api.createAdmissionFromEnquiry({
-        'enquiry_id': widget.enquiry['id'],
-        'branch_id': _branchId,
-        'class_id': _classId,
-        'name': _name.text.trim(),
-        'date_of_birth': _selectedDob!.toIso8601String().split('T').first,
-        'gender': _gender,
-        'place_of_birth': _placeOfBirth.text.trim().isEmpty
-            ? null
-            : _placeOfBirth.text.trim(),
-        'nationality': _nationality.text.trim().isEmpty
-            ? null
-            : _nationality.text.trim(),
-        'religion': _religion.text.trim().isEmpty
-            ? null
-            : _religion.text.trim(),
-        'mother_tongue': _motherTongue.text.trim().isEmpty
-            ? null
-            : _motherTongue.text.trim(),
-        'blood_group': _bloodGroup.text.trim().isEmpty
-            ? null
-            : _bloodGroup.text.trim(),
-        'medical_allergies': _medicalAllergies.text.trim().isEmpty
-            ? null
-            : _medicalAllergies.text.trim(),
-        'medical_surgeries': _medicalSurgeries.text.trim().isEmpty
-            ? null
-            : _medicalSurgeries.text.trim(),
-        'medical_chronic_illness': _medicalChronic.text.trim().isEmpty
-            ? null
-            : _medicalChronic.text.trim(),
-        'residential_address': _address.text.trim().isEmpty
-            ? null
-            : _address.text.trim(),
-        'residential_contact_no': _contact.text.trim().isEmpty
-            ? null
-            : _contact.text.trim(),
-        'attended_previously': _attendedPrev,
-        'school_daycare_name': _prevSchool.text.trim().isEmpty
-            ? null
-            : _prevSchool.text.trim(),
-        'prev_school_duration': _prevDuration.text.trim().isEmpty
-            ? null
-            : _prevDuration.text.trim(),
-        'prev_school_class': _prevClass.text.trim().isEmpty
-            ? null
-            : _prevClass.text.trim(),
-        'birth_certificate': _birthCert,
-        'immunization_record': _immunization,
-        'transfer_certificate': _transferCert,
-        'passport_photos': _passportPhotos,
-        'progress_report': _progressReport,
-        'passport': _passport,
-        'other_medical_report': _otherMedical,
-        'parent_name': _parentName.text.trim(),
-        'parent_contact': _parentContact.text.trim().isEmpty
-            ? null
-            : _parentContact.text.trim(),
-        'father_name': _fatherName.text.trim().isEmpty
-            ? null
-            : _fatherName.text.trim(),
-        'father_occupation': _fatherOccupation.text.trim().isEmpty
-            ? null
-            : _fatherOccupation.text.trim(),
-        'father_contact_no': _fatherContact.text.trim().isEmpty
-            ? null
-            : _fatherContact.text.trim(),
-        'father_email': _fatherEmail.text.trim().isEmpty
-            ? null
-            : _fatherEmail.text.trim(),
-        'mother_name': _motherName.text.trim().isEmpty
-            ? null
-            : _motherName.text.trim(),
-        'mother_occupation': _motherOccupation.text.trim().isEmpty
-            ? null
-            : _motherOccupation.text.trim(),
-        'mother_contact_no': _motherContact.text.trim().isEmpty
-            ? null
-            : _motherContact.text.trim(),
-        'mother_email': _motherEmail.text.trim().isEmpty
-            ? null
-            : _motherEmail.text.trim(),
-        'guardian_name': _guardianName.text.trim().isEmpty
-            ? null
-            : _guardianName.text.trim(),
-        'guardian_relation': _guardianRelation.text.trim().isEmpty
-            ? null
-            : _guardianRelation.text.trim(),
-        'guardian_contact_no': _guardianContact.text.trim().isEmpty
-            ? null
-            : _guardianContact.text.trim(),
-        'emergency_contact_name': _emergencyName.text.trim().isEmpty
-            ? null
-            : _emergencyName.text.trim(),
-        'emergency_contact_phone': _emergencyPhone.text.trim().isEmpty
-            ? null
-            : _emergencyPhone.text.trim(),
-        'transport_required': _transportRequired,
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Admission created: ${res['admission_number']}. Parent login: admission_number + DOB',
-            ),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-      widget.onSaved();
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      expand: false,
-      builder: (_, scrollController) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Convert to Admission',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Admission number format: skz(branch)(year)(date). Parent login: admission_number + DOB',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 16),
-              _section('Child'),
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Child Name *'),
-              ),
-              DobPicker(
-                value: _selectedDob,
-                onChanged: (d) => setState(() => _selectedDob = d),
-              ),
-              DropdownButtonFormField<String>(
-                value: _gender,
-                decoration: const InputDecoration(labelText: 'Gender'),
-                items: const [
-                  DropdownMenuItem(value: 'male', child: Text('Male')),
-                  DropdownMenuItem(value: 'female', child: Text('Female')),
-                  DropdownMenuItem(value: 'other', child: Text('Other')),
-                ],
-                onChanged: (v) => setState(() => _gender = v),
-              ),
-              TextField(
-                controller: _placeOfBirth,
-                decoration: const InputDecoration(labelText: 'Place of Birth'),
-              ),
-              TextField(
-                controller: _nationality,
-                decoration: const InputDecoration(labelText: 'Nationality'),
-              ),
-              TextField(
-                controller: _religion,
-                decoration: const InputDecoration(labelText: 'Religion'),
-              ),
-              TextField(
-                controller: _motherTongue,
-                decoration: const InputDecoration(labelText: 'Mother Tongue'),
-              ),
-              TextField(
-                controller: _bloodGroup,
-                decoration: const InputDecoration(labelText: 'Blood Group'),
-              ),
-              const SizedBox(height: 16),
-              _section('Medical'),
-              TextField(
-                controller: _medicalAllergies,
-                decoration: const InputDecoration(labelText: 'Allergies'),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _medicalSurgeries,
-                decoration: const InputDecoration(labelText: 'Surgeries'),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _medicalChronic,
-                decoration: const InputDecoration(labelText: 'Chronic Illness'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              _section('Father'),
-              TextField(
-                controller: _fatherName,
-                decoration: const InputDecoration(labelText: 'Father Name'),
-              ),
-              TextField(
-                controller: _fatherOccupation,
-                decoration: const InputDecoration(labelText: 'Occupation'),
-              ),
-              TextField(
-                controller: _fatherContact,
-                decoration: const InputDecoration(labelText: 'Contact'),
-              ),
-              TextField(
-                controller: _fatherEmail,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              _section('Mother'),
-              TextField(
-                controller: _motherName,
-                decoration: const InputDecoration(labelText: 'Mother Name'),
-              ),
-              TextField(
-                controller: _motherOccupation,
-                decoration: const InputDecoration(labelText: 'Occupation'),
-              ),
-              TextField(
-                controller: _motherContact,
-                decoration: const InputDecoration(labelText: 'Contact'),
-              ),
-              TextField(
-                controller: _motherEmail,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              _section('Guardian (if different from parents)'),
-              TextField(
-                controller: _guardianName,
-                decoration: const InputDecoration(labelText: 'Guardian Name'),
-              ),
-              TextField(
-                controller: _guardianRelation,
-                decoration: const InputDecoration(labelText: 'Relation'),
-              ),
-              TextField(
-                controller: _guardianContact,
-                decoration: const InputDecoration(labelText: 'Contact'),
-              ),
-              const SizedBox(height: 16),
-              _section('Address'),
-              TextField(
-                controller: _address,
-                decoration: const InputDecoration(
-                  labelText: 'Residential Address',
-                ),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _contact,
-                decoration: const InputDecoration(labelText: 'Contact'),
-              ),
-              const SizedBox(height: 16),
-              _section('Emergency Contact'),
-              TextField(
-                controller: _emergencyName,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              TextField(
-                controller: _emergencyPhone,
-                decoration: const InputDecoration(labelText: 'Phone'),
-              ),
-              const SizedBox(height: 16),
-              _section('Other'),
-              SwitchListTile(
-                title: const Text('Transport required'),
-                value: _transportRequired,
-                onChanged: (v) => setState(() => _transportRequired = v),
-              ),
-              const SizedBox(height: 16),
-              _section('Branch & Class'),
-              DropdownButtonFormField<String>(
-                value: _branchId,
-                decoration: const InputDecoration(labelText: 'Branch *'),
-                items: widget.branches
-                    .map(
-                      (b) => DropdownMenuItem(
-                        value: b['id'] as String,
-                        child: Text(b['name'] as String),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() {
-                  _branchId = v;
-                  _classId = null;
-                }),
-              ),
-              if (_classes.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  value: _classId,
-                  decoration: const InputDecoration(labelText: 'Class *'),
-                  items: _classes
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c['id'] as String,
-                          child: Text(c['name'] as String),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _classId = v),
-                ),
-              const SizedBox(height: 16),
-              _section('Previous School'),
-              SwitchListTile(
-                title: const Text('Attended previously'),
-                value: _attendedPrev,
-                onChanged: (v) => setState(() => _attendedPrev = v),
-              ),
-              TextField(
-                controller: _prevSchool,
-                decoration: const InputDecoration(
-                  labelText: 'School/Daycare Name',
-                ),
-              ),
-              TextField(
-                controller: _prevDuration,
-                decoration: const InputDecoration(labelText: 'Duration'),
-              ),
-              TextField(
-                controller: _prevClass,
-                decoration: const InputDecoration(labelText: 'Class'),
-              ),
-              const SizedBox(height: 16),
-              _section('Documents'),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text('Birth Certificate'),
-                    selected: _birthCert,
-                    onSelected: (v) => setState(() => _birthCert = v),
-                  ),
-                  FilterChip(
-                    label: const Text('Immunization'),
-                    selected: _immunization,
-                    onSelected: (v) => setState(() => _immunization = v),
-                  ),
-                  FilterChip(
-                    label: const Text('Transfer Cert'),
-                    selected: _transferCert,
-                    onSelected: (v) => setState(() => _transferCert = v),
-                  ),
-                  FilterChip(
-                    label: const Text('Passport Photos'),
-                    selected: _passportPhotos,
-                    onSelected: (v) => setState(() => _passportPhotos = v),
-                  ),
-                  FilterChip(
-                    label: const Text('Progress Report'),
-                    selected: _progressReport,
-                    onSelected: (v) => setState(() => _progressReport = v),
-                  ),
-                  FilterChip(
-                    label: const Text('Passport'),
-                    selected: _passport,
-                    onSelected: (v) => setState(() => _passport = v),
-                  ),
-                  FilterChip(
-                    label: const Text('Other Medical'),
-                    selected: _otherMedical,
-                    onSelected: (v) => setState(() => _otherMedical = v),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _section('Parent (for login)'),
-              Text(
-                'Parent will login with admission_number + date_of_birth',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              TextField(
-                controller: _parentName,
-                decoration: const InputDecoration(labelText: 'Parent Name *'),
-              ),
-              TextField(
-                controller: _parentContact,
-                decoration: const InputDecoration(labelText: 'Parent Contact'),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create Admission'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _section(String title) => Padding(
-    padding: const EdgeInsets.only(top: 8, bottom: 4),
-    child: Text(
-      title,
-      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-    ),
-  );
 }

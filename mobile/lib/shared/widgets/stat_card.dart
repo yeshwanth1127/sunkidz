@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_shadows.dart';
 
-class StatCard extends StatelessWidget {
+class StatCard extends StatefulWidget {
   final IconData icon;
   final String label;
   final String value;
@@ -9,6 +10,7 @@ class StatCard extends StatelessWidget {
   final bool trendUp;
   final Color? backgroundColor;
   final Color? iconColor;
+  final VoidCallback? onTap;
 
   const StatCard({
     super.key,
@@ -19,68 +21,139 @@ class StatCard extends StatelessWidget {
     this.trendUp = true,
     this.backgroundColor,
     this.iconColor,
+    this.onTap,
   });
 
   @override
+  State<StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bg = backgroundColor ?? AppColors.pastelBlue;
-    final ic = iconColor ?? AppColors.primary;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ic.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final bg = widget.backgroundColor ?? AppColors.pastelBlue;
+    final ic = widget.iconColor ?? AppColors.primary;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() { _isPressed = true; _controller.forward(); }),
+      onTapUp: (_) => setState(() { _isPressed = false; _controller.reverse(); }),
+      onTapCancel: () => setState(() { _isPressed = false; _controller.reverse(); }),
+      onTap: widget.onTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _isPressed ? ic : const Color(0xFFE2E8F0),
+              width: _isPressed ? 2 : 1,
+            ),
+            boxShadow: _isPressed ? [] : [AppShadows.soft],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: ic, size: 24),
-              Text(
-                label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: ic,
-                  letterSpacing: 1,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(widget.icon, color: ic, size: 22),
+                  ),
+                  if (widget.trend != null)
+                    Flexible(
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (widget.trendUp ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              widget.trendUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                              size: 12,
+                              color: widget.trendUp ? Colors.green : Colors.red,
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                widget.trend!,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.trendUp ? Colors.green : Colors.red,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: Text(
+                  widget.value,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF0F172A),
+                    fontSize: 26,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                widget.label.toUpperCase(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: const Color(0xFF64748B),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 9,
+                  letterSpacing: 0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          if (trend != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  trendUp ? Icons.trending_up : Icons.trending_down,
-                  size: 12,
-                  color: trendUp ? Colors.green : Colors.red,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    trend!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: trendUp ? Colors.green : Colors.red,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
