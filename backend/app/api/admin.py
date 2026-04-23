@@ -140,7 +140,6 @@ def create_daycare_user(
     )
 
 
-<<<<<<< HEAD
 def _ensure_branch_classes(db: Session, branch_id: UUID, branch_type: str = "normal") -> None:
     """Create default classes for a branch based on branch_type."""
     if branch_type == "creedo":
@@ -149,15 +148,7 @@ def _ensure_branch_classes(db: Session, branch_id: UUID, branch_type: str = "nor
         class_names = ["playschool", "nursery", "lkg", "ukg"]
     for name in class_names:
         if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == name).first():
-            db.add(Class(branch_id=branch_id, name=name, academic_year="2024-25"))
-=======
-def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
-    """Create default classes for a branch if missing."""
-    for name in settings.default_branch_classes:
-        normalized = normalize_class_name(name)
-        if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == normalized).first():
-            db.add(Class(branch_id=branch_id, name=normalized, academic_year="2026-27"))
->>>>>>> ac1ff0b
+            db.add(Class(branch_id=branch_id, name=name, academic_year="2026-27"))
     db.commit()
 
 
@@ -572,6 +563,14 @@ def delete_user(
         raise HTTPException(status_code=403, detail="Can only delete teachers, coordinators, bus staff, toddlers, and daycare")
     # Delete branch assignments first
     db.query(BranchAssignment).filter(BranchAssignment.user_id == user_id).delete()
+    
+    # Delete related notifications to prevent FK violation
+    try:
+        from app.models.notification import Notification
+        db.query(Notification).filter(Notification.user_id == user_id).delete()
+    except Exception as e:
+        logger.error(f"Failed to delete notifications for user: {e}")
+        
     db.delete(user)
     db.commit()
     return {"ok": True}
