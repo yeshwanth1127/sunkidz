@@ -109,7 +109,7 @@ class _StarPainter extends CustomPainter {
       // Twinkle effect
       final opacity =
           0.7 + 0.3 * sin(progress * 2 * pi + star.twinkle * 2 * pi);
-      paint.color = Colors.white.withOpacity(opacity);
+      paint.color = Colors.white.withValues(alpha: opacity);
       canvas.drawCircle(
         Offset(dx * size.width, dy * size.height),
         star.radius,

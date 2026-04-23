@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
+
 
 class BranchListScreen extends ConsumerStatefulWidget {
   const BranchListScreen({super.key});
@@ -90,12 +90,18 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Branches'),
+        title: const Text(
+          'Branches',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
         centerTitle: true,
         actions: [
           Padding(

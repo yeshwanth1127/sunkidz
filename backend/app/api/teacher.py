@@ -1,6 +1,7 @@
 from uuid import UUID
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -8,9 +9,12 @@ from datetime import date, timedelta
 
 from app.core.database import get_db
 from app.core.auth import require_teacher
-from app.models import User, Branch, Class, Student, BranchAssignment, MarksCard, Attendance
+from app.models import User, Branch, Class, Student, BranchAssignment, MarksCard, Attendance, ParentStudentLink
+from app.services.chat_event_service import post_event_message
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
+
+logger = logging.getLogger(__name__)
 
 
 def _teacher_class_id(user: User, db: Session) -> UUID | None:
@@ -170,14 +174,14 @@ def get_student(
 
 
 class MarksCardUpsert(BaseModel):
-    academic_year: str = "2024-25"
+    academic_year: str = "2026-27"
     data: dict[str, Any] = {}
 
 
 @router.get("/marks/{student_id}")
 def get_marks(
     student_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -200,7 +204,7 @@ def get_marks(
 @router.post("/marks/{student_id}/send-to-parent")
 def send_marks_to_parent(
     student_id: UUID,
-    academic_year: str = "2024-25",
+    academic_year: str = "2026-27",
     user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -215,6 +219,32 @@ def send_marks_to_parent(
     card.sent_to_parent_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(card)
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    parent_links = db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).all()
+    parent_ids = {link.user_id for link in parent_links}
+    event_body = (
+        f"[Marks Card Sent] Marks card for {student.name if student else 'your child'} "
+        f"({academic_year}) is now available in the app."
+    )
+    for parent_id in parent_ids:
+        try:
+            post_event_message(
+                db,
+                parent_user_id=parent_id,
+                staff_user_id=user.id,
+                sender_id=user.id,
+                student_id=student_id,
+                body=event_body,
+                send_push=True,
+                push_title="Marks card sent",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to append marks-sent event into chat",
+                extra={"student_id": str(student_id), "teacher_id": str(user.id), "parent_id": str(parent_id)},
+            )
+
     return {
         "id": str(card.id),
         "student_id": str(card.student_id),
@@ -234,18 +264,38 @@ def upsert_marks(
     class_id = _teacher_class_id(user, db)
     if not _student_in_teacher_class(student_id, class_id, db):
         raise HTTPException(status_code=404, detail="Student not found in your class")
+    
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    card = db.query(MarksCard).filter(MarksCard.student_id == student_id, MarksCard.academic_year == body.academic_year).first()
+    
+    # Extract academic_year and data from request body
+    academic_year = body.academic_year if body.academic_year else "2026-27"
+    marks_data = body.data if body.data else {}
+    
+    card = db.query(MarksCard).filter(
+        MarksCard.student_id == student_id, 
+        MarksCard.academic_year == academic_year
+    ).first()
+    
     if card:
-        card.data = body.data
+        card.data = marks_data
+        db.commit()
+        db.refresh(card)
     else:
-        card = MarksCard(student_id=student_id, academic_year=body.academic_year, data=body.data)
+        card = MarksCard(student_id=student_id, academic_year=academic_year, data=marks_data)
         db.add(card)
-    db.commit()
-    db.refresh(card)
-    return {"id": str(card.id), "student_id": str(card.student_id), "academic_year": card.academic_year, "data": card.data}
+        db.commit()
+        db.refresh(card)
+    
+    return {
+        "id": str(card.id), 
+        "student_id": str(card.student_id), 
+        "academic_year": card.academic_year, 
+        "data": card.data,
+        "status": "success",
+        "message": "Marks saved successfully"
+    }
 
 
 # --- Attendance ---
@@ -405,3 +455,82 @@ def get_attendance_history(
             by_student[str(a.student_id)]["dates"][dk] = a.status
     dates = sorted(by_date.keys())
     return {"period": period, "start": start_d.isoformat(), "end": end_d.isoformat(), "dates": dates, "by_date": by_date, "by_student": by_student}
+
+
+@router.get("/parents/search")
+def search_parents(
+    phone: str = Query(..., description="Phone number to search for"),
+    user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """Search parents by student name, parent name, or phone."""
+    def _norm_phone(value: str | None) -> str:
+        digits = ''.join(ch for ch in (value or '') if ch.isdigit())
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    term = (phone or "").strip()
+    if len(term) < 3:
+        return []
+
+    # Match by parent contact info directly.
+    users = db.query(User).filter(
+        User.role == "parent",
+        (
+            User.phone.ilike(f"%{term}%")
+            | User.full_name.ilike(f"%{term}%")
+        ),
+    ).all()
+
+    # Also match parents through students whose name matches the query.
+    matched_students = db.query(Student).filter(Student.name.ilike(f"%{term}%")).all()
+    fallback_student_names_by_user: dict[str, set[str]] = {}
+    for s in matched_students:
+        for link in s.parent_links:
+            if link.user and link.user.role == "parent":
+                users.append(link.user)
+                uid = str(link.user.id)
+                fallback_student_names_by_user.setdefault(uid, set()).add(s.name)
+
+    # Fallback for older records where parent_student_links may be missing.
+    # Try to resolve parent users by stored student contact numbers.
+    contact_numbers = set()
+    for s in matched_students:
+        for number in [s.father_contact_no, s.mother_contact_no, s.residential_contact_no]:
+            if number:
+                contact_numbers.add(number.strip())
+    normalized_contacts = {_norm_phone(n) for n in contact_numbers if _norm_phone(n)}
+    if normalized_contacts:
+        fallback_users = db.query(User).filter(User.role == "parent").all()
+        for u in fallback_users:
+            user_phone = _norm_phone(u.phone)
+            if not user_phone or user_phone not in normalized_contacts:
+                continue
+            users.append(u)
+            uid = str(u.id)
+            for s in matched_students:
+                student_numbers = {
+                    _norm_phone(s.father_contact_no),
+                    _norm_phone(s.mother_contact_no),
+                    _norm_phone(s.residential_contact_no),
+                }
+                if user_phone in student_numbers:
+                    fallback_student_names_by_user.setdefault(uid, set()).add(s.name)
+
+    deduped: dict[str, User] = {}
+    for u in users:
+        deduped[str(u.id)] = u
+
+    results = []
+    for u in deduped.values():
+        students = {link.student.name for link in u.student_links if link.student}
+        students.update(fallback_student_names_by_user.get(str(u.id), set()))
+        results.append(
+            {
+                "id": str(u.id),
+                "full_name": u.full_name,
+                "phone": u.phone,
+                "email": u.email,
+                "students": sorted(students),
+            }
+        )
+    return results

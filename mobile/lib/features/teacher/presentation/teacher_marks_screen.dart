@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/teacher_provider.dart';
-import '../../../shared/widgets/teacher_drawer.dart';
 /// Teacher marks: select from my class students, then open marks entry.
 /// Reuses MarksCardScreen form via navigation to a teacher-specific marks entry.
 class TeacherMarksScreen extends ConsumerStatefulWidget {
@@ -52,13 +51,24 @@ class _TeacherMarksScreenState extends ConsumerState<TeacherMarksScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const TeacherDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Marks Card'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loading ? null : _load)],
+        title: const Text(
+          'Marks Card',
+          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            onPressed: _loading ? null : _load,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -96,17 +106,22 @@ class _TeacherMarksScreenState extends ConsumerState<TeacherMarksScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Theme.of(context).dividerColor),
                           ),
-                          child: ListTile(
-                            leading: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(color: AppColors.pastelGreen, borderRadius: BorderRadius.circular(12)),
-                              child: Icon(Icons.grade, color: AppColors.primary),
+                          child: Material(
+                            color: Colors.transparent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            clipBehavior: Clip.hardEdge,
+                            child: ListTile(
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(color: AppColors.pastelGreen, borderRadius: BorderRadius.circular(12)),
+                                child: Icon(Icons.grade, color: AppColors.primary),
+                              ),
+                              title: Text(s['name'] as String? ?? ''),
+                              subtitle: Text(s['admission_number']?.toString() ?? ''),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => context.push('/teacher/marks/${s['id']}'),
                             ),
-                            title: Text(s['name'] as String? ?? ''),
-                            subtitle: Text(s['admission_number']?.toString() ?? ''),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.push('/teacher/marks/${s['id']}'),
                           ),
                         );
                       },

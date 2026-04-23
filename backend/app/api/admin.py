@@ -9,6 +9,7 @@ from collections import defaultdict
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_admin
 from app.core.config import settings
+from app.core.class_names import normalize_class_name
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
 from app.models.branch import Branch, Class, BranchAssignment
@@ -59,7 +60,9 @@ def create_toddlers_user(
     if not email:
         raise HTTPException(status_code=400, detail="Email is required for toddlers login")
     if not data.date_of_birth:
-        raise HTTPException(status_code=400, detail="Date of birth is required for toddlers login")
+        raise HTTPException(status_code=400, detail="Date of birth is required")
+    if not data.password:
+        raise HTTPException(status_code=400, detail="Password is required for login")
     try:
         dob = date.fromisoformat(data.date_of_birth.strip())
     except ValueError:
@@ -68,7 +71,7 @@ def create_toddlers_user(
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=email,
-        password_hash=None,  # Toddlers use email+DOB for login
+        password_hash=get_password_hash(data.password),
         full_name=full_name,
         role=data.role,
         phone=phone,
@@ -105,7 +108,9 @@ def create_daycare_user(
     if not email:
         raise HTTPException(status_code=400, detail="Email is required for daycare login")
     if not data.date_of_birth:
-        raise HTTPException(status_code=400, detail="Date of birth is required for daycare login")
+        raise HTTPException(status_code=400, detail="Date of birth is required")
+    if not data.password:
+        raise HTTPException(status_code=400, detail="Password is required for login")
     try:
         dob = date.fromisoformat(data.date_of_birth.strip())
     except ValueError:
@@ -114,7 +119,7 @@ def create_daycare_user(
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=email,
-        password_hash=None,  # Daycare use email+DOB for login
+        password_hash=get_password_hash(data.password),
         full_name=full_name,
         role=data.role,
         phone=phone,
@@ -135,6 +140,7 @@ def create_daycare_user(
     )
 
 
+<<<<<<< HEAD
 def _ensure_branch_classes(db: Session, branch_id: UUID, branch_type: str = "normal") -> None:
     """Create default classes for a branch based on branch_type."""
     if branch_type == "creedo":
@@ -144,6 +150,14 @@ def _ensure_branch_classes(db: Session, branch_id: UUID, branch_type: str = "nor
     for name in class_names:
         if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == name).first():
             db.add(Class(branch_id=branch_id, name=name, academic_year="2024-25"))
+=======
+def _ensure_branch_classes(db: Session, branch_id: UUID) -> None:
+    """Create default classes for a branch if missing."""
+    for name in settings.default_branch_classes:
+        normalized = normalize_class_name(name)
+        if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == normalized).first():
+            db.add(Class(branch_id=branch_id, name=normalized, academic_year="2026-27"))
+>>>>>>> ac1ff0b
     db.commit()
 
 
@@ -378,13 +392,14 @@ def create_class(
     branch = db.query(Branch).filter(Branch.id == data.branch_id).first()
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found")
-    existing = db.query(Class).filter(Class.branch_id == data.branch_id, Class.name == data.name).first()
+    class_name = normalize_class_name(data.name)
+    existing = db.query(Class).filter(Class.branch_id == data.branch_id, Class.name == class_name).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Class '{data.name}' already exists in this branch")
+        raise HTTPException(status_code=400, detail=f"Class '{class_name}' already exists in this branch")
     cls = Class(
         branch_id=data.branch_id,
-        name=data.name,
-        academic_year=data.academic_year or "2024-25",
+        name=class_name,
+        academic_year=data.academic_year or "2026-27",
     )
     db.add(cls)
     db.commit()
@@ -403,7 +418,7 @@ def update_class(
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
     if data.name is not None:
-        cls.name = data.name
+        cls.name = normalize_class_name(data.name)
     if data.academic_year is not None:
         cls.academic_year = data.academic_year
     db.commit()
@@ -470,6 +485,21 @@ def create_user(
         raise HTTPException(status_code=400, detail="Password is required")
     if email and db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    if data.class_id and not data.branch_id:
+        raise HTTPException(status_code=400, detail="Branch is required when class is selected")
+
+    if data.role == "teacher":
+        if not data.branch_id:
+            raise HTTPException(status_code=400, detail="Branch is required for teachers")
+        if not data.class_id:
+            raise HTTPException(status_code=400, detail="Class is required for teachers")
+    elif data.role == "coordinator":
+        if not data.branch_id:
+            raise HTTPException(status_code=400, detail="Branch is required for coordinators")
+        if data.class_id:
+            raise HTTPException(status_code=400, detail="Coordinators can only be assigned to a branch, not a class")
+    
     user = User(
         email=email,
         password_hash=get_password_hash(data.password),
@@ -481,6 +511,38 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # If branch_id and/or class_id provided, create BranchAssignment
+    if data.branch_id:
+        try:
+            branch_id = UUID(data.branch_id)
+            # Verify branch exists
+            branch = db.query(Branch).filter(Branch.id == branch_id).first()
+            if not branch:
+                raise HTTPException(status_code=400, detail=f"Branch with ID {data.branch_id} not found")
+            
+            # Verify class exists if provided
+            class_id = None
+            if data.class_id:
+                class_id = UUID(data.class_id)
+                cls = db.query(Class).filter(Class.id == class_id).first()
+                if not cls:
+                    raise HTTPException(status_code=400, detail=f"Class with ID {data.class_id} not found")
+                if cls.branch_id != branch_id:
+                    raise HTTPException(status_code=400, detail="Selected class does not belong to the selected branch")
+            
+            # Create BranchAssignment
+            assignment = BranchAssignment(
+                user_id=user.id,
+                branch_id=branch_id,
+                class_id=class_id,
+            )
+            db.add(assignment)
+            db.commit()
+            logger.info(f"✅ Created BranchAssignment for {user.email}: branch={branch_id}, class={class_id}")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid branch_id or class_id format (must be UUID)")
+    
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -489,6 +551,8 @@ def create_user(
         phone=user.phone,
         date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
         is_active=user.is_active,
+        branch_id=data.branch_id if data.branch_id else None,
+        class_id=data.class_id if data.class_id else None,
     )
 
 
@@ -535,7 +599,7 @@ def update_user(
     if data.phone is not None:
         user.phone = data.phone
     if data.is_active is not None:
-        user.is_active = data.is_active
+        user.is_active = data.is_active.lower().strip()
     if data.date_of_birth is not None and (data.date_of_birth or "").strip() and user.role in ("toddlers", "daycare"):
         try:
             user.date_of_birth = date.fromisoformat(data.date_of_birth.strip())
@@ -566,16 +630,28 @@ def update_user(
 def list_admissions(
     branch_id: UUID | None = Query(None),
     class_id: UUID | None = Query(None),
+    search: str | None = Query(None, description="Search by student name, parent name, contact, or admission number"),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    """List all students (admissions). Filter by branch and/or class (grade)."""
+    """List all students (admissions). Filter by branch and/or class (grade). Optionally search by name."""
     q = db.query(Student).filter(Student.admission_number.isnot(None))
     if branch_id:
         q = q.filter(Student.branch_id == branch_id)
     if class_id:
         q = q.filter(Student.class_id == class_id)
-    students = q.order_by(Student.created_at.desc()).all()
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.filter(
+            func.lower(Student.name).like(func.lower(term)) |
+            func.lower(Student.admission_number).like(func.lower(term)) |
+            func.lower(Student.father_name).like(func.lower(term)) |
+            func.lower(Student.mother_name).like(func.lower(term)) |
+            Student.residential_contact_no.like(term) |
+            Student.father_contact_no.like(term) |
+            Student.mother_contact_no.like(term)
+        )
+    students = q.order_by(Student.created_at.desc()).limit(50 if search else None).all()
     result = []
     for s in students:
         branch_name = None
@@ -587,8 +663,12 @@ def list_admissions(
             cls = db.query(Class).filter(Class.id == s.class_id).first()
             class_name = cls.name if cls else None
         parent_contact = s.residential_contact_no
+        parent_user_id = None
+        parent_name = None
         if s.parent_links:
             try:
+                parent_user_id = str(s.parent_links[0].user.id)
+                parent_name = s.parent_links[0].user.full_name
                 parent_contact = s.parent_links[0].user.phone or parent_contact
             except Exception:
                 pass
@@ -607,9 +687,87 @@ def list_admissions(
             "father_name": s.father_name,
             "mother_name": s.mother_name,
             "parent_contact": parent_contact,
+            "parent_user_id": parent_user_id,
+            "parent_name": parent_name or s.father_name or s.mother_name,
             "bus_opted": s.bus_opted or False,
         })
     return result
+
+
+@router.get("/parents/search")
+def search_parents(
+    phone: str = Query(..., description="Phone number to search for"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Search parents by student name, parent name, or phone."""
+    def _norm_phone(value: str | None) -> str:
+        digits = ''.join(ch for ch in (value or '') if ch.isdigit())
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    term = (phone or "").strip()
+    if len(term) < 3:
+        return []
+
+    users = db.query(User).filter(
+        User.role == "parent",
+        (
+            User.phone.ilike(f"%{term}%")
+            | User.full_name.ilike(f"%{term}%")
+        ),
+    ).all()
+
+    matched_students = db.query(Student).filter(Student.name.ilike(f"%{term}%")).all()
+    fallback_student_names_by_user: dict[str, set[str]] = {}
+    for s in matched_students:
+        for link in s.parent_links:
+            if link.user and link.user.role == "parent":
+                users.append(link.user)
+                uid = str(link.user.id)
+                fallback_student_names_by_user.setdefault(uid, set()).add(s.name)
+
+    # Fallback for older records where parent_student_links may be missing.
+    # Try to resolve parent users by stored student contact numbers.
+    contact_numbers = set()
+    for s in matched_students:
+        for number in [s.father_contact_no, s.mother_contact_no, s.residential_contact_no]:
+            if number:
+                contact_numbers.add(number.strip())
+    normalized_contacts = {_norm_phone(n) for n in contact_numbers if _norm_phone(n)}
+    if normalized_contacts:
+        fallback_users = db.query(User).filter(User.role == "parent").all()
+        for u in fallback_users:
+            user_phone = _norm_phone(u.phone)
+            if not user_phone or user_phone not in normalized_contacts:
+                continue
+            users.append(u)
+            uid = str(u.id)
+            for s in matched_students:
+                student_numbers = {
+                    _norm_phone(s.father_contact_no),
+                    _norm_phone(s.mother_contact_no),
+                    _norm_phone(s.residential_contact_no),
+                }
+                if user_phone in student_numbers:
+                    fallback_student_names_by_user.setdefault(uid, set()).add(s.name)
+
+    deduped: dict[str, User] = {}
+    for u in users:
+        deduped[str(u.id)] = u
+
+    results = []
+    for u in deduped.values():
+        # Find names of students linked to this parent
+        students = {link.student.name for link in u.student_links if link.student}
+        students.update(fallback_student_names_by_user.get(str(u.id), set()))
+        results.append({
+            "id": str(u.id),
+            "full_name": u.full_name,
+            "phone": u.phone,
+            "email": u.email,
+            "students": sorted(students),
+        })
+    return results
 
 
 @router.get("/students/{student_id}")
@@ -1423,6 +1581,7 @@ def _build_fees_detail(student: Student, fee_structure: FeeStructure | None, pay
         "term_fee_2_balance": max(term_fee_2 - paid["term_fee_2"], 0.0),
         "term_fee_3_balance": max(term_fee_3 - paid["term_fee_3"], 0.0),
         "total_balance": max(total_due - total_paid, 0.0),
+        "due_date": fee_structure.due_date.isoformat() if fee_structure and fee_structure.due_date else None,
         "custom_fields": [
             {
                 "key": cf["key"],
@@ -1490,6 +1649,19 @@ def upsert_student_fees(
     fee_structure.term_fee_1 = float(body.get("term_fee_1", fee_structure.term_fee_1 or 0.0))
     fee_structure.term_fee_2 = float(body.get("term_fee_2", fee_structure.term_fee_2 or 0.0))
     fee_structure.term_fee_3 = float(body.get("term_fee_3", fee_structure.term_fee_3 or 0.0))
+
+    # Update due date if provided
+    if "due_date" in body:
+        from datetime import datetime as _dt
+        try:
+            val = body["due_date"]
+            if val:
+                # Handle ISO format from flutter/javascript
+                fee_structure.due_date = _dt.fromisoformat(str(val).replace('Z', '+00:00'))
+            else:
+                fee_structure.due_date = None
+        except Exception:
+            pass
 
     # Persist custom fields when provided
     if "custom_fields" in body:
@@ -1700,6 +1872,13 @@ def push_fee_receipt_to_parent(
     db.add(receipt)
     db.commit()
     db.refresh(receipt)
+
+    # Send Push notification (non-blocking)
+    from app.services.notification_service import send_fee_receipt_notification
+    try:
+        send_fee_receipt_notification(student_id, payment, fees_detail, db)
+    except Exception as ex:
+        logger.error(f"Failed to send fee receipt push notification: {ex}")
 
     return {"ok": True, "receipt_id": str(receipt.id), "message": "Receipt pushed to parent dashboard"}
 

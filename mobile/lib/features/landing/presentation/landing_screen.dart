@@ -38,7 +38,7 @@ class LandingScreen extends StatelessWidget {
             
             // Sunkidz Logo Image
             Image.asset(
-              'assets/images/new_logo.png',
+              'assets/images/sunkidz_logo_hd.png',
               width: 280,
               height: 100,
               fit: BoxFit.contain,

@@ -73,8 +73,18 @@ class CoordinatorDrawer extends ConsumerWidget {
             onTap: () => _navigate(context, '/coordinator/gallery'),
           ),
           _DrawerTile(
+            icon: Icons.chat_outlined,
+            label: 'Chats',
+            onTap: () => _navigate(context, '/chat'),
+          ),
+          _DrawerTile(
+            icon: Icons.event_available_outlined,
+            label: 'Leave Requests',
+            onTap: () => _navigate(context, '/coordinator/leave'),
+          ),
+          _DrawerTile(
             icon: Icons.settings,
-            label: 'Settings',
+            label: 'Profile & Settings',
             onTap: () => _navigate(context, '/coordinator/settings'),
           ),
           const Divider(),
@@ -96,6 +106,9 @@ class CoordinatorDrawer extends ConsumerWidget {
   void _logout(BuildContext context, WidgetRef ref) {
     Navigator.pop(context);
     ref.read(authProvider.notifier).logout();
+    while (GoRouter.of(context).canPop()) {
+      context.pop();
+    }
     context.go('/login');
   }
 }

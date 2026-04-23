@@ -3,11 +3,10 @@ from pydantic import BaseModel
 from uuid import UUID
 
 
-class AdmissionCreate(BaseModel):
-    enquiry_id: UUID
+class AdmissionDirectCreate(BaseModel):
     branch_id: UUID
     class_id: UUID
-    # Child - from enquiry, can override
+    # Child
     name: str
     date_of_birth: date
     gender: str | None = None
@@ -51,3 +50,7 @@ class AdmissionCreate(BaseModel):
     emergency_contact_phone: str | None = None
     transport_required: bool = False
     religion: str | None = None
+    parent_user_id: UUID | None = None
+
+class AdmissionCreate(AdmissionDirectCreate):
+    enquiry_id: UUID

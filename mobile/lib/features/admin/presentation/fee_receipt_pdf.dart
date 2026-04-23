@@ -45,7 +45,7 @@ class FeeReceiptPdf {
     final pdf = pw.Document();
 
     // Load logo asset
-    final logoBytes = await rootBundle.load('assets/images/new_logo.png');
+    final logoBytes = await rootBundle.load('assets/images/sunkidz_logo_hd.png');
     final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
 
     // Derived values

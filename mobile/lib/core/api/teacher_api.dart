@@ -30,7 +30,7 @@ class TeacherApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getMarks(String studentId, {String academicYear = '2024-25'}) async {
+  Future<Map<String, dynamic>> getMarks(String studentId, {String academicYear = '2026-27'}) async {
     final r = await _dio.get('/teacher/marks/$studentId', queryParameters: {'academic_year': academicYear});
     return r.data as Map<String, dynamic>;
   }
@@ -40,7 +40,7 @@ class TeacherApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> sendMarksToParent(String studentId, {String academicYear = '2024-25'}) async {
+  Future<Map<String, dynamic>> sendMarksToParent(String studentId, {String academicYear = '2026-27'}) async {
     final r = await _dio.post('/teacher/marks/$studentId/send-to-parent', queryParameters: {'academic_year': academicYear});
     return r.data as Map<String, dynamic>;
   }
@@ -59,5 +59,25 @@ class TeacherApi {
   Future<Map<String, dynamic>> getAttendanceHistory({String period = 'week'}) async {
     final r = await _dio.get('/teacher/attendance/history', queryParameters: {'period': period});
     return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> sendMessage({
+    required String title,
+    required String message,
+    required String targetType,
+    String? targetUserId,
+  }) async {
+    final r = await _dio.post('/teacher/send', data: {
+      'title': title,
+      'message': message,
+      'target_type': targetType,
+      if (targetUserId != null) 'target_user_id': targetUserId,
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> searchParents(String phone) async {
+    final r = await _dio.get('/teacher/parents/search', queryParameters: {'phone': phone});
+    return List<Map<String, dynamic>>.from(r.data as List);
   }
 }

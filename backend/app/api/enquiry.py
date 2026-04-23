@@ -90,11 +90,11 @@ def create_enquiry(
     db.commit()
     db.refresh(e)
     
-    # Send WhatsApp notification (non-blocking)
+    # Send Push notification (non-blocking)
     try:
-        send_enquiry_notification(e)
+        send_enquiry_notification(e, db)
     except Exception as ex:
-        logger.error(f"Failed to send WhatsApp notification for enquiry {e.id}: {str(ex)}")
+        logger.error(f"Failed to send notification for enquiry {e.id}: {str(ex)}")
     
     branch_name = None
     if e.branch_id:

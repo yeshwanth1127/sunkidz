@@ -29,6 +29,7 @@ class User(Base):
     date_of_birth = Column(Date, nullable=True)  # For toddlers/daycare login
     profile_photo = Column(String(500), nullable=True)
     is_active = Column(String(10), default="true")
+    onesignal_player_id = Column(String(100), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

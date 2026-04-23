@@ -80,7 +80,7 @@ class AdminApi {
   Future<Map<String, dynamic>> createClass({
     required String branchId,
     required String name,
-    String academicYear = '2024-25',
+    String academicYear = '2026-27',
   }) async {
     final r = await _dio.post(
       '/admin/classes',
@@ -130,6 +130,8 @@ class AdminApi {
     required String fullName,
     required String role,
     String? phone,
+    String? branchId,
+    String? classId,
   }) async {
     final r = await _dio.post(
       '/admin/users',
@@ -139,6 +141,8 @@ class AdminApi {
         'full_name': fullName,
         'role': role,
         if (phone != null) 'phone': phone,
+        if (branchId != null) 'branch_id': branchId,
+        if (classId != null) 'class_id': classId,
       },
     );
     return r.data as Map<String, dynamic>;
@@ -156,7 +160,7 @@ class AdminApi {
     if (email != null) data['email'] = email;
     if (fullName != null) data['full_name'] = fullName;
     if (phone != null) data['phone'] = phone;
-    if (isActive != null) data['is_active'] = isActive == 'true';
+    if (isActive != null) data['is_active'] = isActive;
     if (dateOfBirth != null) data['date_of_birth'] = dateOfBirth;
     final r = await _dio.put('/admin/users/$id', data: data);
     return r.data as Map<String, dynamic>;
@@ -191,6 +195,7 @@ class AdminApi {
     required String email,
     required String fullName,
     required String dateOfBirth,
+    required String password,
     String? phone,
   }) async {
     final r = await _dio.post(
@@ -198,6 +203,7 @@ class AdminApi {
       data: {
         'email': email,
         'full_name': fullName,
+        'password': password,
         'date_of_birth': dateOfBirth,
         'role': 'toddlers',
         if (phone != null) 'phone': phone,
@@ -210,6 +216,7 @@ class AdminApi {
     required String email,
     required String fullName,
     required String dateOfBirth,
+    required String password,
     String? phone,
   }) async {
     final r = await _dio.post(
@@ -217,6 +224,7 @@ class AdminApi {
       data: {
         'email': email,
         'full_name': fullName,
+        'password': password,
         'date_of_birth': dateOfBirth,
         'role': 'daycare',
         if (phone != null) 'phone': phone,
@@ -311,14 +319,18 @@ class AdminApi {
   Future<List<Map<String, dynamic>>> getAdmissions({
     String? branchId,
     String? classId,
+    String? search,
   }) async {
     final params = <String, String>{};
     if (branchId != null) params['branch_id'] = branchId;
     if (classId != null) params['class_id'] = classId;
-    final q = params.isEmpty
-        ? ''
-        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
-    final r = await _dio.get('/admin/admissions$q');
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    final r = await _dio.get('/admin/admissions', queryParameters: params.isEmpty ? null : params);
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
+
+  Future<List<Map<String, dynamic>>> searchStudents(String query) async {
+    final r = await _dio.get('/admin/admissions', queryParameters: {'search': query});
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
@@ -329,10 +341,15 @@ class AdminApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<List<Map<String, dynamic>>> searchParents(String phone) async {
+    final r = await _dio.get('/admin/parents/search', queryParameters: {'phone': phone});
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
+
   // Marks Cards
   Future<Map<String, dynamic>> getMarks(
     String studentId, {
-    String academicYear = '2024-25',
+    String academicYear = '2026-27',
   }) async {
     final r = await _dio.get(
       '/admin/marks/$studentId',
@@ -355,7 +372,7 @@ class AdminApi {
 
   Future<Map<String, dynamic>> sendMarksToParent(
     String studentId, {
-    String academicYear = '2024-25',
+    String academicYear = '2026-27',
   }) async {
     final r = await _dio.post(
       '/admin/marks/$studentId/send-to-parent',
@@ -542,4 +559,63 @@ class AdminApi {
   Future<void> removeStudentFromDaycareGroup(String groupId, String studentId) async {
     await _dio.delete('/daycare/admin/groups/$groupId/students/$studentId');
   }
+
+  // Notifications
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final r = await _dio.get('/admin/notifications');
+    return List<Map<String, dynamic>>.from(r.data as List);
+  }
+
+  Future<int> getUnreadNotificationCount() async {
+    final r = await _dio.get('/admin/notifications/unread_count');
+    return r.data as int;
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _dio.post('/admin/notifications/mark_read/$notificationId');
+  }
+
+  /// Send message to staff/parents. target_type: all_staff, all_parents, all,
+  /// branch_staff, branch_parents, branch_all, grade_teachers
+  Future<Map<String, dynamic>> sendMessage({
+    required String title,
+    required String message,
+    required String targetType,
+    String? branchId,
+    String? classId,
+    String? targetUserId,
+    String? targetStudentId,
+  }) async {
+    final data = <String, dynamic>{
+      'title': title,
+      'message': message,
+      'target_type': targetType,
+    };
+    if (branchId != null) data['branch_id'] = branchId;
+    if (classId != null) data['class_id'] = classId;
+    if (targetUserId != null) data['target_user_id'] = targetUserId;
+    if (targetStudentId != null) data['target_student_id'] = targetStudentId;
+    final r = await _dio.post('/admin/messages/send', data: data);
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> sendMessageToStudentParent({
+    required String title,
+    required String message,
+    required String studentId,
+  }) async {
+    final r = await _dio.post('/admin/messages/send', data: {
+      'title': title,
+      'message': message,
+      'target_type': 'particular_user',
+      'target_student_id': studentId,
+    });
+    return r.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createDirectAdmission(Map<String, dynamic> data) async {
+    final r = await _dio.post('/admin/admissions/direct', data: data);
+    return r.data as Map<String, dynamic>;
+  }
 }
+

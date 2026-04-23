@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/coordinator_provider.dart';
-import '../../../shared/widgets/coordinator_drawer.dart';
 
 class CoordinatorAttendanceScreen extends ConsumerStatefulWidget {
   const CoordinatorAttendanceScreen({super.key});
@@ -164,19 +163,30 @@ class _CoordinatorAttendanceScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const CoordinatorDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Attendance Management',
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
           ),
         ),
-        title: const Text('Branch Attendance'),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: Colors.grey,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
+          indicatorSize: TabBarIndicatorSize.label,
           tabs: const [
-            Tab(text: 'By Date'),
+            Tab(text: 'Analytics'),
             Tab(text: 'Mark'),
             Tab(text: 'History'),
           ],
@@ -184,6 +194,7 @@ class _CoordinatorAttendanceScreenState
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const BouncingScrollPhysics(),
         children: [
           _buildByDateTab(),
           _buildMarkAttendanceTab(),
@@ -458,40 +469,45 @@ class _CoordinatorAttendanceScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('Weekly'),
-                  selected: _historyPeriod == 'week',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'week');
-                    await _loadHistory();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Monthly'),
-                  selected: _historyPeriod == 'month',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'month');
-                    await _loadHistory();
-                  },
-                ),
-                const Spacer(),
-                ChoiceChip(
-                  label: const Text('By Date'),
-                  selected: !_historyViewByStudent,
-                  onSelected: (_) =>
-                      setState(() => _historyViewByStudent = false),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('By Student'),
-                  selected: _historyViewByStudent,
-                  onSelected: (_) =>
-                      setState(() => _historyViewByStudent = true),
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('Weekly'),
+                    selected: _historyPeriod == 'week',
+                    onSelected: (_) async {
+                      setState(() => _historyPeriod = 'week');
+                      await _loadHistory();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Monthly'),
+                    selected: _historyPeriod == 'month',
+                    onSelected: (_) async {
+                      setState(() => _historyPeriod = 'month');
+                      await _loadHistory();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  Container(height: 24, width: 1, color: Colors.grey.shade300),
+                  const SizedBox(width: 16),
+                  ChoiceChip(
+                    label: const Text('By Date'),
+                    selected: !_historyViewByStudent,
+                    onSelected: (_) =>
+                        setState(() => _historyViewByStudent = false),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('By Student'),
+                    selected: _historyViewByStudent,
+                    onSelected: (_) =>
+                        setState(() => _historyViewByStudent = true),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             if (_loading && _historyData == null)
@@ -657,7 +673,7 @@ class _CoordinatorAttendanceScreenState
   }
 
   static String _formatDate(dynamic d) {
-    if (d is DateTime) return '${d.day}/${d.month}/${d.year}';
+    if (d is DateTime) return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
     final s = d.toString();
     if (s.length >= 10) {
       final parts = s.substring(0, 10).split('-');

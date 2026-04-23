@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/coordinator_provider.dart';
-import '../../../shared/widgets/coordinator_drawer.dart';
 
 class CoordinatorStaffAttendanceScreen extends ConsumerStatefulWidget {
   const CoordinatorStaffAttendanceScreen({super.key});
@@ -17,7 +16,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
   DateTime _selectedDate = DateTime.now();
   bool _loading = true;
   bool _saving = false;
-  bool _locked = false;  // Track if attendance is locked/submitted
+  bool _locked = false;
   Map<String, dynamic>? _staffData;
   Map<String, dynamic>? _historyData;
   String _historyPeriod = 'week';
@@ -54,7 +53,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
       if (mounted) {
         setState(() {
           _staffData = res;
-          _locked = (res['locked'] as bool?) ?? false;  // Get locked status
+          _locked = (res['locked'] as bool?) ?? false;
           _loading = false;
         });
       }
@@ -91,7 +90,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
   }
 
   void _setStatus(int index, String status) {
-    if (_staffData == null || _locked) return;  // Don't allow changes if locked
+    if (_staffData == null || _locked) return;
     final staff = List<Map<String, dynamic>>.from(_staffData!['staff'] as List);
     if (index >= staff.length) return;
     staff[index] = {...staff[index], 'status': status};
@@ -128,14 +127,28 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const CoordinatorDrawer(),
       appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Staff Attendance'),
+        title: const Text(
+          'Staff Attendance',
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: Colors.grey,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
+          indicatorSize: TabBarIndicatorSize.label,
           tabs: const [
             Tab(text: 'Mark Attendance'),
             Tab(text: 'View History'),
@@ -144,6 +157,7 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const BouncingScrollPhysics(),
         children: [
           _buildMarkTab(),
           _buildHistoryTab(),
@@ -267,38 +281,43 @@ class _CoordinatorStaffAttendanceScreenState extends ConsumerState<CoordinatorSt
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('Weekly'),
-                  selected: _historyPeriod == 'week',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'week');
-                    await _loadHistory();
-                  },
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Monthly'),
-                  selected: _historyPeriod == 'month',
-                  onSelected: (_) async {
-                    setState(() => _historyPeriod = 'month');
-                    await _loadHistory();
-                  },
-                ),
-                const Spacer(),
-                ChoiceChip(
-                  label: const Text('By Date'),
-                  selected: !_historyViewByStaff,
-                  onSelected: (_) => setState(() => _historyViewByStaff = false),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('By Staff'),
-                  selected: _historyViewByStaff,
-                  onSelected: (_) => setState(() => _historyViewByStaff = true),
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('Weekly'),
+                    selected: _historyPeriod == 'week',
+                    onSelected: (_) async {
+                      setState(() => _historyPeriod = 'week');
+                      await _loadHistory();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Monthly'),
+                    selected: _historyPeriod == 'month',
+                    onSelected: (_) async {
+                      setState(() => _historyPeriod = 'month');
+                      await _loadHistory();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  Container(height: 24, width: 1, color: Colors.grey.shade300),
+                  const SizedBox(width: 16),
+                  ChoiceChip(
+                    label: const Text('By Date'),
+                    selected: !_historyViewByStaff,
+                    onSelected: (_) => setState(() => _historyViewByStaff = false),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('By Staff'),
+                    selected: _historyViewByStaff,
+                    onSelected: (_) => setState(() => _historyViewByStaff = true),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             if (_loading && _historyData == null)
@@ -429,43 +448,80 @@ class _StaffRow extends StatelessWidget {
     final className = staff['class_name'] as String? ?? '';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: locked ? Colors.grey.shade50 : Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: locked ? Colors.orange.withValues(alpha: 0.3) : Theme.of(context).dividerColor),
+        color: locked ? Colors.grey.shade50 : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: locked ? Colors.orange.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          // Name row
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (className.isNotEmpty)
+                      Text(
+                        className,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              if (locked)
+                const Icon(Icons.lock_outline, size: 16, color: Colors.orange),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                if (className.isNotEmpty) Text(className, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              ],
-            ),
-          ),
+          const SizedBox(height: 10),
+          // Status row - full width below name
           Opacity(
-            opacity: locked ? 0.5 : 1.0,
+            opacity: locked ? 0.6 : 1.0,
             child: SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'present', label: Text('P'), icon: Icon(Icons.check, size: 16)),
-                ButtonSegment(value: 'absent', label: Text('A'), icon: Icon(Icons.close, size: 16)),
-                ButtonSegment(value: 'leave', label: Text('L'), icon: Icon(Icons.event_busy, size: 16)),
+                ButtonSegment(value: 'present', label: Text('Present'), icon: Icon(Icons.check, size: 14)),
+                ButtonSegment(value: 'absent', label: Text('Absent'), icon: Icon(Icons.close, size: 14)),
+                ButtonSegment(value: 'leave', label: Text('Leave'), icon: Icon(Icons.event_busy, size: 14)),
               ],
               selected: {status},
               onSelectionChanged: locked ? null : (s) => onStatusChanged?.call(s.first),
               style: ButtonStyle(
                 visualDensity: VisualDensity.compact,
-                padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                padding: WidgetStateProperty.all(
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                ),
+                textStyle: WidgetStateProperty.all(
+                  const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
               ),
+              expandedInsets: EdgeInsets.zero,
             ),
           ),
         ],

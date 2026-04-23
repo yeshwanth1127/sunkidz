@@ -31,6 +31,7 @@ import '../../features/admin/presentation/daycare_management_screen.dart';
 import '../../features/admin/presentation/branch_detail_screen.dart';
 import '../../features/enquiries/presentation/enquiry_list_screen.dart';
 import '../../features/admissions/presentation/admission_list_screen.dart';
+import '../../features/admissions/presentation/admission_new_screen.dart';
 import '../../features/students/presentation/student_list_screen.dart';
 import '../../features/students/presentation/student_profile_screen.dart';
 import '../../features/marks/presentation/marks_card_screen.dart';
@@ -43,6 +44,15 @@ import '../../features/coordinator/presentation/coordinator_gallery_screen.dart'
 import '../../features/admin/presentation/admin_attendance_screen.dart';
 import '../../features/admin/presentation/admin_fee_management_screen.dart';
 import '../../features/admin/presentation/admin_reports_screen.dart';
+import '../../features/messages/presentation/notifications_screen.dart';
+import '../../features/messages/presentation/admin_send_message_screen.dart';
+import '../../features/messages/presentation/coordinator_send_message_screen.dart';
+import '../../features/messages/presentation/teacher_send_message_screen.dart';
+import '../../features/messages/presentation/parent_send_message_screen.dart';
+import '../../features/messages/presentation/chat_threads_screen.dart';
+import '../../features/messages/presentation/chat_thread_screen.dart';
+import '../../features/leave/presentation/parent_leave_screen.dart';
+import '../../features/leave/presentation/staff_leave_screen.dart';
 import '../../features/parent/presentation/parent_fees_screen.dart';
 import '../../features/parent/presentation/parent_receipts_screen.dart';
 import '../../features/syllabus/presentation/syllabus_list_screen.dart';
@@ -147,6 +157,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'daycare',
             builder: (_, __) => const DaycareManagementScreen(),
           ),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const AdminSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const StaffLeaveScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -186,6 +208,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const GalleryUploadScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const CoordinatorSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const StaffLeaveScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -228,6 +262,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const TeacherSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const StaffLeaveScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -272,16 +318,38 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ParentReceiptsScreen(),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: 'send-message',
+            builder: (_, __) => const ParentSendMessageScreen(),
+          ),
+          GoRoute(
+            path: 'leave',
+            builder: (_, __) => const ParentLeaveScreen(),
+          ),
         ],
       ),
       GoRoute(
         path: '/bus-staff',
         builder: (_, __) => const BusStaffDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: '/toddler',
         builder: (_, __) => const ToddlerDashboardScreen(),
         routes: [
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
           GoRoute(
             path: 'gallery',
             builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: true),
@@ -296,6 +364,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/daycare',
         builder: (_, __) => const DaycareDashboardScreen(),
         routes: [
+          GoRoute(
+            path: 'notifications',
+            builder: (_, __) => const NotificationsScreen(),
+          ),
           GoRoute(
             path: 'gallery',
             builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: false),
@@ -325,6 +397,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const EnquiryListScreen(),
       ),
       GoRoute(
+        path: '/admissions/new',
+        builder: (_, __) => const AdmissionNewScreen(),
+      ),
+      GoRoute(
         path: '/admissions',
         builder: (_, __) => const AdmissionListScreen(),
       ),
@@ -349,6 +425,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/attendance',
         builder: (_, __) => const StudentAttendanceScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (_, __) => const ChatThreadsScreen(),
+        routes: [
+          GoRoute(
+            path: 'thread',
+            builder: (_, state) => ChatThreadScreen(
+              thread: (state.extra as Map<String, dynamic>?) ?? const {},
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/syllabus',

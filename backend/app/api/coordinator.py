@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -854,3 +854,80 @@ def create_enquiry(
         "status": e.status or "pending",
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
+
+
+@router.get("/parents/search")
+def search_parents(
+    phone: str = Query(..., description="Phone number to search for"),
+    user: User = Depends(require_coordinator),
+    db: Session = Depends(get_db),
+):
+    """Search parents by student name, parent name, or phone."""
+    def _norm_phone(value: str | None) -> str:
+        digits = ''.join(ch for ch in (value or '') if ch.isdigit())
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    term = (phone or "").strip()
+    if len(term) < 3:
+        return []
+
+    users = db.query(User).filter(
+        User.role == "parent",
+        (
+            User.phone.ilike(f"%{term}%")
+            | User.full_name.ilike(f"%{term}%")
+        ),
+    ).all()
+
+    matched_students = db.query(Student).filter(Student.name.ilike(f"%{term}%")).all()
+    fallback_student_names_by_user: dict[str, set[str]] = {}
+    for s in matched_students:
+        for link in s.parent_links:
+            if link.user and link.user.role == "parent":
+                users.append(link.user)
+                uid = str(link.user.id)
+                fallback_student_names_by_user.setdefault(uid, set()).add(s.name)
+
+    # Fallback for older records where parent_student_links may be missing.
+    # Try to resolve parent users by stored student contact numbers.
+    contact_numbers = set()
+    for s in matched_students:
+        for number in [s.father_contact_no, s.mother_contact_no, s.residential_contact_no]:
+            if number:
+                contact_numbers.add(number.strip())
+    normalized_contacts = {_norm_phone(n) for n in contact_numbers if _norm_phone(n)}
+    if normalized_contacts:
+        fallback_users = db.query(User).filter(User.role == "parent").all()
+        for u in fallback_users:
+            user_phone = _norm_phone(u.phone)
+            if not user_phone or user_phone not in normalized_contacts:
+                continue
+            users.append(u)
+            uid = str(u.id)
+            for s in matched_students:
+                student_numbers = {
+                    _norm_phone(s.father_contact_no),
+                    _norm_phone(s.mother_contact_no),
+                    _norm_phone(s.residential_contact_no),
+                }
+                if user_phone in student_numbers:
+                    fallback_student_names_by_user.setdefault(uid, set()).add(s.name)
+
+    deduped: dict[str, User] = {}
+    for u in users:
+        deduped[str(u.id)] = u
+
+    results = []
+    for u in deduped.values():
+        students = {link.student.name for link in u.student_links if link.student}
+        students.update(fallback_student_names_by_user.get(str(u.id), set()))
+        results.append(
+            {
+                "id": str(u.id),
+                "full_name": u.full_name,
+                "phone": u.phone,
+                "email": u.email,
+                "students": sorted(students),
+            }
+        )
+    return results

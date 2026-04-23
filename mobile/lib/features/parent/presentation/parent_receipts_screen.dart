@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/parent_drawer.dart';
 import '../../admin/presentation/fee_receipt_pdf.dart';
 
 class ParentReceiptsScreen extends ConsumerStatefulWidget {
@@ -80,8 +80,11 @@ class _ParentReceiptsScreenState extends ConsumerState<ParentReceiptsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const ParentDrawer(),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: const Text('Fee Receipts'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
