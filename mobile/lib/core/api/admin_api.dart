@@ -78,7 +78,7 @@ class AdminApi {
   Future<Map<String, dynamic>> createClass({
     required String branchId,
     required String name,
-    String academicYear = '2024-25',
+    String academicYear = '2026-27',
   }) async {
     final r = await _dio.post(
       '/admin/classes',
@@ -347,7 +347,7 @@ class AdminApi {
   // Marks Cards
   Future<Map<String, dynamic>> getMarks(
     String studentId, {
-    String academicYear = '2024-25',
+    String academicYear = '2026-27',
   }) async {
     final r = await _dio.get(
       '/admin/marks/$studentId',
@@ -370,7 +370,7 @@ class AdminApi {
 
   Future<Map<String, dynamic>> sendMarksToParent(
     String studentId, {
-    String academicYear = '2024-25',
+    String academicYear = '2026-27',
   }) async {
     final r = await _dio.post(
       '/admin/marks/$studentId/send-to-parent',

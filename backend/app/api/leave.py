@@ -9,6 +9,7 @@ Security:
 - Only staff with authority over the subject student may approve/reject.
 """
 from datetime import date, datetime, timezone
+import logging
 from uuid import UUID
 from typing import Optional
 
@@ -22,9 +23,13 @@ from app.models.user import User
 from app.models.student import Student, ParentStudentLink
 from app.models.branch import BranchAssignment
 from app.models.leave import LeaveApplication
+from app.services.leave_service import create_leave_application
+from app.services.chat_event_service import post_event_message
 from app.services.notification_service import send_onesignal_notification
 
 router = APIRouter(prefix="/leave", tags=["leave"])
+
+logger = logging.getLogger(__name__)
 
 MAX_REASON = 500
 MAX_NOTE = 500
@@ -121,59 +126,14 @@ def create_leave(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if user.role != "parent":
-        raise HTTPException(status_code=403, detail="Only parents may submit leave")
-    if data.end_date < data.start_date:
-        raise HTTPException(status_code=400, detail="end_date must be on/after start_date")
-
-    link = db.query(ParentStudentLink).filter(
-        ParentStudentLink.user_id == user.id,
-        ParentStudentLink.student_id == data.student_id,
-    ).first()
-    if not link:
-        raise HTTPException(status_code=403, detail="Student is not linked to your account")
-
-    app = LeaveApplication(
+    app = create_leave_application(
+        db,
+        parent_user=user,
         student_id=data.student_id,
-        parent_user_id=user.id,
         reason=data.reason,
         start_date=data.start_date,
         end_date=data.end_date,
-        status="pending",
     )
-    db.add(app)
-    db.commit()
-    db.refresh(app)
-
-    # Push to eligible staff (teacher of class + coordinator of branch + admins).
-    student = db.query(Student).filter(Student.id == app.student_id).first()
-    if student:
-        recipient_sids: set[str] = set()
-        staff_ids: set[UUID] = set()
-        if student.class_id:
-            ta = db.query(BranchAssignment).filter(BranchAssignment.class_id == student.class_id).all()
-            staff_ids.update(a.user_id for a in ta)
-        if student.branch_id:
-            ca = db.query(BranchAssignment).filter(
-                BranchAssignment.branch_id == student.branch_id,
-                BranchAssignment.class_id.is_(None),
-            ).all()
-            staff_ids.update(a.user_id for a in ca)
-        admins = db.query(User).filter(User.role == "admin", User.is_active == "true").all()
-        staff_ids.update(a.id for a in admins)
-        if staff_ids:
-            recipients = db.query(User).filter(User.id.in_(staff_ids)).all()
-            for r in recipients:
-                sid = (r.onesignal_player_id or "").strip() if r.onesignal_player_id else ""
-                if sid:
-                    recipient_sids.add(sid)
-        if recipient_sids:
-            title = "New leave request"
-            body = f"{user.full_name or 'Parent'} requested leave for {student.name}"
-            try:
-                send_onesignal_notification(list(recipient_sids), title, body)
-            except Exception:
-                pass
 
     return _hydrate(db, app)
 
@@ -245,5 +205,25 @@ def review_leave(
                 send_onesignal_notification([sid], title, body)
             except Exception:
                 pass
+
+    if parent:
+        event_body = f"[Leave {app.status.title()}] {student.name if student else 'Your child'} leave request was {app.status}."
+        if app.review_note:
+            event_body += f" Note: {app.review_note}"
+        try:
+            post_event_message(
+                db,
+                parent_user_id=parent.id,
+                staff_user_id=user.id,
+                sender_id=user.id,
+                student_id=app.student_id,
+                body=event_body,
+                send_push=False,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to append leave review event into chat",
+                extra={"leave_id": str(app.id), "reviewer_id": str(user.id)},
+            )
 
     return _hydrate(db, app)

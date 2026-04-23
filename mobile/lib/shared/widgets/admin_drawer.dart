@@ -258,25 +258,29 @@ class _DrawerTile extends StatelessWidget {
         gradient: isActive ? AppGradients.primaryGradient : null,
         boxShadow: isActive ? [AppShadows.glow(AppColors.primary)] : null,
       ),
-      child: ListTile(
-        onTap: onTap,
-        dense: true,
+      child: Material(
+        color: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(
-          icon,
-          color: isActive 
-            ? Colors.white 
-            : (isLogout ? Colors.redAccent.shade400 : const Color(0xFF64748B)),
-          size: 22,
-        ),
-        title: Text(
-          label,
-          style: GoogleFonts.lexend(
+        clipBehavior: Clip.hardEdge,
+        child: ListTile(
+          onTap: onTap,
+          dense: true,
+          leading: Icon(
+            icon,
             color: isActive 
               ? Colors.white 
-              : (isLogout ? Colors.redAccent.shade400 : const Color(0xFF1E293B)),
-            fontWeight: isActive || isLogout ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 14,
+              : (isLogout ? Colors.redAccent.shade400 : const Color(0xFF64748B)),
+            size: 22,
+          ),
+          title: Text(
+            label,
+            style: GoogleFonts.lexend(
+              color: isActive 
+                ? Colors.white 
+                : (isLogout ? Colors.redAccent.shade400 : const Color(0xFF1E293B)),
+              fontWeight: isActive || isLogout ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 14,
+            ),
           ),
         ),
       ),

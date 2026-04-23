@@ -271,21 +271,35 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+                const SizedBox(height: 24),
+                Text(
+                  'Messaging & Communication',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: _CoordMessageCard(
-                        icon: Icons.send,
-                        label: 'Send Message',
+                        icon: Icons.chat_rounded,
+                        label: 'Chats',
+                        onTap: () => context.push('/chat'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _CoordMessageCard(
+                        icon: Icons.campaign_rounded,
+                        label: 'Broadcast',
                         onTap: () => context.push('/coordinator/send-message'),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _CoordMessageCard(
-                        icon: Icons.notifications,
-                        label: 'View Messages',
-                        onTap: () => context.push('/coordinator/notifications'),
+                        icon: Icons.event_note_rounded,
+                        label: 'Leave Req',
+                        onTap: () => context.push('/coordinator/leave'),
                       ),
                     ),
                   ],

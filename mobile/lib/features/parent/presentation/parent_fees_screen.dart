@@ -456,28 +456,33 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
         border: Border(top: BorderSide(color: Colors.grey[200]!)),
         color: Colors.white,
       ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-        leading: const Icon(Icons.receipt_long_outlined,
-            color: Colors.blueGrey, size: 20),
-        title: Text(
-          '₹${amount.toStringAsFixed(2)}',
-          style:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        subtitle: Text(
-          '$dateStr  •  $mode',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.print_outlined,
-              color: Colors.indigo, size: 20),
-          tooltip: 'Print / Download Receipt',
-          onPressed: () => FeeReceiptPdf.printReceipt(
-            payment: payment,
-            feeData: _feeData!,
-            student: widget.student,
+      child: Material(
+        color: Colors.transparent,
+        shape: const RoundedRectangleBorder(),
+        clipBehavior: Clip.hardEdge,
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+          leading: const Icon(Icons.receipt_long_outlined,
+              color: Colors.blueGrey, size: 20),
+          title: Text(
+            '₹${amount.toStringAsFixed(2)}',
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          subtitle: Text(
+            '$dateStr  •  $mode',
+            style: const TextStyle(fontSize: 12),
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.print_outlined,
+                color: Colors.indigo, size: 20),
+            tooltip: 'Print / Download Receipt',
+            onPressed: () => FeeReceiptPdf.printReceipt(
+              payment: payment,
+              feeData: _feeData!,
+              student: widget.student,
+            ),
           ),
         ),
       ),

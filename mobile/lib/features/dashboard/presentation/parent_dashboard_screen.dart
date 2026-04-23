@@ -396,7 +396,8 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                       _buildProfileCard(childName, childClass, childBranch, childAvatarLetter, profilePhotoUrl),
                     ],
                     
-                    const SizedBox(height: 10),
+                    // Messaging & Communication
+                    _buildMessagingSection(context),
 
                     // Quick Actions
                     _buildQuickActions(context),
@@ -696,12 +697,20 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             onTap: () => context.push('/parent/homework'),
           ),
           _SaffronGridBtn(
-            label: 'Messages',
-            icon: Icons.chat_bubble_outline,
+            label: 'Chats',
+            icon: Icons.chat_rounded,
             bgColor: const Color(0xFFFFF0F5),
             iconColor: const Color(0xFFE65B90),
             textColor: const Color(0xFFAD1752),
-            onTap: () => context.push('/parent/send-message'),
+            onTap: () => context.push('/chat'),
+          ),
+          _SaffronGridBtn(
+            label: 'Leave Request',
+            icon: Icons.event_note_rounded,
+            bgColor: const Color(0xFFFFF0E5),
+            iconColor: const Color(0xFFFB923C),
+            textColor: const Color(0xFFB55500),
+            onTap: () => context.push('/parent/leave'),
           ),
           _SaffronGridBtn(
             label: 'MarksCard',
@@ -740,6 +749,14 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             onTap: () => context.push('/parent/settings'),
           ),
           _SaffronGridBtn(
+            label: 'Notifications',
+            icon: Icons.notifications_none,
+            bgColor: const Color(0xFFF0F5FF),
+            iconColor: const Color(0xFF60A5FA),
+            textColor: const Color(0xFF1D4ED8),
+            onTap: () => context.push('/parent/notifications'),
+          ),
+          _SaffronGridBtn(
             label: 'Logout',
             icon: Icons.logout,
             bgColor: const Color(0xFFFFF0F0),
@@ -750,14 +767,6 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               context.go('/login');
             },
           ),
-          _SaffronGridBtn(
-            label: 'Notifications',
-            icon: Icons.notifications_none,
-            bgColor: const Color(0xFFF0F5FF),
-            iconColor: const Color(0xFF60A5FA),
-            textColor: const Color(0xFF1D4ED8),
-            onTap: () => context.push('/parent/notifications'),
-          ),
           if (_hasBusAccess)
             _SaffronGridBtn(
               label: 'Bus Map',
@@ -767,6 +776,56 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
               textColor: const Color(0xFF8A6C21),
               onTap: () => context.push('/parent/bus-tracking'),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessagingSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Communication & Leaves',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF2D2323),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ParentActionCard(
+                  icon: Icons.chat_bubble_rounded,
+                  label: 'Chats',
+                  color: const Color(0xFFE65B90),
+                  onTap: () => context.push('/chat'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ParentActionCard(
+                  icon: Icons.notifications_active_rounded,
+                  label: 'Updates',
+                  color: const Color(0xFF3B9DE8),
+                  onTap: () => context.push('/parent/notifications'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ParentActionCard(
+                  icon: Icons.event_note_rounded,
+                  label: 'Leave',
+                  color: const Color(0xFFFB923C),
+                  onTap: () => context.push('/parent/leave'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1098,6 +1157,62 @@ class _BottomNavBtn extends StatelessWidget {
           ),
         )
       ],
+    );
+  }
+}
+class _ParentActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ParentActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.15),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 26),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                color: Color(0xFF2D2323),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

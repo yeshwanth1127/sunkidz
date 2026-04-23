@@ -439,6 +439,21 @@ class _AddUserSheetState extends State<_AddUserSheet> {
     return List<Map<String, dynamic>>.from(classes);
   }
 
+  bool get _needsBranch => widget.role == 'teacher' || widget.role == 'coordinator';
+
+  bool get _needsClass => widget.role == 'teacher';
+
+  String get _sheetTitle {
+    switch (widget.role) {
+      case 'coordinator':
+        return 'New Coordinator';
+      case 'bus_staff':
+        return 'New Logistics Staff';
+      default:
+        return 'New Teacher';
+    }
+  }
+
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
@@ -447,8 +462,8 @@ class _AddUserSheetState extends State<_AddUserSheet> {
     if (name.isEmpty) { setState(() => _error = 'Full name is required'); return; }
     if (email.isEmpty) { setState(() => _error = 'Email is required'); return; }
     if (pass.isEmpty) { setState(() => _error = 'Password is required'); return; }
-    if (_branchId == null) { setState(() => _error = 'Branch is required'); return; }
-    if (_classId == null) { setState(() => _error = 'Class is required'); return; }
+    if (_needsBranch && _branchId == null) { setState(() => _error = 'Branch is required'); return; }
+    if (_needsClass && _classId == null) { setState(() => _error = 'Class is required'); return; }
     setState(() { _loading = true; _error = null; });
     try {
       await widget.api.createUser(
@@ -457,8 +472,8 @@ class _AddUserSheetState extends State<_AddUserSheet> {
         fullName: name,
         role: widget.role,
         phone: phone.isEmpty ? null : phone,
-        branchId: _branchId,
-        classId: _classId,
+        branchId: _needsBranch ? _branchId : null,
+        classId: _needsClass ? _classId : null,
       );
       widget.onSaved();
     } catch (e) {
@@ -485,7 +500,7 @@ class _AddUserSheetState extends State<_AddUserSheet> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 24),
-            const Text('New Staff Member', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(_sheetTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 24),
             TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline_rounded))),
             const SizedBox(height: 16),
@@ -494,28 +509,30 @@ class _AddUserSheetState extends State<_AddUserSheet> {
             TextField(controller: _passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline_rounded))),
             const SizedBox(height: 16),
             TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number (Optional)', prefixIcon: Icon(Icons.phone_outlined))),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _branchId,
-              decoration: const InputDecoration(
-                labelText: 'Branch *',
-                prefixIcon: Icon(Icons.location_city_rounded),
-                border: OutlineInputBorder(),
+            if (_needsBranch) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _branchId,
+                decoration: const InputDecoration(
+                  labelText: 'Branch *',
+                  prefixIcon: Icon(Icons.location_city_rounded),
+                  border: OutlineInputBorder(),
+                ),
+                items: widget.branches.map((branch) {
+                  return DropdownMenuItem(
+                    value: branch['id'] as String,
+                    child: Text(branch['name'] as String? ?? 'Unknown Branch'),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _branchId = value;
+                    _classId = null;
+                  });
+                },
               ),
-              items: widget.branches.map((branch) {
-                return DropdownMenuItem(
-                  value: branch['id'] as String,
-                  child: Text(branch['name'] as String? ?? 'Unknown Branch'),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _branchId = value;
-                  _classId = null; // Reset class when branch changes
-                });
-              },
-            ),
-            if (_branchId != null) ...[
+            ],
+            if (_needsClass && _branchId != null) ...[
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: _classId,

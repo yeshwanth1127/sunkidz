@@ -47,7 +47,7 @@ def seed():
         # Ensure default classes for this branch
         for class_name in settings.default_branch_classes:
             if not db.query(Class).filter(Class.branch_id == branch.id, Class.name == class_name).first():
-                db.add(Class(branch_id=branch.id, name=class_name, academic_year="2024-25"))
+                db.add(Class(branch_id=branch.id, name=class_name, academic_year="2026-27"))
         db.commit()
         cls = db.query(Class).filter(Class.branch_id == branch.id, Class.name == "IG-1").first()
 

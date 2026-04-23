@@ -40,7 +40,7 @@ class ParentApi {
     return r.data as Map<String, dynamic>;
   }
 
-  /// Send message to child's grade teachers only
+  /// Send message to child's grade teachers and admins
   Future<Map<String, dynamic>> sendMessage({
     required String title,
     required String message,

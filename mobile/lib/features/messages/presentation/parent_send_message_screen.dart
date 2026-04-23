@@ -103,7 +103,7 @@ class _ParentSendMessageScreenState extends ConsumerState<ParentSendMessageScree
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Your message will be sent to your child\'s grade teachers only.',
+                          'Your message will be sent to your child\'s grade teachers and super admin.',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.blue.shade900,
@@ -144,7 +144,7 @@ class _ParentSendMessageScreenState extends ConsumerState<ParentSendMessageScree
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.send),
-                label: Text(_sending ? 'Sending...' : 'Send to Teachers'),
+                label: Text(_sending ? 'Sending...' : 'Send to Teachers + Admin'),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),

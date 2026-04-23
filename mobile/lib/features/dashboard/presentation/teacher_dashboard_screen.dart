@@ -278,6 +278,46 @@ class TeacherDashboardScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              const SizedBox(height: 24),
+              Text(
+                'Communication & Leaves',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                   Expanded(
+                    child: _TeacherActionCard(
+                      icon: Icons.chat_rounded,
+                      label: 'Chats',
+                      color: Colors.blueAccent,
+                      isOutlined: true,
+                      onTap: () => context.push('/chat'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _TeacherActionCard(
+                      icon: Icons.campaign_rounded,
+                      label: 'Broadcast',
+                      color: Colors.orangeAccent,
+                      isOutlined: true,
+                      onTap: () => context.push('/teacher/send-message'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _TeacherActionCard(
+                      icon: Icons.event_note_rounded,
+                      label: 'Leaves',
+                      color: Colors.purpleAccent,
+                      isOutlined: true,
+                      onTap: () => context.push('/teacher/leave'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Recent Activity',
                 style: Theme.of(context).textTheme.titleLarge,
