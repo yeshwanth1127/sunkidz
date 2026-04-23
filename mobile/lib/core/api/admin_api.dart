@@ -34,6 +34,7 @@ class AdminApi {
     String? address,
     String? contactNo,
     String status = 'active',
+    String branchType = 'normal',
   }) async {
     final r = await _dio.post(
       '/admin/branches',
@@ -43,6 +44,7 @@ class AdminApi {
         'address': address,
         'contact_no': contactNo,
         'status': status,
+        'branch_type': branchType,
       },
     );
     return r.data as Map<String, dynamic>;

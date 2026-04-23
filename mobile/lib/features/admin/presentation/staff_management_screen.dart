@@ -33,7 +33,13 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
       _error = null;
     });
     try {
-      final role = _tabIndex == 1 ? 'teacher' : _tabIndex == 2 ? 'coordinator' : _tabIndex == 3 ? 'bus_staff' : null;
+      final role = _tabIndex == 1
+          ? 'teacher'
+          : _tabIndex == 2
+              ? 'coordinator'
+              : _tabIndex == 3
+                  ? 'bus_staff'
+                  : null;
       final users = await api.getUsers(role: role);
       final branches = await api.getBranches();
       setState(() {
@@ -49,13 +55,63 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
     }
   }
 
+  /// Shows role-picker first, then opens the Add sheet
   void _showAddUser() {
+    // When on a specific tab, skip the role picker
+    if (_tabIndex != 0) {
+      final role = _tabIndex == 2
+          ? 'coordinator'
+          : _tabIndex == 3
+              ? 'bus_staff'
+              : 'teacher';
+      _openAddSheet(role);
+      return;
+    }
+    // On "All" tab — ask which role to add
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text('Add Staff — Select Role', style: Theme.of(ctx).textTheme.titleMedium),
+              ),
+              ListTile(
+                leading: CircleAvatar(backgroundColor: AppColors.pastelGreen, child: const Icon(Icons.person, color: Color(0xFF16A34A))),
+                title: const Text('Teacher'),
+                subtitle: const Text('Assigned to a branch & class'),
+                onTap: () { Navigator.pop(ctx); _openAddSheet('teacher'); },
+              ),
+              ListTile(
+                leading: CircleAvatar(backgroundColor: AppColors.pastelBlue, child: Icon(Icons.supervisor_account, color: AppColors.primary)),
+                title: const Text('Coordinator'),
+                subtitle: const Text('Manages a branch'),
+                onTap: () { Navigator.pop(ctx); _openAddSheet('coordinator'); },
+              ),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFFFEDD5), child: Icon(Icons.directions_bus, color: Color(0xFFEA580C))),
+                title: const Text('Bus Staff'),
+                subtitle: const Text('Manages student bus routes'),
+                onTap: () { Navigator.pop(ctx); _openAddSheet('bus_staff'); },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openAddSheet(String role) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _AddUserSheet(
         branches: _branches,
-        role: _tabIndex == 2 ? 'coordinator' : _tabIndex == 3 ? 'bus_staff' : 'teacher',
+        role: role,
         onSaved: () {
           Navigator.pop(ctx);
           _load();
@@ -85,7 +141,9 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Staff'),
-        content: Text('Are you sure you want to delete ${user['full_name']}? This cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete ${user['full_name']}? This cannot be undone.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
@@ -95,11 +153,17 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
               try {
                 await ref.read(adminApiProvider)!.deleteUser(user['id'] as String);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Staff deleted')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${user['full_name']} deleted')),
+                  );
                   _load();
                 }
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
+                  );
+                }
               }
             },
             child: const Text('Delete'),
@@ -132,7 +196,10 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
       drawer: const AdminDrawer(),
       appBar: AppBar(
         leading: Builder(
-          builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer()),
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
         ),
         title: const Text('Staff Management'),
         actions: [
@@ -159,7 +226,26 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_error != null)
-            Expanded(child: Center(child: Text(_error!, style: TextStyle(color: Colors.red))))
+            Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
+          else if (_users.isEmpty)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.group_off, size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    Text('No staff found', style: TextStyle(color: Colors.grey.shade600)),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed: _showAddUser,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Staff'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else
             Expanded(
               child: ListView.builder(
@@ -197,7 +283,14 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: selected ? null : Border.all(color: Theme.of(context).dividerColor),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: selected ? Colors.white : Colors.grey)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : Colors.grey,
+          ),
+        ),
       ),
     );
   }
@@ -216,21 +309,24 @@ class _StaffCard extends StatelessWidget {
     final role = user['role'] as String? ?? '';
     final isCoord = role == 'coordinator';
     final isBusStaff = role == 'bus_staff';
-    final Color avatarColor = isCoord 
-        ? AppColors.pastelBlue 
-        : isBusStaff 
-            ? AppColors.pastelOrange 
+    final Color avatarColor = isCoord
+        ? AppColors.pastelBlue
+        : isBusStaff
+            ? const Color(0xFFFFEDD5)
             : AppColors.pastelGreen;
-    final Color iconColor = isCoord 
-        ? AppColors.primary 
-        : isBusStaff 
-            ? const Color(0xFFEA580C) 
+    final Color iconColor = isCoord
+        ? AppColors.primary
+        : isBusStaff
+            ? const Color(0xFFEA580C)
             : const Color(0xFF16A34A);
-    final IconData icon = isCoord 
-        ? Icons.supervisor_account 
-        : isBusStaff 
-            ? Icons.directions_bus 
+    final IconData icon = isCoord
+        ? Icons.supervisor_account
+        : isBusStaff
+            ? Icons.directions_bus
             : Icons.person;
+
+    final isActive = (user['is_active'] as String? ?? 'true') == 'true';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -238,8 +334,32 @@ class _StaffCard extends StatelessWidget {
           backgroundColor: avatarColor,
           child: Icon(icon, color: iconColor),
         ),
-        title: Text(user['full_name'] as String? ?? ''),
-        subtitle: Text(isBusStaff ? 'Bus Staff' : '${user['branch_name'] ?? 'Unassigned'}${user['class_name'] != null ? ' • ${user['class_name']}' : ''}'),
+        title: Row(
+          children: [
+            Expanded(child: Text(user['full_name'] as String? ?? '')),
+            if (!isActive)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(6)),
+                child: Text('INACTIVE', style: TextStyle(fontSize: 9, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isBusStaff
+                  ? 'Bus Staff'
+                  : isCoord
+                      ? 'Coordinator • ${user['branch_name'] ?? 'Unassigned'}'
+                      : '${user['branch_name'] ?? 'Unassigned'}${user['class_name'] != null ? ' • ${user['class_name']}' : ''}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            if ((user['email'] as String?) != null)
+              Text(user['email'] as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          ],
+        ),
         trailing: PopupMenuButton<String>(
           onSelected: (v) {
             if (v == 'edit') onEdit();
@@ -247,15 +367,21 @@ class _StaffCard extends StatelessWidget {
             if (v == 'delete') onDelete();
           },
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'edit', child: Text('Edit details')),
-            if (user['role'] != 'bus_staff') const PopupMenuItem(value: 'reassign', child: Text('Reassign')),
-            const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+            const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit details')])),
+            if (user['role'] != 'bus_staff')
+              const PopupMenuItem(value: 'reassign', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text('Reassign')])),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))]),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ─── Add Staff Sheet ─────────────────────────────────────────────────────────
 
 class _AddUserSheet extends StatefulWidget {
   final List<Map<String, dynamic>> branches;
@@ -278,6 +404,8 @@ class _AddUserSheetState extends State<_AddUserSheet> {
   String? _classId;
   bool _loading = false;
   String? _error;
+  // Track if user was created so we don't double-create on assignment failure
+  String? _createdUserId;
 
   @override
   void dispose() {
@@ -289,45 +417,65 @@ class _AddUserSheetState extends State<_AddUserSheet> {
   }
 
   Future<void> _submit() async {
-    if (_nameCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Name and password required');
+    // Validate
+    if (_nameCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Full name is required');
+      return;
+    }
+    if (_passCtrl.text.isEmpty) {
+      setState(() => _error = 'Password is required');
       return;
     }
     if (_emailCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Email required for login');
+      setState(() => _error = 'Email is required for login');
       return;
     }
     if (widget.role == 'teacher' && _branchId == null) {
-      setState(() => _error = 'Select branch');
+      setState(() => _error = 'Please select a branch');
       return;
     }
     if (widget.role == 'coordinator' && _branchId == null) {
-      setState(() => _error = 'Select branch');
+      setState(() => _error = 'Please select a branch');
       return;
     }
+
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
-      final created = await widget.api.createUser(
-        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-        fullName: _nameCtrl.text.trim(),
-        role: widget.role,
-        phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-      );
+      // Step 1: Create user (if not already created from a previous failed attempt)
+      String userId = _createdUserId ?? '';
+      if (_createdUserId == null) {
+        final created = await widget.api.createUser(
+          email: _emailCtrl.text.trim(),
+          password: _passCtrl.text,
+          fullName: _nameCtrl.text.trim(),
+          role: widget.role,
+          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        );
+        userId = created['id'] as String;
+        _createdUserId = userId; // Remember in case step 2 fails
+      }
+
+      // Step 2: Assign to branch (teachers and coordinators only)
       if (_branchId != null && widget.role != 'bus_staff') {
         await widget.api.createAssignment(
-          userId: created['id'] as String,
+          userId: userId,
           branchId: _branchId!,
           classId: widget.role == 'teacher' ? _classId : null,
         );
       }
+
       widget.onSaved();
     } catch (e) {
+      final msg = e.toString().replaceAll('Exception: ', '');
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        // If user was already created, tell the admin specifically what failed
+        _error = _createdUserId != null && !msg.contains('already')
+            ? 'Staff created but branch assignment failed: $msg\nTap Save again to retry assignment.'
+            : msg;
         _loading = false;
       });
     }
@@ -335,8 +483,16 @@ class _AddUserSheetState extends State<_AddUserSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final branch = widget.branches.cast<Map<String, dynamic>?>().firstWhere((b) => b!['id'] == _branchId, orElse: () => null);
+    final roleLabel = widget.role == 'coordinator'
+        ? 'Coordinator'
+        : widget.role == 'bus_staff'
+            ? 'Bus Staff'
+            : 'Teacher';
+    final branch = widget.branches
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((b) => b!['id'] == _branchId, orElse: () => null);
     final classes = (branch?['classes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
@@ -345,35 +501,81 @@ class _AddUserSheetState extends State<_AddUserSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Add ${widget.role == 'coordinator' ? 'Coordinator' : widget.role == 'bus_staff' ? 'Bus Staff' : 'Teacher'}', style: Theme.of(context).textTheme.titleLarge),
+            Text('Add $roleLabel', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name *')),
-            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email (required for login)'), keyboardType: TextInputType.emailAddress),
-            TextField(controller: _passCtrl, decoration: const InputDecoration(labelText: 'Password *'), obscureText: true),
-            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone'), keyboardType: TextInputType.phone),
+            TextField(
+              controller: _nameCtrl,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Full Name *'),
+            ),
+            TextField(
+              controller: _emailCtrl,
+              decoration: const InputDecoration(labelText: 'Email * (used for login)'),
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+            ),
+            TextField(
+              controller: _passCtrl,
+              decoration: const InputDecoration(labelText: 'Password *'),
+              obscureText: true,
+            ),
+            TextField(
+              controller: _phoneCtrl,
+              decoration: const InputDecoration(labelText: 'Phone'),
+              keyboardType: TextInputType.phone,
+            ),
             const SizedBox(height: 12),
             if (widget.role != 'bus_staff')
               DropdownButtonFormField<String>(
                 value: _branchId,
-                decoration: const InputDecoration(labelText: 'Branch *'),
-                items: widget.branches.map((b) => DropdownMenuItem(value: b['id'] as String, child: Text(b['name'] as String))).toList(),
+                decoration: InputDecoration(
+                  labelText: 'Branch *',
+                  helperText: widget.role == 'coordinator'
+                      ? 'Coordinator manages the whole branch'
+                      : 'Select which branch this teacher belongs to',
+                ),
+                items: widget.branches
+                    .map((b) => DropdownMenuItem(value: b['id'] as String, child: Text(b['name'] as String)))
+                    .toList(),
                 onChanged: (v) => setState(() {
                   _branchId = v;
                   _classId = null;
                 }),
               ),
-            if (widget.role == 'teacher' && classes.isNotEmpty)
+            if (widget.role == 'teacher' && _branchId != null && classes.isNotEmpty)
               DropdownButtonFormField<String>(
                 value: _classId,
-                decoration: const InputDecoration(labelText: 'Class (optional)'),
-                items: [const DropdownMenuItem(value: null, child: Text('— None —')), ...classes.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String)))],
+                decoration: const InputDecoration(labelText: 'Class (optional)', helperText: 'Assign to a specific class'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— No class yet —')),
+                  ...classes.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String))),
+                ],
                 onChanged: (v) => setState(() => _classId = v),
               ),
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+            if (widget.role == 'teacher' && _branchId != null && classes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('⚠ No classes in selected branch yet', style: TextStyle(color: Colors.orange.shade800, fontSize: 12)),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Text(_error!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                ),
+              ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loading ? null : _submit,
-              child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Add'),
+              child: _loading
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(_createdUserId != null ? 'Retry Assignment' : 'Add $roleLabel'),
             ),
           ],
         ),
@@ -381,6 +583,8 @@ class _AddUserSheetState extends State<_AddUserSheet> {
     );
   }
 }
+
+// ─── Edit Staff Sheet ─────────────────────────────────────────────────────────
 
 class _EditStaffSheet extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -468,11 +672,17 @@ class _EditStaffSheetState extends State<_EditStaffSheet> {
               ],
               onChanged: (v) => setState(() => _isActive = v ?? 'true'),
             ),
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loading ? null : _submit,
-              child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
+              child: _loading
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save Changes'),
             ),
           ],
         ),
@@ -480,6 +690,8 @@ class _EditStaffSheetState extends State<_EditStaffSheet> {
     );
   }
 }
+
+// ─── Reassign Sheet ───────────────────────────────────────────────────────────
 
 class _ReassignSheet extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -497,32 +709,40 @@ class _ReassignSheetState extends State<_ReassignSheet> {
   String? _branchId;
   String? _classId;
   bool _loading = false;
+  bool _loadingAssignment = true;
   String? _error;
-  List<Map<String, dynamic>> _assignments = [];
+  String? _existingAssignmentId;
 
   @override
   void initState() {
     super.initState();
-    _loadAssignments();
+    // Pre-populate with current assignment
+    _branchId = widget.user['branch_id'] as String?;
+    _classId = widget.user['class_id'] as String?;
+    _loadAssignmentId();
   }
 
-  Future<void> _loadAssignments() async {
-    final assignments = await widget.api.getAssignments();
-    final a = assignments.cast<Map<String, dynamic>?>().firstWhere((x) => x!['user_id'] == widget.user['id'], orElse: () => null);
-    if (a != null) {
-      setState(() {
-        _assignments = assignments.cast<Map<String, dynamic>>();
-        _branchId = a['branch_id'] as String?;
-        _classId = a['class_id'] as String?;
-      });
-    } else {
-      setState(() => _branchId = widget.branches.isNotEmpty ? widget.branches.first['id'] as String : null);
+  Future<void> _loadAssignmentId() async {
+    try {
+      final assignments = await widget.api.getAssignments();
+      final a = assignments.cast<Map<String, dynamic>?>().firstWhere(
+        (x) => x!['user_id'] == widget.user['id'],
+        orElse: () => null,
+      );
+      if (mounted) {
+        setState(() {
+          _existingAssignmentId = a?['id'] as String?;
+          _loadingAssignment = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingAssignment = false);
     }
   }
 
   Future<void> _submit() async {
     if (_branchId == null) {
-      setState(() => _error = 'Select branch');
+      setState(() => _error = 'Please select a branch');
       return;
     }
     setState(() {
@@ -530,10 +750,9 @@ class _ReassignSheetState extends State<_ReassignSheet> {
       _error = null;
     });
     try {
-      final a = _assignments.cast<Map<String, dynamic>?>().firstWhere((x) => x!['user_id'] == widget.user['id'], orElse: () => null);
-      if (a != null) {
+      if (_existingAssignmentId != null) {
         await widget.api.updateAssignment(
-          a['id'] as String,
+          _existingAssignmentId!,
           branchId: _branchId,
           classId: widget.user['role'] == 'teacher' ? _classId : null,
         );
@@ -555,8 +774,11 @@ class _ReassignSheetState extends State<_ReassignSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final branch = widget.branches.cast<Map<String, dynamic>?>().firstWhere((b) => b!['id'] == _branchId, orElse: () => null);
+    final branch = widget.branches
+        .cast<Map<String, dynamic>?>()
+        .firstWhere((b) => b!['id'] == _branchId, orElse: () => null);
     final classes = (branch?['classes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
@@ -566,26 +788,48 @@ class _ReassignSheetState extends State<_ReassignSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Reassign ${widget.user['full_name']}', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _branchId,
-              decoration: const InputDecoration(labelText: 'Branch'),
-              items: widget.branches.map((b) => DropdownMenuItem(value: b['id'] as String, child: Text(b['name'] as String))).toList(),
-              onChanged: (v) => setState(() {
-                _branchId = v;
-                _classId = null;
-              }),
+            Text(
+              '${widget.user['role'] == 'coordinator' ? 'Coordinator' : 'Teacher'} — currently: ${widget.user['branch_name'] ?? 'Unassigned'}',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
-            if (widget.user['role'] == 'teacher' && classes.isNotEmpty)
-              DropdownButtonFormField<String>(
-                value: _classId,
-                decoration: const InputDecoration(labelText: 'Class'),
-                items: [const DropdownMenuItem(value: null, child: Text('— None —')), ...classes.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String)))],
-                onChanged: (v) => setState(() => _classId = v),
-              ),
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
             const SizedBox(height: 16),
-            FilledButton(onPressed: _loading ? null : _submit, child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Reassign')),
+            if (_loadingAssignment)
+              const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+            else ...[
+              DropdownButtonFormField<String>(
+                value: _branchId,
+                decoration: const InputDecoration(labelText: 'Branch *'),
+                items: widget.branches
+                    .map((b) => DropdownMenuItem(value: b['id'] as String, child: Text(b['name'] as String)))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _branchId = v;
+                  _classId = null;
+                }),
+              ),
+              if (widget.user['role'] == 'teacher' && classes.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  value: _classId,
+                  decoration: const InputDecoration(labelText: 'Class'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('— None —')),
+                    ...classes.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String))),
+                  ],
+                  onChanged: (v) => setState(() => _classId = v),
+                ),
+            ],
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: (_loading || _loadingAssignment) ? null : _submit,
+              child: _loading
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save Assignment'),
+            ),
           ],
         ),
       ),

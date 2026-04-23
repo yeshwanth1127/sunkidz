@@ -111,13 +111,13 @@ def send_fee_notification(student_id: UUID, db: Session) -> bool:
         # Send notification to all parents
         for parent_link in parent_links:
             parent_user = db.query(User).filter(User.id == parent_link.user_id).first()
-            if not parent_user or not parent_user.phone_no:
+            if not parent_user or not parent_user.phone:
                 logger.warning(f"Parent {parent_link.user_id} has no phone number")
                 continue
             
             try:
                 success = whatsapp_service.send_fee_notification(
-                    phone_number=parent_user.phone_no,
+                    phone_number=parent_user.phone,
                     student_name=student.name,
                     child_name=student.name
                 )
@@ -150,10 +150,8 @@ def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
     """
     try:
         # Get all staff (teachers and coordinators) in the class
-        from app.models.branch import BranchAssignment
-        
-        class_info = db.query("Class").filter_by(id=syllabus.class_id).first()
-        
+        from app.models.branch import BranchAssignment, Class
+
         # Get staff assignments for this class
         staff_assignments = db.query(BranchAssignment).filter(
             BranchAssignment.class_id == syllabus.class_id
@@ -172,7 +170,7 @@ def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
         # Send notification to all assigned staff
         for assignment in staff_assignments:
             staff = db.query(User).filter(User.id == assignment.user_id).first()
-            if not staff or not staff.phone_no:
+            if not staff or not staff.phone:
                 continue
             
             try:
@@ -182,7 +180,7 @@ def send_syllabus_notification(syllabus: Syllabus, db: Session) -> bool:
                 class_name = class_obj.name if class_obj else "Unknown"
                 
                 success = whatsapp_service.send_syllabus_notification(
-                    phone_number=staff.phone_no,
+                    phone_number=staff.phone,
                     teacher_name=staff.full_name,
                     class_name=class_name,
                     syllabus_title=syllabus.title
@@ -235,7 +233,7 @@ def send_homework_notification(homework: Homework, db: Session) -> bool:
             
             for parent_link in parent_links:
                 parent_user = db.query(User).filter(User.id == parent_link.user_id).first()
-                if not parent_user or not parent_user.phone_no:
+                if not parent_user or not parent_user.phone:
                     continue
                 
                 try:
@@ -243,7 +241,7 @@ def send_homework_notification(homework: Homework, db: Session) -> bool:
                     due_date_str = homework.due_date.strftime("%d-%m-%Y") if homework.due_date else None
                     
                     success = whatsapp_service.send_homework_notification(
-                        phone_number=parent_user.phone_no,
+                        phone_number=parent_user.phone,
                         child_name=student.name,
                         class_name=class_name,
                         homework_title=homework.title,
