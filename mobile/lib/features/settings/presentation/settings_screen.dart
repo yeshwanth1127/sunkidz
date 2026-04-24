@@ -33,7 +33,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoading = false;
   bool _isUploadingPhoto = false;
   bool _isSavingProfile = false;
-  bool _profileInitialized = false;
+  String? _loadedProfileSignature;
   String? _profilePhotoUrl;
 
   @override
@@ -55,25 +55,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _loadProfilePhoto() async {
-    final user = await ref.read(currentUserProvider.future);
-    final hasProfilePhoto = user?['profile_photo'] != null;
-    if (!hasProfilePhoto) return;
-    final auth = ref.read(authProvider);
-    if (auth.userId == null) return;
-    final service = ref.read(settingsServiceProvider);
-    if (!mounted) return;
-    setState(() {
-      _profilePhotoUrl = service.getProfilePhotoUrl(auth.userId!);
-    });
+    try {
+      final user = await ref.read(currentUserProvider.future);
+      final auth = ref.read(authProvider);
+      if (!mounted) return;
+      if (user?['profile_photo'] == null || auth.userId == null) {
+        setState(() => _profilePhotoUrl = null);
+        return;
+      }
+      final service = ref.read(settingsServiceProvider);
+      setState(() {
+        _profilePhotoUrl = service.getProfilePhotoUrl(auth.userId!);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _profilePhotoUrl = null);
+    }
   }
 
   void _initializeProfileForm(Map<String, dynamic> user) {
-    if (_profileInitialized) return;
+    final signature = [
+      user['full_name'] ?? '',
+      user['phone'] ?? '',
+      user['email'] ?? '',
+      user['date_of_birth'] ?? '',
+    ].join('|');
+    if (_loadedProfileSignature == signature) return;
     _fullNameController.text = (user['full_name'] ?? '').toString();
     _phoneController.text = (user['phone'] ?? '').toString();
     _emailController.text = (user['email'] ?? '').toString();
     _dobController.text = (user['date_of_birth'] ?? '').toString();
-    _profileInitialized = true;
+    _loadedProfileSignature = signature;
   }
 
   Future<void> _uploadProfilePhoto() async {
@@ -140,6 +152,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (!mounted) return;
       ref.invalidate(currentUserProvider);
+      _loadedProfileSignature = null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
       );

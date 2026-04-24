@@ -491,6 +491,28 @@ def create_user(
         if data.class_id:
             raise HTTPException(status_code=400, detail="Coordinators can only be assigned to a branch, not a class")
     
+    branch_id = None
+    class_id = None
+    if data.branch_id:
+        try:
+            branch_id = UUID(data.branch_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid branch_id format (must be UUID)")
+        branch = db.query(Branch).filter(Branch.id == branch_id).first()
+        if not branch:
+            raise HTTPException(status_code=400, detail=f"Branch with ID {data.branch_id} not found")
+
+    if data.class_id:
+        try:
+            class_id = UUID(data.class_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid class_id format (must be UUID)")
+        cls = db.query(Class).filter(Class.id == class_id).first()
+        if not cls:
+            raise HTTPException(status_code=400, detail=f"Class with ID {data.class_id} not found")
+        if branch_id and cls.branch_id != branch_id:
+            raise HTTPException(status_code=400, detail="Selected class does not belong to the selected branch")
+    
     user = User(
         email=email,
         password_hash=get_password_hash(data.password),
@@ -500,12 +522,30 @@ def create_user(
         is_active="true",
     )
     db.add(user)
+    db.flush()
+    if branch_id:
+        assignment = BranchAssignment(
+            user_id=user.id,
+            branch_id=branch_id,
+            class_id=class_id,
+        )
+        db.add(assignment)
     db.commit()
     db.refresh(user)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        phone=user.phone,
+        date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
+        is_active=user.is_active,
+        branch_id=str(branch_id) if branch_id else None,
+        class_id=str(class_id) if class_id else None,
+    )
+    """
     
-    # If branch_id and/or class_id provided, create BranchAssignment
-    if data.branch_id:
-        try:
+    if branch_id:
             branch_id = UUID(data.branch_id)
             # Verify branch exists
             branch = db.query(Branch).filter(Branch.id == branch_id).first()
@@ -547,6 +587,7 @@ def create_user(
     )
 
 
+    """
 @router.delete("/users/{user_id}")
 def delete_user(
     user_id: UUID,
@@ -554,6 +595,14 @@ def delete_user(
     _: User = Depends(require_admin),
 ):
     """Delete a staff member (teacher/coordinator/bus_staff). Cannot delete admin."""
+    from app.models.message import MessageThread
+    from app.models.notification import Notification
+    from app.models.syllabus import Syllabus, Homework, GalleryImage
+    from app.models.leave import LeaveApplication
+    from app.models.bus_route import BusRoute
+    from app.models.ride_session import RideSession
+    from app.models.daycare import DaycareGroup, DaycareDailyUpdate
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -561,7 +610,55 @@ def delete_user(
         raise HTTPException(status_code=403, detail="Cannot delete admin")
     if user.role not in ("teacher", "coordinator", "bus_staff", "toddlers", "daycare"):
         raise HTTPException(status_code=403, detail="Can only delete teachers, coordinators, bus staff, toddlers, and daycare")
-    # Delete branch assignments first
+
+    blockers: list[str] = []
+
+    thread_count = (
+        db.query(func.count(MessageThread.id))
+        .filter((MessageThread.parent_user_id == user_id) | (MessageThread.staff_user_id == user_id))
+        .scalar()
+        or 0
+    )
+    if thread_count:
+        blockers.append(f"{thread_count} chat thread(s)")
+
+    syllabus_count = db.query(func.count(Syllabus.id)).filter(Syllabus.uploaded_by == user_id).scalar() or 0
+    homework_count = db.query(func.count(Homework.id)).filter(Homework.uploaded_by == user_id).scalar() or 0
+    gallery_count = db.query(func.count(GalleryImage.id)).filter(GalleryImage.uploaded_by == user_id).scalar() or 0
+    if syllabus_count:
+        blockers.append(f"{syllabus_count} syllabus upload(s)")
+    if homework_count:
+        blockers.append(f"{homework_count} homework upload(s)")
+    if gallery_count:
+        blockers.append(f"{gallery_count} gallery upload(s)")
+
+    leave_review_count = db.query(func.count(LeaveApplication.id)).filter(LeaveApplication.reviewed_by == user_id).scalar() or 0
+    if leave_review_count:
+        blockers.append(f"{leave_review_count} reviewed leave request(s)")
+
+    bus_route_count = db.query(func.count(BusRoute.id)).filter(BusRoute.bus_staff_id == user_id).scalar() or 0
+    ride_session_count = db.query(func.count(RideSession.id)).filter(RideSession.bus_staff_id == user_id).scalar() or 0
+    if bus_route_count:
+        blockers.append(f"{bus_route_count} bus route(s)")
+    if ride_session_count:
+        blockers.append(f"{ride_session_count} ride session(s)")
+
+    daycare_group_count = db.query(func.count(DaycareGroup.id)).filter(DaycareGroup.daycare_staff_id == user_id).scalar() or 0
+    daycare_update_count = db.query(func.count(DaycareDailyUpdate.id)).filter(DaycareDailyUpdate.author_id == user_id).scalar() or 0
+    if daycare_group_count:
+        blockers.append(f"{daycare_group_count} daycare group(s)")
+    if daycare_update_count:
+        blockers.append(f"{daycare_update_count} daycare update(s)")
+
+    if blockers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete this user because they are still linked to: {', '.join(blockers)}. Reassign or clear those records first.",
+        )
+
+    db.query(Notification).filter(
+        (Notification.user_id == user_id) | (Notification.sender_id == user_id)
+    ).delete(synchronize_session=False)
     db.query(BranchAssignment).filter(BranchAssignment.user_id == user_id).delete()
     
     # Delete related notifications to prevent FK violation
