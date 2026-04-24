@@ -18,6 +18,17 @@ class AdminApi {
     ),
   );
 
+  Exception _mapError(Object error, String fallback) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['detail'] != null) {
+        return Exception(data['detail'].toString());
+      }
+      return Exception(fallback);
+    }
+    return Exception(error.toString());
+  }
+
   Future<List<Map<String, dynamic>>> getBranches() async {
     final r = await _dio.get('/admin/branches');
     return List<Map<String, dynamic>>.from(r.data as List);
@@ -133,19 +144,23 @@ class AdminApi {
     String? branchId,
     String? classId,
   }) async {
-    final r = await _dio.post(
-      '/admin/users',
-      data: {
-        if (email != null) 'email': email,
-        'password': password,
-        'full_name': fullName,
-        'role': role,
-        if (phone != null) 'phone': phone,
-        if (branchId != null) 'branch_id': branchId,
-        if (classId != null) 'class_id': classId,
-      },
-    );
-    return r.data as Map<String, dynamic>;
+    try {
+      final r = await _dio.post(
+        '/admin/users',
+        data: {
+          if (email != null) 'email': email,
+          'password': password,
+          'full_name': fullName,
+          'role': role,
+          if (phone != null) 'phone': phone,
+          if (branchId != null) 'branch_id': branchId,
+          if (classId != null) 'class_id': classId,
+        },
+      );
+      return r.data as Map<String, dynamic>;
+    } catch (error) {
+      throw _mapError(error, 'Failed to create user');
+    }
   }
 
   Future<Map<String, dynamic>> updateUser(
@@ -162,12 +177,20 @@ class AdminApi {
     if (phone != null) data['phone'] = phone;
     if (isActive != null) data['is_active'] = isActive;
     if (dateOfBirth != null) data['date_of_birth'] = dateOfBirth;
-    final r = await _dio.put('/admin/users/$id', data: data);
-    return r.data as Map<String, dynamic>;
+    try {
+      final r = await _dio.put('/admin/users/$id', data: data);
+      return r.data as Map<String, dynamic>;
+    } catch (error) {
+      throw _mapError(error, 'Failed to update user');
+    }
   }
 
   Future<void> deleteUser(String id) async {
-    await _dio.delete('/admin/users/$id');
+    try {
+      await _dio.delete('/admin/users/$id');
+    } catch (error) {
+      throw _mapError(error, 'Failed to delete user');
+    }
   }
 
   Future<void> deleteStudent(String id) async {
