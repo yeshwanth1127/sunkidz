@@ -196,6 +196,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final isParent = auth.role == UserRole.parent;
+    final isStaff = auth.role == UserRole.teacher ||
+        auth.role == UserRole.coordinator ||
+        auth.role == UserRole.busStaff;
 
     return Scaffold(
       appBar: AppBar(
@@ -319,43 +322,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _phoneController,
+                            keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
                               labelText: 'Phone Number',
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.phone_outlined),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email Address',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.email_outlined),
+                          if (!isStaff) ...[
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email Address',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.email_outlined),
+                              ),
+                              validator: (v) {
+                                final value = (v ?? '').trim();
+                                if (value.isEmpty) return null;
+                                if (!value.contains('@')) return 'Enter a valid email';
+                                return null;
+                              },
                             ),
-                            validator: (v) {
-                              final value = (v ?? '').trim();
-                              if (value.isEmpty) return null;
-                              if (!value.contains('@')) return 'Enter a valid email';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _dobController,
-                            decoration: const InputDecoration(
-                              labelText: 'Date of Birth (YYYY-MM-DD)',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.cake_outlined),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _dobController,
+                              decoration: const InputDecoration(
+                                labelText: 'Date of Birth (YYYY-MM-DD)',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.cake_outlined),
+                              ),
+                              validator: (v) {
+                                final value = (v ?? '').trim();
+                                if (value.isEmpty) return null;
+                                final ok = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value);
+                                if (!ok) return 'Use YYYY-MM-DD format';
+                                return null;
+                              },
                             ),
-                            validator: (v) {
-                              final value = (v ?? '').trim();
-                              if (value.isEmpty) return null;
-                              final ok = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value);
-                              if (!ok) return 'Use YYYY-MM-DD format';
-                              return null;
-                            },
-                          ),
+                          ],
                           const SizedBox(height: 12),
                           Container(
                             width: double.infinity,

@@ -428,7 +428,7 @@ def create_leave_from_thread(
             "created_at": app.created_at.isoformat() if app.created_at else None,
         },
     }
-
+    
 
 # -------- Helpers for starting threads from staff-side UI --------
 @router.get("/staff/eligible_parents")

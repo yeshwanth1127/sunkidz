@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
+from app.core.class_names import get_default_classes_for_system, normalize_class_name
 from app.models.user import User
 from app.models.branch import Branch, BranchAssignment, Class
 
@@ -46,6 +47,7 @@ def seed():
                 address="123 Main St",
                 contact_no="+1234567890",
                 status="active",
+                system_type="kreedo",
             )
             db.add(branch)
             db.commit()
@@ -53,11 +55,14 @@ def seed():
             print(f"Created branch: {branch.name}")
 
         # Ensure default classes for this branch
-        for class_name in settings.default_branch_classes:
-            if not db.query(Class).filter(Class.branch_id == branch.id, Class.name == class_name).first():
-                db.add(Class(branch_id=branch.id, name=class_name, academic_year="2026-27"))
+        for class_name in get_default_classes_for_system(getattr(branch, "system_type", "kreedo")):
+            canonical = normalize_class_name(class_name)
+            if not db.query(Class).filter(Class.branch_id == branch.id, Class.name == canonical).first():
+                db.add(Class(branch_id=branch.id, name=canonical, academic_year="2026-27"))
         db.commit()
-        cls = db.query(Class).filter(Class.branch_id == branch.id, Class.name == "IG-1").first()
+        cls = db.query(Class).filter(Class.branch_id == branch.id, Class.name == "1G1").first()
+        if not cls:
+            cls = db.query(Class).filter(Class.branch_id == branch.id).order_by(Class.name.asc()).first()
 
         # Create coordinator and teacher for demo
         coord = db.query(User).filter(User.email == "coord@sunkidz.com").first()
@@ -88,7 +93,7 @@ def seed():
             db.add(teacher)
             db.commit()
             db.refresh(teacher)
-            db.add(BranchAssignment(user_id=teacher.id, branch_id=branch.id, class_id=cls.id))
+            db.add(BranchAssignment(user_id=teacher.id, branch_id=branch.id, class_id=cls.id if cls else None))
             db.commit()
             print(f"Created teacher: {teacher.email} (password: teacher123)")
 

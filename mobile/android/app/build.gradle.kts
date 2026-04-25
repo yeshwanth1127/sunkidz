@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,8 +7,31 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+val releaseStoreFile = (keystoreProperties.getProperty("storeFile")
+    ?: System.getenv("ANDROID_KEYSTORE_PATH")
+    ?: "").trim()
+val releaseStorePassword = (keystoreProperties.getProperty("storePassword")
+    ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    ?: "").trim()
+val releaseKeyAlias = (keystoreProperties.getProperty("keyAlias")
+    ?: System.getenv("ANDROID_KEY_ALIAS")
+    ?: "").trim()
+val releaseKeyPassword = (keystoreProperties.getProperty("keyPassword")
+    ?: System.getenv("ANDROID_KEY_PASSWORD")
+    ?: "").trim()
+val hasReleaseSigning = releaseStoreFile.isNotEmpty() &&
+    releaseStorePassword.isNotEmpty() &&
+    releaseKeyAlias.isNotEmpty() &&
+    releaseKeyPassword.isNotEmpty()
+
 android {
-    namespace = "com.lms.sun_kidz_new" // Updated namespace to match the new package name
+    namespace = "com.lms.sun_kidz_new"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,10 +45,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.lms.sun_kidz_new" // Updated package name to resolve conflict
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "com.lms.sun_kidz_new"
         minSdk = 24
         multiDexEnabled = true
         targetSdk = flutter.targetSdkVersion
@@ -33,25 +55,27 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = "sunkidz"
-            keyPassword = "sunkidz123"
-            storeFile = file("release.jks")
-            storePassword = "sunkidz123"
+            if (hasReleaseSigning) {
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
-}
-
-dependencies {
-    implementation("com.google.android.gms:play-services-ads-identifier:18.0.1")
 }
 
 flutter {

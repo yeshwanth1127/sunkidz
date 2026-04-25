@@ -3,18 +3,39 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sunkidz_lms/core/theme/app_theme.dart';
-import 'package:sunkidz_lms/core/api/admin_provider.dart';
 import 'package:sunkidz_lms/shared/widgets/shimmer_loading.dart';
 import 'package:sunkidz_lms/shared/widgets/admin_drawer.dart';
 import 'package:sunkidz_lms/features/dashboard/data/dashboard_provider.dart';
+import 'package:sunkidz_lms/core/api/current_user_provider.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
+  static String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  static String _motivatingPhrase() {
+    final phrases = [
+      'Where Joy Begins',
+      'Nurturing Young Minds',
+      'Every Child Shines',
+      'Learning Through Play',
+      'Little Stars, Big Dreams',
+      'Growing Together Daily',
+    ];
+    return phrases[DateTime.now().day % phrases.length];
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(dashboardDataProvider);
+    final currentUser = ref.watch(currentUserProvider);
     final currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    final firstName = currentUser.valueOrNull?['full_name']?.toString().split(' ').first ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -25,21 +46,11 @@ class AdminDashboardScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar(
-              expandedHeight: 140,
+              expandedHeight: 150,
               pinned: true,
               stretch: true,
               backgroundColor: AppColors.primary,
               flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
-                title: const Text(
-                  'SUNKIDZ ADMIN',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                    fontSize: 20,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -59,10 +70,43 @@ class AdminDashboardScreen extends ConsumerWidget {
                     Positioned(
                       right: -30,
                       top: -20,
-                      child: Icon(
-                        Icons.wb_sunny_rounded,
-                        size: 200,
-                        color: Colors.white.withValues(alpha: 0.1),
+                      child: Icon(Icons.wb_sunny_rounded, size: 200,
+                          color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    Positioned(
+                      left: 56,
+                      top: 0,
+                      bottom: 0,
+                      right: 60,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Image.asset(
+                            'assets/images/sunkidz_logo_hd.png',
+                            height: 38,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.centerLeft,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_greeting()}${firstName.isNotEmpty ? ', $firstName' : ''} 👋',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _motivatingPhrase(),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -230,7 +274,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                           ...data.recentEnquiries.asMap().entries.map((e) => AnimatedListItem(
                             index: e.key + 5,
                             child: _EnquiryTile(
-                              name: e.value['parent_name'] ?? 'Unknown',
+                              name: () {
+                                final raw = e.value['child_name']?.toString().trim();
+                                if (raw == null || raw.isEmpty) return 'Unknown';
+                                return raw;
+                              }(),
                               date: _fmtDate(e.value['created_at']),
                               status: e.value['status'] ?? 'pending',
                             ),

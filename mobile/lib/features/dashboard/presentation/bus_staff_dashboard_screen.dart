@@ -109,11 +109,20 @@ class _BusStaffDashboardScreenState
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              if (value == 'logout') {
-                _showLogoutDialog(context);
-              }
+              if (value == 'profile') context.push('/bus-staff/settings');
+              if (value == 'logout') _showLogoutDialog(context);
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text('Edit Profile'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'logout',
                 child: Row(
