@@ -45,7 +45,7 @@ class AdminApi {
     String? address,
     String? contactNo,
     String status = 'active',
-    String branchType = 'normal',
+    String systemType = 'kreedo',
   }) async {
     final r = await _dio.post(
       '/admin/branches',
@@ -55,7 +55,7 @@ class AdminApi {
         'address': address,
         'contact_no': contactNo,
         'status': status,
-        'branch_type': branchType,
+        'system_type': systemType,
       },
     );
     return r.data as Map<String, dynamic>;
@@ -67,12 +67,14 @@ class AdminApi {
     String? address,
     String? contactNo,
     String? status,
+    String? systemType,
   }) async {
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
     if (address != null) data['address'] = address;
     if (contactNo != null) data['contact_no'] = contactNo;
     if (status != null) data['status'] = status;
+    if (systemType != null) data['system_type'] = systemType;
     final r = await _dio.put('/admin/branches/$id', data: data);
     return r.data as Map<String, dynamic>;
   }

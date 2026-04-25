@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
 
 class BranchDetailScreen extends ConsumerStatefulWidget {
   const BranchDetailScreen({super.key, required this.branchId});
@@ -199,6 +198,8 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final systemType = (branch['system_type'] as String? ?? 'kreedo').toLowerCase();
+    final systemLabel = systemType == 'normal' ? 'Normal (Nursery/LKG/UKG)' : 'Kreedo (Playschool/1G1/1G2/1G3)';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -242,6 +243,7 @@ class _InfoCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Coordinator: ${branch['coordinator_name'] ?? '—'}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
             Text('Students: ${branch['student_count'] ?? 0}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            Text('System: $systemLabel', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ],
         ),
       ),
@@ -319,6 +321,7 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
   final _addrCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String? _status;
+  String _systemType = 'kreedo';
   bool _loading = false;
   String? _error;
 
@@ -329,6 +332,7 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
     _addrCtrl.text = widget.branch['address'] as String? ?? '';
     _phoneCtrl.text = widget.branch['contact_no'] as String? ?? '';
     _status = widget.branch['status'] as String? ?? 'active';
+    _systemType = (widget.branch['system_type'] as String? ?? 'kreedo').toLowerCase();
   }
 
   @override
@@ -355,6 +359,7 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
         address: _addrCtrl.text.trim().isEmpty ? null : _addrCtrl.text.trim(),
         contactNo: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         status: _status,
+        systemType: _systemType,
       );
       widget.onSaved();
     } catch (e) {
@@ -382,9 +387,20 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
             TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Contact')),
             DropdownButtonFormField<String>(
               initialValue: _status,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'Status'),
               items: const [DropdownMenuItem(value: 'active', child: Text('Active')), DropdownMenuItem(value: 'pending', child: Text('Pending')), DropdownMenuItem(value: 'inactive', child: Text('Inactive'))],
               onChanged: (v) => setState(() => _status = v),
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: _systemType,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Class System'),
+              items: const [
+                DropdownMenuItem(value: 'kreedo', child: Text('Kreedo (Playschool, 1G1, 1G2, 1G3)')),
+                DropdownMenuItem(value: 'normal', child: Text('Normal (Nursery, LKG, UKG)')),
+              ],
+              onChanged: (v) => setState(() => _systemType = v ?? 'kreedo'),
             ),
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
             const SizedBox(height: 16),

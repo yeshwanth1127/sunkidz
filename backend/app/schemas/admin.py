@@ -8,7 +8,7 @@ class BranchCreate(BaseModel):
     address: str | None = None
     contact_no: str | None = None
     status: str = "active"
-    branch_type: str = "normal"  # 'creedo' or 'normal'
+    system_type: str = "kreedo"  # kreedo or normal
 
 
 class BranchUpdate(BaseModel):
@@ -17,7 +17,7 @@ class BranchUpdate(BaseModel):
     address: str | None = None
     contact_no: str | None = None
     status: str | None = None
-    branch_type: str | None = None
+    system_type: str | None = None
 
 
 class ClassCreate(BaseModel):
@@ -78,7 +78,7 @@ class BranchResponse(BaseModel):
     address: str | None
     contact_no: str | None
     status: str
-    branch_type: str = "normal"
+    system_type: str = "kreedo"
     classes: list[ClassResponse] = []
     coordinator_name: str | None = None
     student_count: int = 0

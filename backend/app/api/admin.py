@@ -4,12 +4,18 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from collections import defaultdict
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_admin
 from app.core.config import settings
-from app.core.class_names import normalize_class_name
+from app.core.class_names import (
+    CLASS_SYSTEM_DEFAULTS,
+    get_default_classes_for_system,
+    normalize_class_name,
+    normalize_system_type,
+)
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
 from app.models.branch import Branch, Class, BranchAssignment
@@ -140,15 +146,40 @@ def create_daycare_user(
     )
 
 
-def _ensure_branch_classes(db: Session, branch_id: UUID, branch_type: str = "normal") -> None:
-    """Create default classes for a branch based on branch_type."""
-    if branch_type == "creedo":
-        class_names = ["ig1", "ig2", "ig3"]
-    else:
-        class_names = ["playschool", "nursery", "lkg", "ukg"]
-    for name in class_names:
-        if not db.query(Class).filter(Class.branch_id == branch_id, Class.name == name).first():
+def _ensure_branch_classes(db: Session, branch_id: UUID, system_type: str, old_system_type: str | None = None) -> None:
+    """Ensure a branch has the required classes for its selected system.
+
+    When old_system_type is provided and different from system_type, classes that
+    belong ONLY to the old system's defaults and have no students assigned are removed.
+    """
+    desired = {normalize_class_name(n) for n in get_default_classes_for_system(system_type)}
+    existing = db.query(Class).filter(Class.branch_id == branch_id).all()
+    existing_names = {c.name for c in existing}
+
+    # Remove old-system default classes (no students) when switching systems.
+    if old_system_type and normalize_system_type(old_system_type) != normalize_system_type(system_type):
+        old_defaults = {normalize_class_name(n) for n in CLASS_SYSTEM_DEFAULTS.get(normalize_system_type(old_system_type), ())}
+        to_remove = old_defaults - desired
+        for cls in list(existing):
+            if normalize_class_name(cls.name) in to_remove:
+                from app.models.student import Student as _Student
+                has_students = db.query(_Student).filter(_Student.class_id == cls.id).first()
+                if not has_students:
+                    db.delete(cls)
+                    existing.remove(cls)
+
+    # Normalize aliases (for example IG-1 -> 1G1) without creating duplicate names.
+    for cls in existing:
+        canonical = normalize_class_name(cls.name)
+        if canonical in desired and canonical != cls.name and canonical not in existing_names:
+            cls.name = canonical
+            existing_names.add(canonical)
+
+    existing_canonical = {normalize_class_name(c.name) for c in existing}
+    for name in desired:
+        if name not in existing_canonical:
             db.add(Class(branch_id=branch_id, name=name, academic_year="2026-27"))
+
     db.commit()
 
 
@@ -206,7 +237,7 @@ def list_branches(
                 address=b.address,
                 contact_no=b.contact_no,
                 status=b.status,
-                branch_type=b.branch_type or "normal",
+                system_type=normalize_system_type(getattr(b, "system_type", None)),
                 classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in b.classes],
                 coordinator_name=coord.user.full_name if coord else None,
                 student_count=student_count,
@@ -221,18 +252,19 @@ def create_branch(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
+    system_type = normalize_system_type(data.system_type)
     branch = Branch(
         name=data.name,
         code=data.code,
         address=data.address,
         contact_no=data.contact_no,
         status=data.status,
-        branch_type=data.branch_type,
+        system_type=system_type,
     )
     db.add(branch)
     db.commit()
     db.refresh(branch)
-    _ensure_branch_classes(db, branch.id, branch_type=data.branch_type)
+    _ensure_branch_classes(db, branch.id, system_type)
     db.refresh(branch)
     return BranchResponse(
         id=str(branch.id),
@@ -240,7 +272,7 @@ def create_branch(
         address=branch.address,
         contact_no=branch.contact_no,
         status=branch.status,
-        branch_type=branch.branch_type or "normal",
+        system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
     )
 
@@ -262,7 +294,7 @@ def get_branch(
         address=branch.address,
         contact_no=branch.contact_no,
         status=branch.status,
-        branch_type=branch.branch_type or "normal",
+        system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
         student_count=student_count,
@@ -289,9 +321,18 @@ def update_branch(
         branch.contact_no = data.contact_no
     if data.status is not None:
         branch.status = data.status
-    if data.branch_type is not None:
-        branch.branch_type = data.branch_type
+
+    old_system_type = getattr(branch, "system_type", None)
+    sync_classes = False
+    if data.system_type is not None:
+        normalized_system = normalize_system_type(data.system_type)
+        if old_system_type != normalized_system:
+            branch.system_type = normalized_system
+            sync_classes = True
+
     db.commit()
+    if sync_classes:
+        _ensure_branch_classes(db, branch.id, normalize_system_type(getattr(branch, "system_type", None)), old_system_type=old_system_type)
     db.refresh(branch)
     coord = next((a for a in branch.assignments if a.user.role == "coordinator" and a.class_id is None), None)
     student_count = db.query(func.count(Student.id)).filter(Student.branch_id == branch.id).scalar() or 0
@@ -301,7 +342,7 @@ def update_branch(
         address=branch.address,
         contact_no=branch.contact_no,
         status=branch.status,
-        branch_type=branch.branch_type or "normal",
+        system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
         student_count=student_count,
@@ -613,15 +654,6 @@ def delete_user(
 
     blockers: list[str] = []
 
-    thread_count = (
-        db.query(func.count(MessageThread.id))
-        .filter((MessageThread.parent_user_id == user_id) | (MessageThread.staff_user_id == user_id))
-        .scalar()
-        or 0
-    )
-    if thread_count:
-        blockers.append(f"{thread_count} chat thread(s)")
-
     syllabus_count = db.query(func.count(Syllabus.id)).filter(Syllabus.uploaded_by == user_id).scalar() or 0
     homework_count = db.query(func.count(Homework.id)).filter(Homework.uploaded_by == user_id).scalar() or 0
     gallery_count = db.query(func.count(GalleryImage.id)).filter(GalleryImage.uploaded_by == user_id).scalar() or 0
@@ -632,10 +664,6 @@ def delete_user(
     if gallery_count:
         blockers.append(f"{gallery_count} gallery upload(s)")
 
-    leave_review_count = db.query(func.count(LeaveApplication.id)).filter(LeaveApplication.reviewed_by == user_id).scalar() or 0
-    if leave_review_count:
-        blockers.append(f"{leave_review_count} reviewed leave request(s)")
-
     bus_route_count = db.query(func.count(BusRoute.id)).filter(BusRoute.bus_staff_id == user_id).scalar() or 0
     ride_session_count = db.query(func.count(RideSession.id)).filter(RideSession.bus_staff_id == user_id).scalar() or 0
     if bus_route_count:
@@ -644,11 +672,8 @@ def delete_user(
         blockers.append(f"{ride_session_count} ride session(s)")
 
     daycare_group_count = db.query(func.count(DaycareGroup.id)).filter(DaycareGroup.daycare_staff_id == user_id).scalar() or 0
-    daycare_update_count = db.query(func.count(DaycareDailyUpdate.id)).filter(DaycareDailyUpdate.author_id == user_id).scalar() or 0
     if daycare_group_count:
         blockers.append(f"{daycare_group_count} daycare group(s)")
-    if daycare_update_count:
-        blockers.append(f"{daycare_update_count} daycare update(s)")
 
     if blockers:
         raise HTTPException(
@@ -656,20 +681,30 @@ def delete_user(
             detail=f"Cannot delete this user because they are still linked to: {', '.join(blockers)}. Reassign or clear those records first.",
         )
 
-    db.query(Notification).filter(
-        (Notification.user_id == user_id) | (Notification.sender_id == user_id)
-    ).delete(synchronize_session=False)
-    db.query(BranchAssignment).filter(BranchAssignment.user_id == user_id).delete()
-    
-    # Delete related notifications to prevent FK violation
+    from sqlalchemy import text
+    uid = str(user_id)
     try:
-        from app.models.notification import Notification
-        db.query(Notification).filter(Notification.user_id == user_id).delete()
-    except Exception as e:
-        logger.error(f"Failed to delete notifications for user: {e}")
-        
-    db.delete(user)
-    db.commit()
+        # All raw SQL — no ORM unit-of-work interference.
+        # Null out NO-ACTION sender FK references.
+        db.execute(text("UPDATE notifications SET sender_id = NULL WHERE sender_id = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("UPDATE messages SET sender_id = NULL WHERE sender_id = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("UPDATE syllabus_holidays SET created_by = NULL WHERE created_by = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("UPDATE leave_applications SET reviewed_by = NULL WHERE reviewed_by = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete chat threads (messages cascade automatically via FK).
+        db.execute(text("DELETE FROM message_threads WHERE staff_user_id = CAST(:uid AS uuid) OR parent_user_id = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete remaining owned rows.
+        db.execute(text("DELETE FROM notifications WHERE user_id = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("DELETE FROM branch_assignments WHERE user_id = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("DELETE FROM users WHERE id = CAST(:uid AS uuid)"), {"uid": uid})
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("delete_user error: %s", exc)
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete this user because they are still linked to other records. Reassign or clear related data first.",
+        )
+
     return {"ok": True}
 
 
@@ -1193,6 +1228,8 @@ def create_assignment(
         raise HTTPException(status_code=404, detail="Branch not found")
     if user.role == "coordinator" and data.class_id:
         raise HTTPException(status_code=400, detail="Coordinators are not assigned to classes")
+    if user.role == "teacher" and not data.class_id:
+        raise HTTPException(status_code=400, detail="Class is required for teachers")
     if user.role == "teacher" and data.class_id:
         cls = db.query(Class).filter(Class.id == data.class_id, Class.branch_id == data.branch_id).first()
         if not cls:
@@ -1240,7 +1277,7 @@ def update_assignment(
         if a.user.role == "coordinator":
             a.class_id = None
         elif data.class_id is None:
-            a.class_id = None
+            raise HTTPException(status_code=400, detail="Class is required for teachers")
     if data.class_id is not None and a.user.role == "teacher":
         cls = db.query(Class).filter(Class.id == data.class_id, Class.branch_id == a.branch_id).first()
         if not cls:

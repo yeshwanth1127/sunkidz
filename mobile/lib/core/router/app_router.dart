@@ -340,6 +340,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'notifications',
             builder: (_, __) => const NotificationsScreen(),
           ),
+          GoRoute(
+            path: 'settings',
+            builder: (_, __) => const SettingsScreen(),
+          ),
         ],
       ),
       GoRoute(

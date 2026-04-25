@@ -1,4 +1,4 @@
-"""Normalize class names to canonical display forms (IG-1, IG-2, IG-3)."""
+"""Normalize class names to canonical display forms (Playschool, 1G1, 1G2, 1G3, Nursery, LKG, UKG)."""
 
 from app.core.database import SessionLocal
 from app.core.class_names import normalize_class_name

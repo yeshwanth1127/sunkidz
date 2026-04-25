@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
-import '../../../shared/widgets/admin_drawer.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
+import '../../../shared/widgets/animated_list_item.dart';
 
 class StaffManagementScreen extends ConsumerStatefulWidget {
   const StaffManagementScreen({super.key});
@@ -28,87 +30,38 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
   Future<void> _load() async {
     final api = ref.read(adminApiProvider);
     if (api == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
-      final role = _tabIndex == 1
-          ? 'teacher'
-          : _tabIndex == 2
-              ? 'coordinator'
-              : _tabIndex == 3
-                  ? 'bus_staff'
-                  : null;
+      final role = _tabIndex == 1 ? 'teacher' : _tabIndex == 2 ? 'coordinator' : _tabIndex == 3 ? 'bus_staff' : null;
       final users = await api.getUsers(role: role);
       final branches = await api.getBranches();
-      setState(() {
-        _users = users;
-        _branches = branches;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _users = users;
+          _branches = branches;
+          _loading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
-  /// Shows role-picker first, then opens the Add sheet
-  void _showAddUser() {
-    // When on a specific tab, skip the role picker
-    if (_tabIndex != 0) {
-      final role = _tabIndex == 2
-          ? 'coordinator'
-          : _tabIndex == 3
-              ? 'bus_staff'
-              : 'teacher';
-      _openAddSheet(role);
-      return;
-    }
-    // On "All" tab — ask which role to add
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text('Add Staff — Select Role', style: Theme.of(ctx).textTheme.titleMedium),
-              ),
-              ListTile(
-                leading: CircleAvatar(backgroundColor: AppColors.pastelGreen, child: const Icon(Icons.person, color: Color(0xFF16A34A))),
-                title: const Text('Teacher'),
-                subtitle: const Text('Assigned to a branch & class'),
-                onTap: () { Navigator.pop(ctx); _openAddSheet('teacher'); },
-              ),
-              ListTile(
-                leading: CircleAvatar(backgroundColor: AppColors.pastelBlue, child: Icon(Icons.supervisor_account, color: AppColors.primary)),
-                title: const Text('Coordinator'),
-                subtitle: const Text('Manages a branch'),
-                onTap: () { Navigator.pop(ctx); _openAddSheet('coordinator'); },
-              ),
-              ListTile(
-                leading: const CircleAvatar(backgroundColor: Color(0xFFFFEDD5), child: Icon(Icons.directions_bus, color: Color(0xFFEA580C))),
-                title: const Text('Bus Staff'),
-                subtitle: const Text('Manages student bus routes'),
-                onTap: () { Navigator.pop(ctx); _openAddSheet('bus_staff'); },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openAddSheet(String role) {
+  void _openAddUserSheet(String role) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => _AddUserSheet(
         branches: _branches,
         role: role,
@@ -121,10 +74,72 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
     );
   }
 
+  Future<void> _showAddUser() async {
+    if (_tabIndex == 0) {
+      final selectedRole = await showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Create Account As',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.school_rounded),
+                  title: const Text('Teacher'),
+                  onTap: () => Navigator.pop(ctx, 'teacher'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings_rounded),
+                  title: const Text('Coordinator'),
+                  onTap: () => Navigator.pop(ctx, 'coordinator'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.local_shipping_rounded),
+                  title: const Text('Logistics / Bus Staff'),
+                  onTap: () => Navigator.pop(ctx, 'bus_staff'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (selectedRole == null || !mounted) return;
+      _openAddUserSheet(selectedRole);
+      return;
+    }
+
+    final role = _tabIndex == 2 ? 'coordinator' : _tabIndex == 3 ? 'bus_staff' : 'teacher';
+    _openAddUserSheet(role);
+  }
+
   void _showEditStaff(Map<String, dynamic> user) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => _EditStaffSheet(
         user: user,
         onSaved: () {
@@ -140,10 +155,8 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Staff'),
-        content: Text(
-          'Are you sure you want to delete ${user['full_name']}? This cannot be undone.',
-        ),
+        title: const Text('Delete Staff?'),
+        content: Text('Are you sure you want to remove ${user['full_name']}? This action is permanent.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
@@ -152,18 +165,9 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
               Navigator.pop(ctx);
               try {
                 await ref.read(adminApiProvider)!.deleteUser(user['id'] as String);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${user['full_name']} deleted')),
-                  );
-                  _load();
-                }
+                _load();
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}')),
-                  );
-                }
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
             child: const Text('Delete'),
@@ -177,6 +181,7 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => _ReassignSheet(
         user: user,
         branches: _branches,
@@ -192,104 +197,153 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
-      drawer: const AdminDrawer(),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            _buildCategoryFilters(),
+            Expanded(
+              child: _loading
+                  ? const _StaffLoadingPlaceholder()
+                  : _error != null
+                      ? _buildErrorState()
+                      : _users.isEmpty
+                          ? _buildEmptyState()
+                          : RefreshIndicator(
+                              onRefresh: _load,
+                              color: AppColors.primary,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                                itemCount: _users.length,
+                                itemBuilder: (context, i) => AnimatedListItem(
+                                  index: i,
+                                  child: _StaffCard(
+                                    user: _users[i],
+                                    onEdit: () => _showEditStaff(_users[i]),
+                                    onReassign: () => _showReassign(_users[i]),
+                                    onDelete: () => _confirmDeleteStaff(_users[i]),
+                                  ),
+                                ),
+                              ),
+                            ),
+            ),
+          ],
         ),
-        title: const Text('Staff Management'),
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _showAddUser),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddUser,
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF1E293B)),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Staff Directory',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: Icon(Icons.sync_rounded, color: _loading ? Colors.grey : AppColors.primary),
+          ),
         ],
       ),
-      body: Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _FilterChip(label: 'All', selected: _tabIndex == 0, onTap: () { setState(() => _tabIndex = 0); _load(); }),
-                const SizedBox(width: 8),
-                _FilterChip(label: 'Teachers', selected: _tabIndex == 1, onTap: () { setState(() => _tabIndex = 1); _load(); }),
-                const SizedBox(width: 8),
-                _FilterChip(label: 'Coordinators', selected: _tabIndex == 2, onTap: () { setState(() => _tabIndex = 2); _load(); }),
-                const SizedBox(width: 8),
-                _FilterChip(label: 'Bus Staff', selected: _tabIndex == 3, onTap: () { setState(() => _tabIndex = 3); _load(); }),
-              ],
-            ),
+    );
+  }
+
+  Widget _buildCategoryFilters() {
+    final filters = [
+      {'label': 'All', 'index': 0, 'icon': Icons.groups_rounded},
+      {'label': 'Teachers', 'index': 1, 'icon': Icons.school_rounded},
+      {'label': 'Coordinators', 'index': 2, 'icon': Icons.admin_panel_settings_rounded},
+      {'label': 'Logistics', 'index': 3, 'icon': Icons.local_shipping_rounded},
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: filters.map((f) => Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: _FilterItem(
+            label: f['label'] as String,
+            icon: f['icon'] as IconData,
+            selected: _tabIndex == f['index'],
+            onTap: () {
+              setState(() => _tabIndex = f['index'] as int);
+              _load();
+            },
           ),
-          if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (_error != null)
-            Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
-          else if (_users.isEmpty)
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.group_off, size: 64, color: Colors.grey.shade400),
-                    const SizedBox(height: 12),
-                    Text('No staff found', style: TextStyle(color: Colors.grey.shade600)),
-                    const SizedBox(height: 8),
-                    FilledButton.icon(
-                      onPressed: _showAddUser,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Staff'),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _users.length,
-                itemBuilder: (_, i) => _StaffCard(
-                  user: _users[i],
-                  onEdit: () => _showEditStaff(_users[i]),
-                  onReassign: () => _showReassign(_users[i]),
-                  onDelete: () => _confirmDeleteStaff(_users[i]),
-                ),
-              ),
-            ),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(child: Text(_error ?? 'Unknown error', style: const TextStyle(color: Colors.red)));
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.person_off_rounded, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text('No staff members found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
         ],
       ),
     );
   }
 }
 
-class _FilterChip extends StatelessWidget {
+class _FilterItem extends StatelessWidget {
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterItem({required this.label, required this.icon, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(999),
-          border: selected ? null : Border.all(color: Theme.of(context).dividerColor),
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: selected ? [AppShadows.glow(AppColors.primary)] : [AppShadows.soft],
+          border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE2E8F0)),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : Colors.grey,
-          ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: selected ? Colors.white : const Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -309,70 +363,66 @@ class _StaffCard extends StatelessWidget {
     final role = user['role'] as String? ?? '';
     final isCoord = role == 'coordinator';
     final isBusStaff = role == 'bus_staff';
-    final Color avatarColor = isCoord
-        ? AppColors.pastelBlue
-        : isBusStaff
-            ? const Color(0xFFFFEDD5)
-            : AppColors.pastelGreen;
-    final Color iconColor = isCoord
-        ? AppColors.primary
-        : isBusStaff
-            ? const Color(0xFFEA580C)
-            : const Color(0xFF16A34A);
-    final IconData icon = isCoord
-        ? Icons.supervisor_account
-        : isBusStaff
-            ? Icons.directions_bus
-            : Icons.person;
+    
+    final Color accentColor = isCoord 
+        ? Colors.indigo.shade600 
+        : isBusStaff ? Colors.orange.shade600 : AppColors.accentGreen;
 
-    final isActive = (user['is_active'] as String? ?? 'true') == 'true';
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: avatarColor,
-          child: Icon(icon, color: iconColor),
-        ),
-        title: Row(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [AppShadows.soft],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
           children: [
-            Expanded(child: Text(user['full_name'] as String? ?? '')),
-            if (!isActive)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(6)),
-                child: Text('INACTIVE', style: TextStyle(fontSize: 9, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
               ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isBusStaff
-                  ? 'Bus Staff'
-                  : isCoord
-                      ? 'Coordinator • ${user['branch_name'] ?? 'Unassigned'}'
-                      : '${user['branch_name'] ?? 'Unassigned'}${user['class_name'] != null ? ' • ${user['class_name']}' : ''}',
-              style: const TextStyle(fontSize: 13),
+              child: Icon(
+                isCoord ? Icons.verified_user_rounded : isBusStaff ? Icons.local_shipping_rounded : Icons.school_rounded,
+                color: accentColor,
+                size: 26,
+              ),
             ),
-            if ((user['email'] as String?) != null)
-              Text(user['email'] as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (v) {
-            if (v == 'edit') onEdit();
-            if (v == 'reassign') onReassign();
-            if (v == 'delete') onDelete();
-          },
-          itemBuilder: (_) => [
-            const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit details')])),
-            if (user['role'] != 'bus_staff')
-              const PopupMenuItem(value: 'reassign', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text('Reassign')])),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))]),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user['full_name'] ?? 'Staff Member',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isBusStaff ? 'Logistics / Bus Staff' : '${user['branch_name'] ?? 'Unassigned'}${user['class_name'] != null ? ' • ${user['class_name']}' : ''}',
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF94A3B8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              onSelected: (v) {
+                if (v == 'edit') onEdit();
+                if (v == 'reassign') onReassign();
+                if (v == 'delete') onDelete();
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Edit Details')])),
+                if (!isBusStaff) const PopupMenuItem(value: 'reassign', child: Row(children: [Icon(Icons.swap_horiz_rounded, size: 18), SizedBox(width: 8), Text('Reassign Role')])),
+                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18), SizedBox(width: 8), Text('Delete Account', style: TextStyle(color: Colors.red))])),
+              ],
             ),
           ],
         ),
@@ -381,7 +431,36 @@ class _StaffCard extends StatelessWidget {
   }
 }
 
-// ─── Add Staff Sheet ─────────────────────────────────────────────────────────
+class _StaffLoadingPlaceholder extends StatelessWidget {
+  const _StaffLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 6,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Row(
+          children: [
+            const ShimmerLoading.circular(width: 56, height: 56),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerLoading.rectangular(height: 16, width: MediaQuery.of(context).size.width * 0.4),
+                  const SizedBox(height: 8),
+                  ShimmerLoading.rectangular(height: 12, width: MediaQuery.of(context).size.width * 0.2),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _AddUserSheet extends StatefulWidget {
   final List<Map<String, dynamic>> branches;
@@ -404,8 +483,6 @@ class _AddUserSheetState extends State<_AddUserSheet> {
   String? _classId;
   bool _loading = false;
   String? _error;
-  // Track if user was created so we don't double-create on assignment failure
-  String? _createdUserId;
 
   @override
   void dispose() {
@@ -416,66 +493,65 @@ class _AddUserSheetState extends State<_AddUserSheet> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>> _getClassesForBranch(String branchId) {
+    final branch = widget.branches.firstWhere((b) => b['id'] == branchId, orElse: () => {});
+    if (branch.isEmpty) return [];
+    final classes = branch['classes'] as List? ?? [];
+    return List<Map<String, dynamic>>.from(classes);
+  }
+
+  String _selectedBranchSystemLabel() {
+    if (_branchId == null) return '—';
+    final branch = widget.branches.firstWhere(
+      (b) => b['id']?.toString() == _branchId,
+      orElse: () => <String, dynamic>{},
+    );
+    final systemType = (branch['system_type']?.toString().toLowerCase() ?? 'kreedo');
+    return systemType == 'normal'
+        ? 'Normal (Nursery/LKG/UKG)'
+        : 'Kreedo (Playschool/1G1/1G2/1G3)';
+  }
+
+  bool get _needsBranch => widget.role == 'teacher' || widget.role == 'coordinator';
+
+  bool get _needsClass => widget.role == 'teacher';
+
+  String get _sheetTitle {
+    switch (widget.role) {
+      case 'coordinator':
+        return 'New Coordinator';
+      case 'bus_staff':
+        return 'New Logistics Staff';
+      default:
+        return 'New Teacher';
+    }
+  }
+
   Future<void> _submit() async {
-    // Validate
-    if (_nameCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Full name is required');
-      return;
-    }
-    if (_passCtrl.text.isEmpty) {
-      setState(() => _error = 'Password is required');
-      return;
-    }
-    if (_emailCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Email is required for login');
-      return;
-    }
-    if (widget.role == 'teacher' && _branchId == null) {
-      setState(() => _error = 'Please select a branch');
-      return;
-    }
-    if (widget.role == 'coordinator' && _branchId == null) {
-      setState(() => _error = 'Please select a branch');
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final pass = _passCtrl.text.trim();
+    final phone = _phoneCtrl.text.trim();
+    if (name.isEmpty) { setState(() => _error = 'Full name is required'); return; }
+    if (email.isEmpty) { setState(() => _error = 'Email is required'); return; }
+    if (pass.isEmpty) { setState(() => _error = 'Password is required'); return; }
+    if (_needsBranch && _branchId == null) { setState(() => _error = 'Branch is required'); return; }
+    if (_needsClass && _classId == null) { setState(() => _error = 'Class is required'); return; }
+    setState(() { _loading = true; _error = null; });
     try {
-      // Step 1: Create user (if not already created from a previous failed attempt)
-      String userId = _createdUserId ?? '';
-      if (_createdUserId == null) {
-        final created = await widget.api.createUser(
-          email: _emailCtrl.text.trim(),
-          password: _passCtrl.text,
-          fullName: _nameCtrl.text.trim(),
-          role: widget.role,
-          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-        );
-        userId = created['id'] as String;
-        _createdUserId = userId; // Remember in case step 2 fails
-      }
-
-      // Step 2: Assign to branch (teachers and coordinators only)
-      if (_branchId != null && widget.role != 'bus_staff') {
-        await widget.api.createAssignment(
-          userId: userId,
-          branchId: _branchId!,
-          classId: widget.role == 'teacher' ? _classId : null,
-        );
-      }
-
+      await widget.api.createUser(
+        email: email,
+        password: pass,
+        fullName: name,
+        role: widget.role,
+        phone: phone.isEmpty ? null : phone,
+        branchId: _needsBranch ? _branchId : null,
+        classId: _needsClass ? _classId : null,
+      );
       widget.onSaved();
     } catch (e) {
-      final msg = e.toString().replaceAll('Exception: ', '');
       setState(() {
-        // If user was already created, tell the admin specifically what failed
-        _error = _createdUserId != null && !msg.contains('already')
-            ? 'Staff created but branch assignment failed: $msg\nTap Save again to retry assignment.'
-            : msg;
+        _error = e.toString().replaceAll('Exception: ', '');
         _loading = false;
       });
     }
@@ -483,99 +559,101 @@ class _AddUserSheetState extends State<_AddUserSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = widget.role == 'coordinator'
-        ? 'Coordinator'
-        : widget.role == 'bus_staff'
-            ? 'Bus Staff'
-            : 'Teacher';
-    final branch = widget.branches
-        .cast<Map<String, dynamic>?>()
-        .firstWhere((b) => b!['id'] == _branchId, orElse: () => null);
-    final classes = (branch?['classes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    final selectedBranchClasses = _branchId != null ? _getClassesForBranch(_branchId!) : [];
+    
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Add $roleLabel', style: Theme.of(context).textTheme.titleLarge),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            Text(_sheetTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
+            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline_rounded))),
             const SizedBox(height: 16),
-            TextField(
-              controller: _nameCtrl,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Full Name *'),
-            ),
-            TextField(
-              controller: _emailCtrl,
-              decoration: const InputDecoration(labelText: 'Email * (used for login)'),
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-            ),
-            TextField(
-              controller: _passCtrl,
-              decoration: const InputDecoration(labelText: 'Password *'),
-              obscureText: true,
-            ),
-            TextField(
-              controller: _phoneCtrl,
-              decoration: const InputDecoration(labelText: 'Phone'),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-            if (widget.role != 'bus_staff')
+            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.alternate_email_rounded))),
+            const SizedBox(height: 16),
+            TextField(controller: _passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline_rounded))),
+            const SizedBox(height: 16),
+            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number (Optional)', prefixIcon: Icon(Icons.phone_outlined))),
+            if (_needsBranch) ...[
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: _branchId,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Branch *',
-                  helperText: widget.role == 'coordinator'
-                      ? 'Coordinator manages the whole branch'
-                      : 'Select which branch this teacher belongs to',
+                  prefixIcon: Icon(Icons.location_city_rounded),
+                  border: OutlineInputBorder(),
                 ),
-                items: widget.branches
-                    .map((b) => DropdownMenuItem(value: b['id'] as String, child: Text(b['name'] as String)))
-                    .toList(),
-                onChanged: (v) => setState(() {
-                  _branchId = v;
-                  _classId = null;
-                }),
+                items: widget.branches.map((branch) {
+                  return DropdownMenuItem(
+                    value: branch['id'] as String,
+                    child: Text(branch['name'] as String? ?? 'Unknown Branch'),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _branchId = value;
+                    _classId = null;
+                  });
+                },
               ),
-            if (widget.role == 'teacher' && _branchId != null && classes.isNotEmpty)
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Class system: ${_selectedBranchSystemLabel()}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+            if (_needsClass && _branchId != null && selectedBranchClasses.isEmpty) ...[
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'No classes found in this branch. Set the branch class system and classes first.',
+                  style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+            if (_needsClass && _branchId != null) ...[
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: _classId,
-                decoration: const InputDecoration(labelText: 'Class (optional)', helperText: 'Assign to a specific class'),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('— No class yet —')),
-                  ...classes.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String))),
-                ],
-                onChanged: (v) => setState(() => _classId = v),
-              ),
-            if (widget.role == 'teacher' && _branchId != null && classes.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('⚠ No classes in selected branch yet', style: TextStyle(color: Colors.orange.shade800, fontSize: 12)),
-              ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  child: Text(_error!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                decoration: const InputDecoration(
+                  labelText: 'Class *',
+                  prefixIcon: Icon(Icons.school_rounded),
+                  border: OutlineInputBorder(),
                 ),
+                items: selectedBranchClasses.map((cls) {
+                  return DropdownMenuItem(
+                    value: cls['id'] as String,
+                    child: Text(cls['name'] as String? ?? 'Unknown Class'),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() => _classId = value);
+                },
               ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loading ? null : _submit,
-              child: _loading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(_createdUserId != null ? 'Retry Assignment' : 'Add $roleLabel'),
+            ],
+            if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))],
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                 onPressed: _loading ? null : _submit,
+                 child: _loading
+                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                     : const Text('CREATE ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
+              ),
             ),
           ],
         ),
@@ -584,35 +662,20 @@ class _AddUserSheetState extends State<_AddUserSheet> {
   }
 }
 
-// ─── Edit Staff Sheet ─────────────────────────────────────────────────────────
-
 class _EditStaffSheet extends StatefulWidget {
   final Map<String, dynamic> user;
   final VoidCallback onSaved;
   final AdminApi api;
-
   const _EditStaffSheet({required this.user, required this.onSaved, required this.api});
-
-  @override
-  State<_EditStaffSheet> createState() => _EditStaffSheetState();
+  @override State<_EditStaffSheet> createState() => _EditStaffSheetState();
 }
 
 class _EditStaffSheetState extends State<_EditStaffSheet> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _emailCtrl;
-  late final TextEditingController _phoneCtrl;
-  late String _isActive;
+  late final _nameCtrl = TextEditingController(text: widget.user['full_name']?.toString() ?? '');
+  late final _emailCtrl = TextEditingController(text: widget.user['email']?.toString() ?? '');
+  late final _phoneCtrl = TextEditingController(text: widget.user['phone']?.toString() ?? '');
   bool _loading = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameCtrl = TextEditingController(text: widget.user['full_name'] as String? ?? '');
-    _emailCtrl = TextEditingController(text: widget.user['email'] as String? ?? '');
-    _phoneCtrl = TextEditingController(text: widget.user['phone'] as String? ?? '');
-    _isActive = widget.user['is_active'] as String? ?? 'true';
-  }
 
   @override
   void dispose() {
@@ -623,21 +686,15 @@ class _EditStaffSheetState extends State<_EditStaffSheet> {
   }
 
   Future<void> _submit() async {
-    if (_nameCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Name required');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) { setState(() => _error = 'Name is required'); return; }
+    setState(() { _loading = true; _error = null; });
     try {
       await widget.api.updateUser(
         widget.user['id'] as String,
-        fullName: _nameCtrl.text.trim(),
-        email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-        isActive: _isActive,
+        fullName: name,
+        email: _emailCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
       );
       widget.onSaved();
     } catch (e) {
@@ -650,39 +707,33 @@ class _EditStaffSheetState extends State<_EditStaffSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Edit ${widget.user['full_name']}', style: Theme.of(context).textTheme.titleLarge),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            const Text('Edit Staff Member', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
+            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline_rounded))),
             const SizedBox(height: 16),
-            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Full Name *')),
-            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
-            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone'), keyboardType: TextInputType.phone),
-            DropdownButtonFormField<String>(
-              value: _isActive,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items: const [
-                DropdownMenuItem(value: 'true', child: Text('Active')),
-                DropdownMenuItem(value: 'false', child: Text('Inactive')),
-              ],
-              onChanged: (v) => setState(() => _isActive = v ?? 'true'),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email Address', border: OutlineInputBorder(), prefixIcon: Icon(Icons.alternate_email_rounded))),
+            const SizedBox(height: 16),
+            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined)), keyboardType: TextInputType.phone),
+            if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))],
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                onPressed: _loading ? null : _submit,
+                child: _loading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('SAVE CHANGES', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
               ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loading ? null : _submit,
-              child: _loading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Save Changes'),
             ),
           ],
         ),
@@ -691,144 +742,120 @@ class _EditStaffSheetState extends State<_EditStaffSheet> {
   }
 }
 
-// ─── Reassign Sheet ───────────────────────────────────────────────────────────
-
 class _ReassignSheet extends StatefulWidget {
   final Map<String, dynamic> user;
   final List<Map<String, dynamic>> branches;
   final VoidCallback onSaved;
   final AdminApi api;
-
   const _ReassignSheet({required this.user, required this.branches, required this.onSaved, required this.api});
-
-  @override
-  State<_ReassignSheet> createState() => _ReassignSheetState();
+  @override State<_ReassignSheet> createState() => _ReassignSheetState();
 }
 
 class _ReassignSheetState extends State<_ReassignSheet> {
   String? _branchId;
   String? _classId;
+  List<Map<String, dynamic>> _classes = [];
   bool _loading = false;
-  bool _loadingAssignment = true;
   String? _error;
-  String? _existingAssignmentId;
+
+  bool get _isTeacher => (widget.user['role']?.toString() ?? '') == 'teacher';
+
+  String _selectedBranchSystemLabel() {
+    if (_branchId == null) return '—';
+    final branch = widget.branches.firstWhere(
+      (b) => b['id']?.toString() == _branchId,
+      orElse: () => <String, dynamic>{},
+    );
+    final systemType = (branch['system_type']?.toString().toLowerCase() ?? 'kreedo');
+    return systemType == 'normal'
+        ? 'Normal (Nursery/LKG/UKG)'
+        : 'Kreedo (Playschool/1G1/1G2/1G3)';
+  }
 
   @override
   void initState() {
     super.initState();
-    // Pre-populate with current assignment
-    _branchId = widget.user['branch_id'] as String?;
-    _classId = widget.user['class_id'] as String?;
-    _loadAssignmentId();
+    _branchId = widget.user['branch_id']?.toString();
+    if (_branchId != null) _loadClasses(_branchId!);
   }
 
-  Future<void> _loadAssignmentId() async {
+  Future<void> _loadClasses(String branchId) async {
     try {
-      final assignments = await widget.api.getAssignments();
-      final a = assignments.cast<Map<String, dynamic>?>().firstWhere(
-        (x) => x!['user_id'] == widget.user['id'],
-        orElse: () => null,
-      );
-      if (mounted) {
-        setState(() {
-          _existingAssignmentId = a?['id'] as String?;
-          _loadingAssignment = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingAssignment = false);
-    }
+      final classes = await widget.api.getClasses(branchId: branchId);
+      if (mounted) setState(() => _classes = classes);
+    } catch (_) {}
   }
 
   Future<void> _submit() async {
-    if (_branchId == null) {
-      setState(() => _error = 'Please select a branch');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (_branchId == null) { setState(() => _error = 'Select a branch'); return; }
+    if (_isTeacher && _classId == null) { setState(() => _error = 'Class is required for teachers'); return; }
+    setState(() { _loading = true; _error = null; });
     try {
-      if (_existingAssignmentId != null) {
-        await widget.api.updateAssignment(
-          _existingAssignmentId!,
-          branchId: _branchId,
-          classId: widget.user['role'] == 'teacher' ? _classId : null,
-        );
+      // Use existing assignment or create one
+      final assignments = await widget.api.getAssignments();
+      final existing = assignments.where((a) => a['user_id']?.toString() == widget.user['id']?.toString()).toList();
+      if (existing.isEmpty) {
+        await widget.api.createAssignment(userId: widget.user['id'], branchId: _branchId!, classId: _classId);
       } else {
-        await widget.api.createAssignment(
-          userId: widget.user['id'] as String,
-          branchId: _branchId!,
-          classId: widget.user['role'] == 'teacher' ? _classId : null,
-        );
+        await widget.api.updateAssignment(existing.first['id'], branchId: _branchId, classId: _classId);
       }
       widget.onSaved();
     } catch (e) {
-      setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _loading = false;
-      });
+      setState(() { _error = e.toString().replaceAll('Exception: ', ''); _loading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final branch = widget.branches
-        .cast<Map<String, dynamic>?>()
-        .firstWhere((b) => b!['id'] == _branchId, orElse: () => null);
-    final classes = (branch?['classes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Reassign ${widget.user['full_name']}', style: Theme.of(context).textTheme.titleLarge),
-            Text(
-              '${widget.user['role'] == 'coordinator' ? 'Coordinator' : 'Teacher'} — currently: ${widget.user['branch_name'] ?? 'Unassigned'}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            Text('Reassign ${widget.user['full_name'] ?? 'Staff'}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              value: _branchId,
+              decoration: const InputDecoration(labelText: 'Branch *', border: OutlineInputBorder()),
+              items: widget.branches.map((b) => DropdownMenuItem(value: b['id']?.toString(), child: Text(b['name']?.toString() ?? '—'))).toList(),
+              onChanged: (v) {
+                setState(() { _branchId = v; _classId = null; _classes = []; });
+                if (v != null) _loadClasses(v);
+              },
             ),
-            const SizedBox(height: 16),
-            if (_loadingAssignment)
-              const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-            else ...[
-              DropdownButtonFormField<String>(
-                value: _branchId,
-                decoration: const InputDecoration(labelText: 'Branch *'),
-                items: widget.branches
-                    .map((b) => DropdownMenuItem(value: b['id'] as String, child: Text(b['name'] as String)))
-                    .toList(),
-                onChanged: (v) => setState(() {
-                  _branchId = v;
-                  _classId = null;
-                }),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Class system: ${_selectedBranchSystemLabel()}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
               ),
-              if (widget.user['role'] == 'teacher' && classes.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  value: _classId,
-                  decoration: const InputDecoration(labelText: 'Class'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('— None —')),
-                    ...classes.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String))),
-                  ],
-                  onChanged: (v) => setState(() => _classId = v),
-                ),
-            ],
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            ),
+            if (_classes.isNotEmpty) ...[const SizedBox(height: 16), DropdownButtonFormField<String>(
+              value: _classId,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: _isTeacher ? 'Class *' : 'Class (optional)', border: const OutlineInputBorder()),
+              items: [
+                if (!_isTeacher) const DropdownMenuItem(value: null, child: Text('No class')),
+                ..._classes.map((c) => DropdownMenuItem(value: c['id']?.toString(), child: Text(c['name']?.toString() ?? '—'))),
+              ],
+              onChanged: (v) => setState(() => _classId = v),
+            )],
+            if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))],
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                onPressed: _loading ? null : _submit,
+                child: _loading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('SAVE ASSIGNMENT', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
               ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: (_loading || _loadingAssignment) ? null : _submit,
-              child: _loading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Save Assignment'),
             ),
           ],
         ),
