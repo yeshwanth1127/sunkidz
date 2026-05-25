@@ -17,7 +17,7 @@ from app.models.daily_story import DailyStory, DailyStoryBranch, DailyStoryClass
 from app.models.fees import FeeStructure, FeePayment
 from app.models.message import MessageThread, Message
 from app.models.leave import LeaveApplication
-from app.models.learning_module import LearningModule, LearningVideo
+# from app.models.learning_module import LearningModule, LearningVideo  # TODO: uncomment after fixing database
 
 __all__ = [
     "Base",
@@ -53,6 +53,6 @@ __all__ = [
     "MessageThread",
     "Message",
     "LeaveApplication",
-    "LearningModule",
-    "LearningVideo",
+    # "LearningModule",  # TODO: uncomment after fixing database
+    # "LearningVideo",   # TODO: uncomment after fixing database
 ]
