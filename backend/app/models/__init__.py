@@ -11,9 +11,13 @@ from app.models.ride_session import RideSession, LocationUpdate
 from app.models.daycare import DaycareGroup, DaycareGroupStudent, DaycareDailyUpdate
 from app.models.syllabus import Syllabus, Homework, GalleryImage
 from app.models.syllabus_holiday import SyllabusHoliday
+from app.models.class_diary import ClassDiaryEntry
+from app.models.almanac_event import AlmanacEvent
+from app.models.daily_story import DailyStory, DailyStoryBranch, DailyStoryClass
 from app.models.fees import FeeStructure, FeePayment
 from app.models.message import MessageThread, Message
 from app.models.leave import LeaveApplication
+from app.models.learning_module import LearningModule, LearningVideo
 
 __all__ = [
     "Base",
@@ -37,6 +41,11 @@ __all__ = [
     "DaycareDailyUpdate",
     "Syllabus",
     "SyllabusHoliday",
+    "ClassDiaryEntry",
+    "AlmanacEvent",
+    "DailyStory",
+    "DailyStoryBranch",
+    "DailyStoryClass",
     "Homework",
     "GalleryImage",
     "FeeStructure",
@@ -44,4 +53,6 @@ __all__ = [
     "MessageThread",
     "Message",
     "LeaveApplication",
+    "LearningModule",
+    "LearningVideo",
 ]
