@@ -30,7 +30,7 @@ from app.api import diary as diary_api
 from app.api import almanac as almanac_api
 from app.api import stories as stories_api
 from app.api import birthdays as birthdays_api
-# from app.api import learning_modules as learning_modules_api  # TODO: uncomment after fixing database
+from app.api import learning_modules as learning_modules_api
 
 # Configure logging
 logging.basicConfig(
@@ -77,7 +77,7 @@ app.include_router(diary_api.router, prefix="/api/v1")
 app.include_router(almanac_api.router, prefix="/api/v1")
 app.include_router(stories_api.router, prefix="/api/v1")
 app.include_router(birthdays_api.router, prefix="/api/v1")
-# app.include_router(learning_modules_api.router, prefix="/api/v1")  # TODO: uncomment after fixing database
+app.include_router(learning_modules_api.router, prefix="/api/v1")
 
 
 @app.get("/")

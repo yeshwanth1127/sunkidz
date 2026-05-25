@@ -11,7 +11,7 @@ class LearningModule(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False)
     description = Column(String(1000), nullable=True)
-    created_by = Column(String(36), ForeignKey("user.id"), nullable=False)
+    created_by = Column(String(36), nullable=False)  # TODO: Add ForeignKey("user.id") after fixing database
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
