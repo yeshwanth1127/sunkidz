@@ -59,6 +59,10 @@ import '../../features/syllabus/presentation/syllabus_list_screen.dart';
 import '../../features/syllabus/presentation/homework_list_screen.dart';
 import '../../features/syllabus/presentation/gallery_upload_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/learning_modules/presentation/learning_modules_screen.dart';
+import '../../features/learning_modules/presentation/module_videos_screen.dart';
+import '../../features/learning_modules/presentation/video_player_screen.dart';
+import '../../features/learning_modules/presentation/admin_learning_modules_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -169,6 +173,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'leave',
             builder: (_, __) => const StaffLeaveScreen(),
           ),
+          GoRoute(
+            path: 'learning-modules',
+            builder: (_, __) => const AdminLearningModulesScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -186,6 +194,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'students',
             builder: (_, __) => const CoordinatorStudentsScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                builder: (_, state) => StudentProfileScreen(
+                  studentId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: 'staff-attendance',
@@ -383,6 +399,30 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'settings',
             builder: (_, __) => const SettingsScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/learning-modules',
+        builder: (_, __) => const LearningModulesScreen(),
+        routes: [
+          GoRoute(
+            path: ':id/videos',
+            builder: (_, state) => ModuleVideosScreen(
+              moduleId: state.pathParameters['id']!,
+              moduleName: (state.extra as Map<String, dynamic>?)?['name'] ?? 'Module',
+            ),
+          ),
+          GoRoute(
+            path: 'video/:id',
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              return VideoPlayerScreen(
+                videoId: state.pathParameters['id']!,
+                title: extra['title'] ?? 'Video',
+                filePath: extra['file_path'] ?? '',
+              );
+            },
           ),
         ],
       ),
