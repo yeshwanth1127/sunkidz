@@ -256,6 +256,23 @@ class AdminDashboardScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 32),
 
+                        // Content & Learning Section
+                        Text('Content & Learning', style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _AdminActionCard(
+                                icon: Icons.library_books_rounded,
+                                label: 'Learning Modules',
+                                color: Colors.purple,
+                                onTap: () => context.push('/admin/learning-modules'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
                         // Recent Enquiries
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
