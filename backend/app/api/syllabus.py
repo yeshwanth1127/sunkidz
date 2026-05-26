@@ -144,20 +144,10 @@ def _resolve_request_user(db: Session, current_user: Optional[User], token: Opti
 
 async def _save_file(file: UploadFile, directory: str) -> tuple[str, str, str]:
     """Save uploaded file and return (file_path, file_name, file_size)."""
-    # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = os.path.join(directory, unique_filename)
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-    
-    # Get file size
-    file_size = f"{len(content) / 1024:.2f} KB"
-    
-    return file_path, file.filename, file_size
+    from app.services.media_files import save_upload_file
+
+    file_path, file_name, file_size, _mime = await save_upload_file(file, directory)
+    return file_path, file_name, file_size
 
 
 # ========== SYLLABUS ENDPOINTS ==========
@@ -932,7 +922,10 @@ def view_homework_file(
     if not os.path.exists(homework.file_path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(path=homework.file_path, filename=homework.file_name, media_type="application/octet-stream")
+    from app.services.media_files import mime_for_filename
+
+    media = mime_for_filename(homework.file_name or "")
+    return FileResponse(path=homework.file_path, filename=homework.file_name, media_type=media)
 
 
 # ========== GALLERY ENDPOINTS ==========

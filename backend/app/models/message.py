@@ -34,6 +34,10 @@ class Message(Base):
     thread_id = Column(UUID(as_uuid=True), ForeignKey("message_threads.id", ondelete="CASCADE"), nullable=False, index=True)
     sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
+    attachment_path = Column(String(500), nullable=True)
+    attachment_name = Column(String(255), nullable=True)
+    attachment_mime = Column(String(100), nullable=True)
+    attachment_kind = Column(String(20), nullable=True)  # image | video | pdf | document
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     thread = relationship("MessageThread", back_populates="messages")

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret_key: str = "your-super-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 60 * 24  # 24 hours
+    jwt_access_token_expire_minutes: int = 60 * 24 * 30  # 30 days
 
     # Default classes created for each branch
     default_branch_classes: tuple[str, ...] = ("Playschool", "1G1", "1G2", "1G3")

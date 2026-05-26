@@ -14,7 +14,7 @@ class Branch(Base):
     address = Column(String(500), nullable=True)
     contact_no = Column(String(50), nullable=True)
     status = Column(String(50), default="active")
-    system_type = Column(String(20), nullable=False, default="kreedo")
+    system_type = Column(String(20), nullable=False, default="sunkidz")
     
     # NEW: Day of month fees are usually due (e.g. 5 for the 5th)
     default_fee_due_day = Column(Integer, default=5)

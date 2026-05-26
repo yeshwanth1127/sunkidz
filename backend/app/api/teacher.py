@@ -29,40 +29,77 @@ def _student_in_teacher_class(student_id: UUID, class_id: UUID | None, db: Sessi
     return s is not None
 
 
+def _teacher_classes_payload(user: User, db: Session) -> list[dict]:
+    """All branch/class assignments for this teacher."""
+    assignments = (
+        db.query(BranchAssignment)
+        .filter(
+            BranchAssignment.user_id == user.id,
+            BranchAssignment.class_id.isnot(None),
+        )
+        .all()
+    )
+    result = []
+    for a in assignments:
+        cls = db.query(Class).filter(Class.id == a.class_id).first()
+        branch = db.query(Branch).filter(Branch.id == a.branch_id).first()
+        if not cls:
+            continue
+        result.append({
+            "class_id": str(cls.id),
+            "class_name": cls.name,
+            "branch_id": str(a.branch_id),
+            "branch_name": branch.name if branch else None,
+        })
+    return result
+
+
+@router.get("/classes")
+def list_my_classes(
+    user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """List all classes assigned to this teacher."""
+    return {"classes": _teacher_classes_payload(user, db)}
+
+
 @router.get("/dashboard")
 def get_dashboard(
     user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
     """Get teacher dashboard data: branch, class, students count."""
+    classes = _teacher_classes_payload(user, db)
     assignment = db.query(BranchAssignment).filter(BranchAssignment.user_id == user.id).first()
     branch_name = None
     class_name = None
+    class_id = None
     students_count = 0
     boys_count = 0
     girls_count = 0
 
-    if assignment:
+    if classes:
+        class_id = classes[0]["class_id"]
+        class_name = classes[0]["class_name"]
+        branch_name = classes[0]["branch_name"]
+    elif assignment:
         branch = db.query(Branch).filter(Branch.id == assignment.branch_id).first()
         if branch:
             branch_name = branch.name
-        if assignment.class_id:
-            cls = db.query(Class).filter(Class.id == assignment.class_id).first()
-            if cls:
-                class_name = cls.name
-            # Count students in this class
-            students = db.query(Student).filter(
-                Student.class_id == assignment.class_id,
-                Student.admission_number.isnot(None),
-            ).all()
-            students_count = len(students)
-            boys_count = sum(1 for s in students if s.gender and s.gender.lower() in ("male", "m", "boy"))
-            girls_count = sum(1 for s in students if s.gender and s.gender.lower() in ("female", "f", "girl"))
+
+    if class_id:
+        students = db.query(Student).filter(
+            Student.class_id == class_id,
+            Student.admission_number.isnot(None),
+        ).all()
+        students_count = len(students)
+        boys_count = sum(1 for s in students if s.gender and s.gender.lower() in ("male", "m", "boy"))
+        girls_count = sum(1 for s in students if s.gender and s.gender.lower() in ("female", "f", "girl"))
 
     attendance_today = 0
-    if assignment and assignment.class_id:
+    if class_id:
         present = db.query(Attendance).join(Student).filter(
-            Student.class_id == assignment.class_id,
+            Student.class_id == class_id,
             Attendance.date == date.today(),
             Attendance.status == "present",
         ).count()
@@ -70,8 +107,9 @@ def get_dashboard(
 
     return {
         "branch_name": branch_name,
-        "class_id": str(assignment.class_id) if assignment and assignment.class_id else None,
+        "class_id": class_id,
         "class_name": class_name,
+        "classes": classes,
         "students_count": students_count,
         "boys_count": boys_count,
         "girls_count": girls_count,

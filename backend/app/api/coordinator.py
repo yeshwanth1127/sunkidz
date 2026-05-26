@@ -21,7 +21,6 @@ router = APIRouter(prefix="/coordinator", tags=["coordinator"])
 def _coordinator_branch_id(user: User, db: Session) -> UUID | None:
     a = db.query(BranchAssignment).filter(
         BranchAssignment.user_id == user.id,
-        BranchAssignment.class_id.is_(None),
     ).first()
     return a.branch_id if a else None
 

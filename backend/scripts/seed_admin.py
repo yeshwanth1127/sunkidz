@@ -47,7 +47,7 @@ def seed():
                 address="123 Main St",
                 contact_no="+1234567890",
                 status="active",
-                system_type="kreedo",
+                system_type="sunkidz",
             )
             db.add(branch)
             db.commit()
@@ -55,7 +55,7 @@ def seed():
             print(f"Created branch: {branch.name}")
 
         # Ensure default classes for this branch
-        for class_name in get_default_classes_for_system(getattr(branch, "system_type", "kreedo")):
+        for class_name in get_default_classes_for_system(getattr(branch, "system_type", "sunkidz")):
             canonical = normalize_class_name(class_name)
             if not db.query(Class).filter(Class.branch_id == branch.id, Class.name == canonical).first():
                 db.add(Class(branch_id=branch.id, name=canonical, academic_year="2026-27"))

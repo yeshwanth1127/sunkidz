@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Microsoft/jdk-17.0.13.11-hotspot\" flutter build appbundle --release)"
     ]
   }
 }

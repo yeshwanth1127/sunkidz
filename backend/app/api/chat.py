@@ -11,17 +11,21 @@ Security model:
     any admin, the coordinator of their child's branch, or teachers of their child's class.
 - Message body is capped (<= 2000 chars). Rate limit: 30 messages / 60s / user.
 """
+import os
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import or_, func as sqlfunc
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_optional_user
+from app.core.security import decode_access_token
+from app.services.media_files import save_upload_file, media_kind_for_filename, mime_for_filename
 from app.models.user import User
 from app.models.student import Student, ParentStudentLink
 from app.models.branch import BranchAssignment
@@ -30,6 +34,8 @@ from app.services.leave_service import create_leave_application
 from app.services.notification_service import send_onesignal_notification
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+CHAT_UPLOAD_DIR = os.path.join("uploads", "chat")
 
 MAX_BODY = 2000
 RATE_LIMIT_COUNT = 30
@@ -207,9 +213,80 @@ def _thread_summary(db: Session, thread: MessageThread, me: User) -> dict:
     }
 
 
-def _message_type(body: Optional[str]) -> str:
+def _message_type(body: Optional[str], attachment_kind: Optional[str] = None) -> str:
+    if attachment_kind:
+        return "attachment"
     text = (body or "").strip()
     return "event" if any(text.startswith(prefix) for prefix in EVENT_PREFIXES) else "chat"
+
+
+def _resolve_request_user(db: Session, current_user: Optional[User], token: Optional[str]) -> User:
+    if current_user:
+        return current_user
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    payload = decode_access_token(token)
+    user_id = payload.get("sub") if payload else None
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    user = db.query(User).filter(User.id == UUID(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+def _serialize_message(m: Message, user: User) -> dict:
+    kind = m.attachment_kind
+    has_file = bool(m.attachment_path)
+    return {
+        "id": str(m.id),
+        "thread_id": str(m.thread_id),
+        "sender_id": str(m.sender_id),
+        "body": m.body,
+        "type": _message_type(m.body, kind if has_file else None),
+        "is_mine": m.sender_id == user.id,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+        "attachment": {
+            "name": m.attachment_name,
+            "kind": kind,
+            "mime": m.attachment_mime,
+            "has_file": has_file,
+        }
+        if has_file
+        else None,
+    }
+
+
+def _commit_message_and_notify(
+    db: Session,
+    thread: MessageThread,
+    user: User,
+    msg: Message,
+    preview: str,
+) -> dict:
+    thread.last_message_at = sqlfunc.now()
+    now = datetime.now(timezone.utc)
+    if user.id == thread.parent_user_id:
+        thread.parent_last_read_at = now
+    else:
+        thread.staff_last_read_at = now
+    db.commit()
+    db.refresh(msg)
+
+    recipient_id = thread.staff_user_id if user.id == thread.parent_user_id else thread.parent_user_id
+    recipient = db.query(User).filter(User.id == recipient_id).first()
+    if recipient and recipient.onesignal_player_id:
+        sid = (recipient.onesignal_player_id or "").strip()
+        if sid:
+            title = f"New message from {user.full_name or 'user'}"
+            try:
+                send_onesignal_notification([sid], title, preview[:100])
+            except Exception:
+                pass
+
+    out = _serialize_message(msg, user)
+    out["is_mine"] = True
+    return out
 
 
 # ---------------- Endpoints ----------------
@@ -312,18 +389,7 @@ def list_messages(
             q = q.filter(Message.created_at > pivot.created_at)
     q = q.order_by(Message.created_at.asc()).limit(limit)
     items = q.all()
-    return [
-        {
-            "id": str(m.id),
-            "thread_id": str(m.thread_id),
-            "sender_id": str(m.sender_id),
-            "body": m.body,
-            "type": _message_type(m.body),
-            "is_mine": m.sender_id == user.id,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in items
-    ]
+    return [_serialize_message(m, user) for m in items]
 
 
 @router.post("/threads/{thread_id}/messages")
@@ -338,37 +404,65 @@ def post_message(
 
     msg = Message(thread_id=thread.id, sender_id=user.id, body=data.body)
     db.add(msg)
-    thread.last_message_at = sqlfunc.now()
-    # sender has implicitly read everything up to now
-    now = datetime.now(timezone.utc)
-    if user.id == thread.parent_user_id:
-        thread.parent_last_read_at = now
-    else:
-        thread.staff_last_read_at = now
-    db.commit()
-    db.refresh(msg)
+    return _commit_message_and_notify(db, thread, user, msg, data.body)
 
-    recipient_id = thread.staff_user_id if user.id == thread.parent_user_id else thread.parent_user_id
-    recipient = db.query(User).filter(User.id == recipient_id).first()
-    if recipient and recipient.onesignal_player_id:
-        sid = (recipient.onesignal_player_id or "").strip()
-        if sid:
-            title = f"New message from {user.full_name or 'user'}"
-            preview = data.body[:100]
-            try:
-                send_onesignal_notification([sid], title, preview)
-            except Exception:
-                pass
 
-    return {
-        "id": str(msg.id),
-        "thread_id": str(msg.thread_id),
-        "sender_id": str(msg.sender_id),
-        "body": msg.body,
-        "type": "chat",
-        "is_mine": True,
-        "created_at": msg.created_at.isoformat() if msg.created_at else None,
-    }
+@router.post("/threads/{thread_id}/messages/upload")
+async def post_message_with_attachment(
+    thread_id: UUID,
+    body: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Send a message with an image, video, or PDF attachment."""
+    thread = _thread_or_403(db, thread_id, user)
+    _rate_limit_or_429(db, user.id)
+
+    text = (body or "").strip()
+    if len(text) > MAX_BODY:
+        raise HTTPException(status_code=400, detail=f"Message text max {MAX_BODY} characters")
+
+    path, orig_name, _size, mime = await save_upload_file(file, CHAT_UPLOAD_DIR)
+    kind = media_kind_for_filename(orig_name)
+    display_body = text or f"Sent {kind}: {orig_name}"
+
+    msg = Message(
+        thread_id=thread.id,
+        sender_id=user.id,
+        body=display_body[:MAX_BODY],
+        attachment_path=path,
+        attachment_name=orig_name,
+        attachment_mime=mime,
+        attachment_kind=kind,
+    )
+    db.add(msg)
+    preview = text or f"📎 {orig_name}"
+    return _commit_message_and_notify(db, thread, user, msg, preview)
+
+
+@router.get("/threads/{thread_id}/messages/{message_id}/attachment")
+def get_message_attachment(
+    thread_id: UUID,
+    message_id: UUID,
+    token: Optional[str] = Query(None),
+    user: Optional[User] = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """Download or view a chat attachment (auth header or ?token=)."""
+    viewer = _resolve_request_user(db, user, token)
+    thread = _thread_or_403(db, thread_id, viewer)
+    msg = db.query(Message).filter(Message.id == message_id, Message.thread_id == thread.id).first()
+    if not msg or not msg.attachment_path:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    if not os.path.exists(msg.attachment_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    media = msg.attachment_mime or mime_for_filename(msg.attachment_name or "")
+    return FileResponse(
+        path=msg.attachment_path,
+        filename=msg.attachment_name or "attachment",
+        media_type=media,
+    )
 
 
 @router.post("/threads/{thread_id}/read")
