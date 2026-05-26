@@ -21,15 +21,11 @@ def upgrade() -> None:
     op.drop_constraint('learning_module_assignment_student_id_fkey', 'learning_module_assignment', type_='foreignkey')
     op.drop_column('learning_module_assignment', 'student_id')
     
-    # Add class_id and branch_id columns
+    # Add class_id and branch_id columns (nullable, without FK constraints for now)
     op.add_column('learning_module_assignment', sa.Column('class_id', sa.String(36), nullable=True))
     op.add_column('learning_module_assignment', sa.Column('branch_id', sa.String(36), nullable=True))
     
-    # Add foreign keys
-    op.create_foreign_key('learning_module_assignment_class_id_fkey', 'learning_module_assignment', 'class', ['class_id'], ['id'])
-    op.create_foreign_key('learning_module_assignment_branch_id_fkey', 'learning_module_assignment', 'branch', ['branch_id'], ['id'])
-    
-    # Create unique constraint to prevent duplicate assignments
+    # Create unique constraints to prevent duplicate assignments
     op.create_unique_constraint('uq_module_class', 'learning_module_assignment', ['module_id', 'class_id'])
     op.create_unique_constraint('uq_module_branch', 'learning_module_assignment', ['module_id', 'branch_id'])
 
