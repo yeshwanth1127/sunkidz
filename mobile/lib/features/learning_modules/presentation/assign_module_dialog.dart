@@ -18,8 +18,8 @@ class AssignModuleDialog extends ConsumerStatefulWidget {
 }
 
 class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
-  String? selectedClassId;
-  String? selectedBranchId;
+  Set<String> selectedClassIds = {};
+  Set<String> selectedBranchIds = {};
   bool isLoading = false;
   String? error;
 
@@ -38,20 +38,22 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
     {'id': 'branch-secondary', 'name': 'Secondary Branch'},
   ];
 
-  Future<void> _assignToClass() async {
-    if (selectedClassId == null) return;
+  Future<void> _assignToClasses() async {
+    if (selectedClassIds.isEmpty) return;
 
     setState(() => isLoading = true);
     try {
       final service = ref.read(learningModulesServiceProvider);
       if (service != null) {
-        await service.assignModuleToClass(widget.moduleId, selectedClassId!);
+        for (String classId in selectedClassIds) {
+          await service.assignModuleToClass(widget.moduleId, classId);
+        }
         widget.onAssignmentComplete();
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Module assigned to class successfully'),
+            SnackBar(
+              content: Text('Module assigned to ${selectedClassIds.length} class(es) successfully'),
               backgroundColor: Colors.green,
             ),
           );
@@ -69,20 +71,22 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
     }
   }
 
-  Future<void> _assignToBranch() async {
-    if (selectedBranchId == null) return;
+  Future<void> _assignToBranches() async {
+    if (selectedBranchIds.isEmpty) return;
 
     setState(() => isLoading = true);
     try {
       final service = ref.read(learningModulesServiceProvider);
       if (service != null) {
-        await service.assignModuleToBranch(widget.moduleId, selectedBranchId!);
+        for (String branchId in selectedBranchIds) {
+          await service.assignModuleToBranch(widget.moduleId, branchId);
+        }
         widget.onAssignmentComplete();
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Module assigned to branch successfully'),
+            SnackBar(
+              content: Text('Module assigned to ${selectedBranchIds.length} branch(es) successfully'),
               backgroundColor: Colors.green,
             ),
           );
@@ -126,44 +130,44 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
                 ),
               ),
             const Text(
-              'Assign to Class',
+              'Select Classes',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             const SizedBox(height: 8),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: selectedClassId,
-              hint: const Text('Select a class'),
-              onChanged: isLoading ? null : (value) => setState(() => selectedClassId = value),
-              items: classes
-                  .map(
-                    (c) => DropdownMenuItem(
-                      value: c['id'],
-                      child: Text(c['name']!),
-                    ),
-                  )
-                  .toList(),
-            ),
+            ...classes.map((c) => CheckboxListTile(
+              dense: true,
+              value: selectedClassIds.contains(c['id']),
+              onChanged: isLoading ? null : (value) {
+                setState(() {
+                  if (value ?? false) {
+                    selectedClassIds.add(c['id']!);
+                  } else {
+                    selectedClassIds.remove(c['id']);
+                  }
+                });
+              },
+              title: Text(c['name']!),
+            )),
             const SizedBox(height: 20),
             const Text(
-              'Assign to Branch',
+              'Select Branches',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             const SizedBox(height: 8),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: selectedBranchId,
-              hint: const Text('Select a branch'),
-              onChanged: isLoading ? null : (value) => setState(() => selectedBranchId = value),
-              items: branches
-                  .map(
-                    (b) => DropdownMenuItem(
-                      value: b['id'],
-                      child: Text(b['name']!),
-                    ),
-                  )
-                  .toList(),
-            ),
+            ...branches.map((b) => CheckboxListTile(
+              dense: true,
+              value: selectedBranchIds.contains(b['id']),
+              onChanged: isLoading ? null : (value) {
+                setState(() {
+                  if (value ?? false) {
+                    selectedBranchIds.add(b['id']!);
+                  } else {
+                    selectedBranchIds.remove(b['id']);
+                  }
+                });
+              },
+              title: Text(b['name']!),
+            )),
           ],
         ),
       ),
@@ -172,15 +176,15 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
           onPressed: isLoading ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        if (selectedClassId != null)
+        if (selectedClassIds.isNotEmpty)
           FilledButton(
-            onPressed: isLoading ? null : _assignToClass,
-            child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Assign to Class'),
+            onPressed: isLoading ? null : _assignToClasses,
+            child: const Text('Assign to Classes'),
           ),
-        if (selectedBranchId != null)
+        if (selectedBranchIds.isNotEmpty)
           FilledButton(
-            onPressed: isLoading ? null : _assignToBranch,
-            child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Assign to Branch'),
+            onPressed: isLoading ? null : _assignToBranches,
+            child: const Text('Assign to Branches'),
           ),
       ],
     );
