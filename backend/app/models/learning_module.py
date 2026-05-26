@@ -16,6 +16,7 @@ class LearningModule(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     videos = relationship("LearningVideo", back_populates="module", cascade="all, delete-orphan")
+    assignments = relationship("LearningModuleAssignment", back_populates="module", cascade="all, delete-orphan")
 
 
 class LearningVideo(Base):
@@ -32,3 +33,15 @@ class LearningVideo(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     module = relationship("LearningModule", back_populates="videos")
+
+
+class LearningModuleAssignment(Base):
+    __tablename__ = "learning_module_assignment"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    module_id = Column(String(36), ForeignKey("learning_module.id"), nullable=False)
+    student_id = Column(String(36), ForeignKey("student.id"), nullable=False)
+    assigned_by = Column(String(36), nullable=False)
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+
+    module = relationship("LearningModule", back_populates="assignments")

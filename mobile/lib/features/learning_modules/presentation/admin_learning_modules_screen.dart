@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import '../data/learning_modules_provider.dart';
+import './assign_module_dialog.dart';
 
 class AdminLearningModulesScreen extends ConsumerStatefulWidget {
   const AdminLearningModulesScreen({super.key});
@@ -224,6 +225,20 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
                             _showUploadVideo = true;
                           });
                         },
+                        onAssignStudents: () {
+                          setState(() {
+                            _selectedModuleId = m["id"];
+                          });
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AssignModuleDialog(
+                              moduleId: m["id"],
+                              onAssignmentComplete: () {
+                                ref.refresh(learningModulesProvider);
+                              },
+                            ),
+                          );
+                        },
                         onDelete: () async {
                           try {
                             final service = ref.read(learningModulesServiceProvider);
@@ -284,11 +299,13 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
 class _ModuleAdminCard extends StatelessWidget {
   final Map<String, dynamic> module;
   final VoidCallback onUploadVideo;
+  final VoidCallback onAssignStudents;
   final VoidCallback onDelete;
 
   const _ModuleAdminCard({
     required this.module,
     required this.onUploadVideo,
+    required this.onAssignStudents,
     required this.onDelete,
   });
 
@@ -319,9 +336,21 @@ class _ModuleAdminCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
+                  onPressed: onAssignStudents,
+                  icon: const Icon(Icons.person_add, size: 16),
+                  label: const Text('Assign'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
                   onPressed: onUploadVideo,
                   icon: const Icon(Icons.upload, size: 16),
-                  label: const Text('Upload Video'),
+                  label: const Text('Upload'),
                   style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8)),
                 ),
               ),

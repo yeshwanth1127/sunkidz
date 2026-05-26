@@ -20,6 +20,19 @@ class LearningModulesService {
     }
   }
 
+
+  Future<List<Map<String, dynamic>>> getModulesForStudent(String studentId) async {
+    try {
+      final response = await _dio.get('/learning-modules/for-student/$studentId');
+      if (response.data is List) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      throw Exception('Failed to load modules for student: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getModuleVideos(String moduleId) async {
     try {
       final response = await _dio.get('/learning-modules/$moduleId/videos');
@@ -89,4 +102,22 @@ class LearningModulesService {
       throw Exception('Failed to delete video: $e');
     }
   }
+
+  Future<Map<String, dynamic>> assignModuleToStudent(String moduleId, String studentId) async {
+    try {
+      final response = await _dio.post('/learning-modules/\/assign-to-student/');
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw Exception('Failed to assign module: ');
+    }
+  }
+
+  Future<void> unassignModuleFromStudent(String moduleId, String studentId) async {
+    try {
+      await _dio.delete('/learning-modules/\/unassign-from-student/');
+    } catch (e) {
+      throw Exception('Failed to unassign module: ');
+    }
+  }
+
 }

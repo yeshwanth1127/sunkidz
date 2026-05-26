@@ -17,7 +17,7 @@ from app.models.daily_story import DailyStory, DailyStoryBranch, DailyStoryClass
 from app.models.fees import FeeStructure, FeePayment
 from app.models.message import MessageThread, Message
 from app.models.leave import LeaveApplication
-from app.models.learning_module import LearningModule, LearningVideo
+from app.models.learning_module import LearningModule, LearningVideo, LearningModuleAssignment
 
 __all__ = [
     "Base",
@@ -55,4 +55,5 @@ __all__ = [
     "LeaveApplication",
     "LearningModule",
     "LearningVideo",
+    "LearningModuleAssignment",
 ]

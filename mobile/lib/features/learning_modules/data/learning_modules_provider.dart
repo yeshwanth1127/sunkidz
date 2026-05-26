@@ -19,3 +19,9 @@ final moduleVideosProvider = FutureProvider.family<List<Map<String, dynamic>>, S
   if (service == null) return [];
   return service.getModuleVideos(moduleId);
 });
+
+final studentLearningModulesProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, studentId) async {
+  final service = ref.watch(learningModulesServiceProvider);
+  if (service == null) return [];
+  return service.getModulesForStudent(studentId);
+});
