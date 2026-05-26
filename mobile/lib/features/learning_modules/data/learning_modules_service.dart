@@ -52,8 +52,8 @@ class LearningModulesService {
     String? description,
   ) async {
     try {
-      final multipartFile = MultipartFile.fromFileSync(
-        file.path!,
+      final multipartFile = MultipartFile.fromBytes(
+        file.bytes!,
         filename: file.name,
       );
       final formData = FormData.fromMap({
