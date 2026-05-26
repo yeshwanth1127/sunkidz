@@ -40,7 +40,8 @@ class LearningModuleAssignment(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     module_id = Column(String(36), ForeignKey("learning_module.id"), nullable=False)
-    student_id = Column(String(36), ForeignKey("student.id"), nullable=False)
+    class_id = Column(String(36), ForeignKey("class.id"), nullable=True)
+    branch_id = Column(String(36), ForeignKey("branch.id"), nullable=True)
     assigned_by = Column(String(36), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 

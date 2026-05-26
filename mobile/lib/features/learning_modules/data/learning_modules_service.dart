@@ -103,20 +103,37 @@ class LearningModulesService {
     }
   }
 
-  Future<Map<String, dynamic>> assignModuleToStudent(String moduleId, String studentId) async {
+  Future<Map<String, dynamic>> assignModuleToClass(String moduleId, String classId) async {
     try {
-      final response = await _dio.post('/learning-modules/\/assign-to-student/');
+      final response = await _dio.post('/learning-modules/$moduleId/assign-to-class/$classId');
       return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
     } catch (e) {
-      throw Exception('Failed to assign module: ');
+      throw Exception('Failed to assign module to class: $e');
     }
   }
 
-  Future<void> unassignModuleFromStudent(String moduleId, String studentId) async {
+  Future<Map<String, dynamic>> assignModuleToBranch(String moduleId, String branchId) async {
     try {
-      await _dio.delete('/learning-modules/\/unassign-from-student/');
+      final response = await _dio.post('/learning-modules/$moduleId/assign-to-branch/$branchId');
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
     } catch (e) {
-      throw Exception('Failed to unassign module: ');
+      throw Exception('Failed to assign module to branch: $e');
+    }
+  }
+
+  Future<void> unassignModuleFromClass(String moduleId, String classId) async {
+    try {
+      await _dio.delete('/learning-modules/$moduleId/unassign-from-class/$classId');
+    } catch (e) {
+      throw Exception('Failed to unassign module from class: $e');
+    }
+  }
+
+  Future<void> unassignModuleFromBranch(String moduleId, String branchId) async {
+    try {
+      await _dio.delete('/learning-modules/$moduleId/unassign-from-branch/$branchId');
+    } catch (e) {
+      throw Exception('Failed to unassign module from branch: $e');
     }
   }
 
