@@ -147,14 +147,20 @@ def delete_module(
 @router.get("/for-student/{student_id}")
 def list_modules_for_student(student_id: str, db: Session = Depends(get_db)):
     """List learning modules assigned to a specific student."""
+    # Convert student_id to UUID
+    try:
+        student_uuid = UUID(student_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid student ID format")
+    
     # Verify student exists
-    student = db.query(Student).filter(Student.id == student_id).first()
+    student = db.query(Student).filter(Student.id == student_uuid).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Get assigned modules
     assignments = db.query(LearningModuleAssignment).filter(
-        LearningModuleAssignment.student_id == student_id
+        LearningModuleAssignment.student_id == student_uuid
     ).all()
     
     modules = [db.query(LearningModule).filter(LearningModule.id == str(a.module_id)).first() for a in assignments]
@@ -180,20 +186,26 @@ def assign_module_to_student(
     db: Session = Depends(get_db),
 ):
     """Assign a learning module to a student (admin only)."""
+    # Convert student_id to UUID
+    try:
+        student_uuid = UUID(student_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid student ID format")
+    
     # Check module exists
     module = db.query(LearningModule).filter(LearningModule.id == module_id).first()
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
     
     # Check student exists
-    student = db.query(Student).filter(Student.id == student_id).first()
+    student = db.query(Student).filter(Student.id == student_uuid).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Check if already assigned
     existing = db.query(LearningModuleAssignment).filter(
         LearningModuleAssignment.module_id == module_id,
-        LearningModuleAssignment.student_id == student_id,
+        LearningModuleAssignment.student_id == student_uuid,
     ).first()
     
     if existing:
@@ -202,7 +214,7 @@ def assign_module_to_student(
     # Create assignment
     assignment = LearningModuleAssignment(
         module_id=module_id,
-        student_id=student_id,
+        student_id=student_uuid,
         assigned_by=user.id,
     )
     db.add(assignment)
@@ -225,9 +237,15 @@ def unassign_module_from_student(
     db: Session = Depends(get_db),
 ):
     """Unassign a learning module from a student (admin only)."""
+    # Convert student_id to UUID
+    try:
+        student_uuid = UUID(student_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid student ID format")
+    
     assignment = db.query(LearningModuleAssignment).filter(
         LearningModuleAssignment.module_id == module_id,
-        LearningModuleAssignment.student_id == student_id,
+        LearningModuleAssignment.student_id == student_uuid,
     ).first()
     
     if not assignment:
