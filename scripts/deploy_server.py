@@ -50,6 +50,9 @@ UPLOAD_PATHS = [
     "app/schemas/diary.py",
     "app/schemas/almanac.py",
     "alembic/versions/019_per_student_diary_global_events.py",
+    "app/api/learning_modules.py",
+    "app/models/learning_module.py",
+    "alembic/versions/020_learning_modules.py",
     ".env.example",
 ]
 
@@ -110,7 +113,7 @@ from alembic.config import Config
 from alembic import command
 cfg = Config('alembic.ini')
 cfg.set_main_option('script_location', 'alembic')
-command.upgrade(cfg, 'head')
+command.upgrade(cfg, 'heads')
 print('OK')
 """
     sftp = client.open_sftp()
