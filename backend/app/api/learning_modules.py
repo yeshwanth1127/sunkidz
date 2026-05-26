@@ -1,3 +1,4 @@
+import os
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
@@ -6,7 +7,7 @@ from sqlalchemy import func
 from app.core.database import get_db
 from app.core.auth import require_admin
 from app.models import User, LearningModule, LearningVideo
-from app.services.media_files import save_upload_file, validate_upload_file
+from app.services.media_files import save_upload_file
 
 router = APIRouter(prefix="/learning-modules", tags=["learning-modules"])
 
@@ -87,16 +88,15 @@ async def upload_video(
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
 
-    # Validate file
-    try:
-        file_data = await file.read()
-        file.file.seek(0)
-        file_path, file_size = validate_upload_file(file, file_data, "uploads/learning-videos/")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
     # Save file
-    saved_path = save_upload_file(file_data, file_path, file_size)
+    try:
+        saved_path, original_name, size_label, mime = await save_upload_file(file, "uploads/learning-videos/")
+        # Extract bytes from size_label or get from file size on disk
+        file_size = os.path.getsize(saved_path) if os.path.exists(saved_path) else 0
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save file: {str(e)}")
 
     # Create database record
     video = LearningVideo(
@@ -104,7 +104,7 @@ async def upload_video(
         title=title,
         description=description,
         file_path=saved_path,
-        file_name=file.filename,
+        file_name=original_name,
         file_size=file_size,
         duration=None,
     )
