@@ -14,6 +14,7 @@ import '../../../shared/widgets/parent_drawer.dart';
 import '../../../features/syllabus/providers/syllabus_provider.dart';
 import '../../../features/syllabus/domain/models/syllabus_model.dart';
 import '../../../core/config/api_config.dart';
+import '../../../features/learning_modules/presentation/parent_learning_modules_section.dart';
 
 class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -401,6 +402,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
 
                     // Quick Actions
                     _buildQuickActions(context),
+
+                    // Learning Modules
+                    if (_selectedChild != null)
+                      ParentLearningModulesSection(studentId: _selectedChild!['id']),
 
                     // Recent Homework
                     if (_homework.isNotEmpty)
