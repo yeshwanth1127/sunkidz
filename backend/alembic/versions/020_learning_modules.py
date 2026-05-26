@@ -3,8 +3,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '020'
-down_revision = '019'
+revision = "020_learning_modules"
+down_revision = "019_per_student_diary_global_events"
 branch_labels = None
 depends_on = None
 
