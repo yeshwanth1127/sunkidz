@@ -1,19 +1,22 @@
 import re
 
-KREEDO_SYSTEM = "kreedo"
+SUNKIDZ_SYSTEM = "sunkidz"
+LEGACY_KREEDO_SYSTEM = "kreedo"
 NORMAL_SYSTEM = "normal"
 
 CLASS_SYSTEM_DEFAULTS: dict[str, tuple[str, ...]] = {
-    KREEDO_SYSTEM: ("Playschool", "1G1", "1G2", "1G3"),
+    SUNKIDZ_SYSTEM: ("Playschool", "1G1", "1G2", "1G3"),
     NORMAL_SYSTEM: ("Nursery", "LKG", "UKG"),
 }
 
 
 def normalize_system_type(system_type: str | None) -> str:
     text = (system_type or "").strip().lower()
+    if text == LEGACY_KREEDO_SYSTEM:
+        return SUNKIDZ_SYSTEM
     if text in CLASS_SYSTEM_DEFAULTS:
         return text
-    return KREEDO_SYSTEM
+    return SUNKIDZ_SYSTEM
 
 
 def get_default_classes_for_system(system_type: str | None) -> tuple[str, ...]:

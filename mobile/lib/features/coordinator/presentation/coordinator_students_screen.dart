@@ -156,7 +156,7 @@ class _CoordinatorStudentsScreenState extends ConsumerState<CoordinatorStudentsS
                               itemCount: _students.length,
                               itemBuilder: (_, i) => _StudentCard(
                                 student: _students[i],
-                                onTap: () => context.push('/students/${_students[i]['id']}'),
+                                onTap: () => context.push('/coordinator/students/${_students[i]['id']}'),
                               ),
                             ),
                           ),

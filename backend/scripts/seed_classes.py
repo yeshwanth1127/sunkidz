@@ -38,15 +38,15 @@ def seed():
 
         db.commit()
 
-        # Reassign a teacher without class to the first Kreedo class when available.
-        first_kreedo_class = db.query(Class).filter(Class.name == "1G1").first()
-        if first_kreedo_class:
+        # Reassign a teacher without class to the first Sunkidz class when available.
+        first_sunkidz_class = db.query(Class).filter(Class.name == "1G1").first()
+        if first_sunkidz_class:
             unassigned = db.query(BranchAssignment).filter(
-                BranchAssignment.branch_id == first_kreedo_class.branch_id,
+                BranchAssignment.branch_id == first_sunkidz_class.branch_id,
                 BranchAssignment.class_id.is_(None),
             ).first()
             if unassigned:
-                unassigned.class_id = first_kreedo_class.id
+                unassigned.class_id = first_sunkidz_class.id
                 db.commit()
                 print("Reassigned teacher to 1G1")
 

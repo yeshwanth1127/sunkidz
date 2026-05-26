@@ -16,6 +16,12 @@ class SyllabusHoliday(Base):
         Date,
         nullable=False,
     )  # June 1 of start year
+    branch_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("branches.id"),
+        nullable=True,
+        index=True,
+    )
     holiday_date = Column(Date, nullable=False)
     reason = Column(String(255), nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

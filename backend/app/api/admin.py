@@ -731,11 +731,15 @@ def update_user(
         user.phone = data.phone
     if data.is_active is not None:
         user.is_active = data.is_active.lower().strip()
-    if data.date_of_birth is not None and (data.date_of_birth or "").strip() and user.role in ("toddlers", "daycare"):
-        try:
-            user.date_of_birth = date.fromisoformat(data.date_of_birth.strip())
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    if data.date_of_birth is not None:
+        dob_text = (data.date_of_birth or "").strip()
+        if not dob_text:
+            user.date_of_birth = None
+        else:
+            try:
+                user.date_of_birth = date.fromisoformat(dob_text)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     db.commit()
     db.refresh(user)
     a = db.query(BranchAssignment).filter(BranchAssignment.user_id == user.id).first()
