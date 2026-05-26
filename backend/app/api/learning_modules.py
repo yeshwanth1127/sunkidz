@@ -146,21 +146,16 @@ def delete_module(
 
 @router.get("/for-student/{student_id}")
 def list_modules_for_student(student_id: str, db: Session = Depends(get_db)):
-    """List learning modules assigned to a specific student."""
-    # Convert student_id to UUID
-    try:
-        student_uuid = UUID(student_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid student ID format")
-    
-    # Verify student exists
-    student = db.query(Student).filter(Student.id == student_uuid).first()
+    """List learning modules assigned to student's class/branch."""
+    # Get student and their class/branch
+    student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
-    # Get assigned modules
+    # Get modules assigned to this class or branch
     assignments = db.query(LearningModuleAssignment).filter(
-        LearningModuleAssignment.student_id == student_uuid
+        (LearningModuleAssignment.class_id == student.class_id) |
+        (LearningModuleAssignment.branch_id == student.branch_id)
     ).all()
     
     modules = [db.query(LearningModule).filter(LearningModule.id == str(a.module_id)).first() for a in assignments]
@@ -178,43 +173,32 @@ def list_modules_for_student(student_id: str, db: Session = Depends(get_db)):
     ]
 
 
-@router.post("/{module_id}/assign-to-student/{student_id}")
-def assign_module_to_student(
+@router.post("/{module_id}/assign-to-class/{class_id}")
+def assign_module_to_class(
     module_id: str,
-    student_id: str,
+    class_id: str,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Assign a learning module to a student (admin only)."""
-    # Convert student_id to UUID
-    try:
-        student_uuid = UUID(student_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid student ID format")
-    
+    """Assign a learning module to a class (admin only)."""
     # Check module exists
     module = db.query(LearningModule).filter(LearningModule.id == module_id).first()
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
     
-    # Check student exists
-    student = db.query(Student).filter(Student.id == student_uuid).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    # Check if already assigned
+    # Check if already assigned to this class
     existing = db.query(LearningModuleAssignment).filter(
         LearningModuleAssignment.module_id == module_id,
-        LearningModuleAssignment.student_id == student_uuid,
+        LearningModuleAssignment.class_id == class_id,
     ).first()
     
     if existing:
-        raise HTTPException(status_code=400, detail="Module already assigned to this student")
+        raise HTTPException(status_code=400, detail="Module already assigned to this class")
     
     # Create assignment
     assignment = LearningModuleAssignment(
         module_id=module_id,
-        student_id=student_uuid,
+        class_id=class_id,
         assigned_by=user.id,
     )
     db.add(assignment)
@@ -224,28 +208,62 @@ def assign_module_to_student(
     return {
         "id": str(assignment.id),
         "module_id": str(assignment.module_id),
-        "student_id": str(assignment.student_id),
+        "class_id": assignment.class_id,
         "assigned_at": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
     }
 
 
-@router.delete("/{module_id}/unassign-from-student/{student_id}")
-def unassign_module_from_student(
+@router.post("/{module_id}/assign-to-branch/{branch_id}")
+def assign_module_to_branch(
     module_id: str,
-    student_id: str,
+    branch_id: str,
     user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Unassign a learning module from a student (admin only)."""
-    # Convert student_id to UUID
-    try:
-        student_uuid = UUID(student_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid student ID format")
+    """Assign a learning module to a branch (admin only)."""
+    # Check module exists
+    module = db.query(LearningModule).filter(LearningModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
     
+    # Check if already assigned to this branch
+    existing = db.query(LearningModuleAssignment).filter(
+        LearningModuleAssignment.module_id == module_id,
+        LearningModuleAssignment.branch_id == branch_id,
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Module already assigned to this branch")
+    
+    # Create assignment
+    assignment = LearningModuleAssignment(
+        module_id=module_id,
+        branch_id=branch_id,
+        assigned_by=user.id,
+    )
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    
+    return {
+        "id": str(assignment.id),
+        "module_id": str(assignment.module_id),
+        "branch_id": assignment.branch_id,
+        "assigned_at": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
+    }
+
+
+@router.delete("/{module_id}/unassign-from-class/{class_id}")
+def unassign_module_from_class(
+    module_id: str,
+    class_id: str,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Unassign a learning module from a class (admin only)."""
     assignment = db.query(LearningModuleAssignment).filter(
         LearningModuleAssignment.module_id == module_id,
-        LearningModuleAssignment.student_id == student_uuid,
+        LearningModuleAssignment.class_id == class_id,
     ).first()
     
     if not assignment:
@@ -254,7 +272,29 @@ def unassign_module_from_student(
     db.delete(assignment)
     db.commit()
     
-    return {"message": "Module unassigned from student successfully"}
+    return {"message": "Module unassigned from class successfully"}
+
+
+@router.delete("/{module_id}/unassign-from-branch/{branch_id}")
+def unassign_module_from_branch(
+    module_id: str,
+    branch_id: str,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Unassign a learning module from a branch (admin only)."""
+    assignment = db.query(LearningModuleAssignment).filter(
+        LearningModuleAssignment.module_id == module_id,
+        LearningModuleAssignment.branch_id == branch_id,
+    ).first()
+    
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    db.delete(assignment)
+    db.commit()
+    
+    return {"message": "Module unassigned from branch successfully"}
 
 
 @router.delete("/videos/{video_id}")
