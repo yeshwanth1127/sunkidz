@@ -297,6 +297,7 @@ def get_branch(
         system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
+        coordinator_id=str(coord.user_id) if coord else None,
         student_count=student_count,
     )
 
@@ -345,6 +346,7 @@ def update_branch(
         system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
+        coordinator_id=str(coord.user_id) if coord else None,
         student_count=student_count,
     )
 
@@ -456,6 +458,20 @@ def update_class(
     db.commit()
     db.refresh(cls)
     return ClassResponse(id=str(cls.id), branch_id=str(cls.branch_id), name=cls.name, academic_year=cls.academic_year)
+
+
+@router.delete("/classes/{class_id}")
+def delete_class(
+    class_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    cls = db.query(Class).filter(Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    db.delete(cls)
+    db.commit()
+    return {"message": "Class deleted successfully"}
 
 
 # --- Users (Teachers, Coordinators, Bus Staff, Toddlers, Daycare) ---

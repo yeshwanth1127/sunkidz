@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -30,6 +30,9 @@ class LearningVideo(Base):
     file_name = Column(String(255), nullable=False)
     file_size = Column(Integer, nullable=False)
     duration = Column(Integer, nullable=True)
+    school_day = Column(Integer, nullable=True)
+    academic_year_start = Column(Date, nullable=True)
+    subject_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     module = relationship("LearningModule", back_populates="videos")
@@ -40,8 +43,8 @@ class LearningModuleAssignment(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     module_id = Column(String(36), ForeignKey("learning_module.id"), nullable=False)
-    class_id = Column(String(36), ForeignKey("class.id"), nullable=True)
-    branch_id = Column(String(36), ForeignKey("branch.id"), nullable=True)
+    class_id = Column(String(36), nullable=True)
+    branch_id = Column(String(36), nullable=True)
     assigned_by = Column(String(36), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 

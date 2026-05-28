@@ -81,6 +81,7 @@ class BranchResponse(BaseModel):
     system_type: str = "sunkidz"
     classes: list[ClassResponse] = []
     coordinator_name: str | None = None
+    coordinator_id: str | None = None
     student_count: int = 0
 
     class Config:

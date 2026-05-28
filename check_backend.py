@@ -1,8 +1,10 @@
 ﻿import paramiko
 
-HOST = "10.0.0.5"
+import os
+
+HOST = os.environ.get("SUNKIDZ_SSH_HOST", "10.0.0.5")
 USER = "root"
-PASSWORD = "?0Ng,&0O/xJ3i,vlo'zB"
+PASSWORD = os.environ.get("SUNKIDZ_SSH_PASSWORD", "")
 
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

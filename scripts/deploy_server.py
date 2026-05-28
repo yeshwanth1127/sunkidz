@@ -7,7 +7,7 @@ from pathlib import Path
 
 HOSTS = ["10.0.0.5", "93.127.195.245"]
 USER = "root"
-PASSWORD = os.environ.get("SUNKIDZ_SSH_PASSWORD", "?0Ng,&0O/xJ3i,vlo'zB")
+PASSWORD = os.environ.get("SUNKIDZ_SSH_PASSWORD", "")
 REMOTE_BACKEND = "/root/sunkidz/sunkidz/backend"
 VENV_PY = f"{REMOTE_BACKEND}/venv/bin/python"
 VENV_ALEMBIC = f"{REMOTE_BACKEND}/venv/bin/alembic"
@@ -30,6 +30,7 @@ UPLOAD_PATHS = [
     "app/schemas/admin.py",
     "app/services/class_access.py",
     "alembic/versions/014_branch_system_type.py",
+    "alembic/versions/011_add_branch_type.py",
     "alembic/versions/015_rename_kreedo_to_sunkidz.py",
     "alembic/versions/016_class_diary_and_almanac.py",
     "alembic/versions/017_chat_message_attachments.py",
@@ -37,6 +38,7 @@ UPLOAD_PATHS = [
     "app/api/syllabus.py",
     "app/models/message.py",
     "app/services/media_files.py",
+    "app/core/security.py",
     "app/api/stories.py",
     "app/models/daily_story.py",
     "app/schemas/stories.py",
@@ -51,8 +53,12 @@ UPLOAD_PATHS = [
     "app/schemas/almanac.py",
     "alembic/versions/019_per_student_diary_global_events.py",
     "app/api/learning_modules.py",
+    "app/api/legal.py",
     "app/models/learning_module.py",
     "alembic/versions/020_learning_modules.py",
+    "alembic/versions/023_learning_video_fields.py",
+    "alembic/versions/025_normalize_and_deduplicate_classes.py",
+    "alembic/versions/026_add_subject_name_to_learning_video.py",
     ".env.example",
 ]
 

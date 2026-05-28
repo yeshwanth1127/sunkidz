@@ -45,7 +45,7 @@ class AdminApi {
     String? address,
     String? contactNo,
     String status = 'active',
-    String systemType = 'kreedo',
+    String systemType = 'sunkidz',
   }) async {
     final r = await _dio.post(
       '/admin/branches',

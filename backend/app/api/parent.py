@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.auth import require_parent
 from app.models import User, Student, MarksCard, ParentStudentLink, Branch, Class, Attendance
+from datetime import date
 from app.models.fees import FeeStructure, FeePayment, FeeReceipt
 
 router = APIRouter(prefix="/parent", tags=["parent"])
@@ -293,3 +294,62 @@ def get_my_receipts(
             "created_at": r.created_at.isoformat() if r.created_at else None,
         })
     return {"receipts": result}
+
+
+@router.get("/dashboard")
+def get_parent_dashboard(
+    user: User = Depends(require_parent),
+    db: Session = Depends(get_db),
+):
+    """Return parent dashboard payload including children and birthday cards (only on birthday)."""
+    links = db.query(ParentStudentLink).filter(ParentStudentLink.user_id == user.id).all()
+    student_ids = [l.student_id for l in links]
+    children = []
+    birthday_cards = []
+    if student_ids:
+        students = db.query(Student).filter(Student.id.in_(student_ids)).order_by(Student.name).all()
+        today = date.today()
+        for s in students:
+            branch_name = None
+            class_name = None
+            if s.branch_id:
+                b = db.query(Branch).filter(Branch.id == s.branch_id).first()
+                branch_name = b.name if b else None
+            if s.class_id:
+                c = db.query(Class).filter(Class.id == s.class_id).first()
+                class_name = c.name if c else None
+            children.append({
+                "id": str(s.id),
+                "name": s.name,
+                "admission_number": s.admission_number,
+                "date_of_birth": s.date_of_birth.isoformat() if s.date_of_birth else None,
+                "branch_id": str(s.branch_id) if s.branch_id else None,
+                "branch_name": branch_name,
+                "class_id": str(s.class_id) if s.class_id else None,
+                "class_name": class_name,
+                "bus_opted": s.bus_opted or False,
+            })
+
+            # birthday card only on exact month/day match
+            if s.date_of_birth and s.date_of_birth.month == today.month and s.date_of_birth.day == today.day:
+                # compute age if year present
+                age = None
+                try:
+                    if s.date_of_birth.year:
+                        age = today.year - s.date_of_birth.year
+                except Exception:
+                    age = None
+                message = f"Happy Birthday, {s.name}!"
+                if age:
+                    message = f"Happy {age}th Birthday, {s.name}!"
+                birthday_cards.append({
+                    "type": "birthday",
+                    "student_id": str(s.id),
+                    "student_name": s.name,
+                    "message": message,
+                })
+
+    return {
+        "children": children,
+        "birthday_cards": birthday_cards,
+    }

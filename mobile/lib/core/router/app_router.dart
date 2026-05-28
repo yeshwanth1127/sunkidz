@@ -59,8 +59,7 @@ import '../../features/syllabus/presentation/syllabus_list_screen.dart';
 import '../../features/syllabus/presentation/homework_list_screen.dart';
 import '../../features/syllabus/presentation/gallery_upload_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
-import '../../features/learning_modules/presentation/learning_modules_screen.dart';
-import '../../features/learning_modules/presentation/module_videos_screen.dart';
+import '../../features/learning_modules/presentation/class_learning_calendar_screen.dart';
 import '../../features/learning_modules/presentation/video_player_screen.dart';
 import '../../features/learning_modules/presentation/admin_learning_modules_screen.dart';
 
@@ -404,15 +403,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/learning-modules',
-        builder: (_, __) => const LearningModulesScreen(),
+        builder: (_, __) => const ClassLearningCalendarScreen(),
         routes: [
-          GoRoute(
-            path: ':id/videos',
-            builder: (_, state) => ModuleVideosScreen(
-              moduleId: state.pathParameters['id']!,
-              moduleName: (state.extra as Map<String, dynamic>?)?['name'] ?? 'Module',
-            ),
-          ),
           GoRoute(
             path: 'video/:id',
             builder: (_, state) {

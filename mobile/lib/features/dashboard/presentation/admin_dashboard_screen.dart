@@ -266,7 +266,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                                 icon: Icons.library_books_rounded,
                                 label: 'Learning Modules',
                                 color: Colors.purple,
-                                onTap: () => context.push('/admin/learning-modules'),
+                                onTap: () => context.push('/learning-modules'),
                               ),
                             ),
                           ],

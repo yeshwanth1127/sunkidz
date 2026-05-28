@@ -22,7 +22,8 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv", ".3gp"}
 PDF_EXTENSIONS = {".pdf"}
 
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_UPLOAD_BYTES = 1500 * 1024 * 1024  # 1500 MB
+MIN_VIDEO_BYTES = 60 * 1024  # 60 KB - reject tiny placeholder videos
 
 MIME_BY_EXT = {
     ".pdf": "application/pdf",
@@ -55,6 +56,39 @@ def media_kind_for_filename(filename: str) -> str:
 def mime_for_filename(filename: str) -> str:
     ext = os.path.splitext((filename or "").lower())[1]
     return MIME_BY_EXT.get(ext, "application/octet-stream")
+
+
+def _looks_like_mp4(content: bytes) -> bool:
+    # MP4/QuickTime/3GP typically contain an 'ftyp' box near the start
+    head = content[:512]
+    return b"ftyp" in head
+
+
+def _looks_like_webm_mkv(content: bytes) -> bool:
+    # WebM/MKV (Matroska) start with EBML header 0x1A45DFA3
+    head = content[:4]
+    return head == b"\x1A\x45\xDF\xA3"
+
+
+def validate_video_content(filename: str, content: bytes) -> None:
+    """Basic content-signature validation for uploaded video files.
+
+    This is intentionally lightweight: it checks common container signatures
+    (MP4 family and EBML for WebM/MKV) and enforces a minimum size to
+    reject trivial placeholder files.
+    """
+    ext = os.path.splitext((filename or "").lower())[1]
+    if ext not in VIDEO_EXTENSIONS:
+        return
+    if len(content) < MIN_VIDEO_BYTES:
+        raise HTTPException(status_code=400, detail="Video file too small or invalid")
+    # check common signatures
+    if _looks_like_mp4(content):
+        return
+    if _looks_like_webm_mkv(content):
+        return
+    # Unknown/unsupported container
+    raise HTTPException(status_code=400, detail="Uploaded video file appears invalid")
 
 
 def validate_story_file(file: UploadFile) -> None:
@@ -95,6 +129,8 @@ async def save_story_file(file: UploadFile, directory: str) -> tuple[str, str, s
     """Save story media (image or video). Returns (path, name, size_label, mime)."""
     validate_story_file(file)
     content = await read_and_validate_size(file)
+    # Validate video content to avoid placeholder non-video files
+    validate_video_content(file.filename, content)
     os.makedirs(directory, exist_ok=True)
     ext = os.path.splitext(file.filename)[1].lower()
     unique_name = f"{uuid.uuid4()}{ext}"
@@ -112,6 +148,8 @@ async def save_upload_file(file: UploadFile, directory: str) -> tuple[str, str, 
     """Returns (path, original_name, size_label, mime_type)."""
     validate_upload_file(file)
     content = await read_and_validate_size(file)
+    # Validate video content for video file types
+    validate_video_content(file.filename, content)
     os.makedirs(directory, exist_ok=True)
     ext = os.path.splitext(file.filename)[1].lower()
     unique_name = f"{uuid.uuid4()}{ext}"

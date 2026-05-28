@@ -198,8 +198,8 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final systemType = (branch['system_type'] as String? ?? 'kreedo').toLowerCase();
-    final systemLabel = systemType == 'normal' ? 'Normal (Nursery/LKG/UKG)' : 'Kreedo (Playschool/1G1/1G2/1G3)';
+    final systemType = (branch['system_type'] as String? ?? 'sunkidz').toLowerCase();
+    final systemLabel = systemType == 'normal' ? 'Normal (Nursery/LKG/UKG)' : 'Sunkidz (Playschool/1G1/1G2/1G3)';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -321,8 +321,11 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
   final _addrCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String? _status;
-  String _systemType = 'kreedo';
+  String _systemType = 'sunkidz';
+  String? _selectedCoordinatorId;
+  List<Map<String, dynamic>> _coordinators = [];
   bool _loading = false;
+  bool _loadingCoords = true;
   String? _error;
 
   @override
@@ -332,7 +335,23 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
     _addrCtrl.text = widget.branch['address'] as String? ?? '';
     _phoneCtrl.text = widget.branch['contact_no'] as String? ?? '';
     _status = widget.branch['status'] as String? ?? 'active';
-    _systemType = (widget.branch['system_type'] as String? ?? 'kreedo').toLowerCase();
+    // Normalize legacy values: anything that's not "normal" → "sunkidz"
+    final raw = (widget.branch['system_type'] as String? ?? '').toLowerCase();
+    _systemType = (raw == 'normal') ? 'normal' : 'sunkidz';
+    _selectedCoordinatorId = widget.branch['coordinator_id'] as String?;
+    _loadCoordinators();
+  }
+
+  Future<void> _loadCoordinators() async {
+    try {
+      final users = await widget.api.getUsers(role: 'coordinator');
+      setState(() {
+        _coordinators = users;
+        _loadingCoords = false;
+      });
+    } catch (_) {
+      setState(() => _loadingCoords = false);
+    }
   }
 
   @override
@@ -348,10 +367,7 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
       setState(() => _error = 'Name required');
       return;
     }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
       await widget.api.updateBranch(
         widget.branch['id'] as String,
@@ -361,6 +377,16 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
         status: _status,
         systemType: _systemType,
       );
+      // Assign coordinator if selected and different from current
+      if (_selectedCoordinatorId != null) {
+        final currentCoordId = widget.branch['coordinator_id'] as String?;
+        if (_selectedCoordinatorId != currentCoordId) {
+          await widget.api.createAssignment(
+            userId: _selectedCoordinatorId!,
+            branchId: widget.branch['id'] as String,
+          );
+        }
+      }
       widget.onSaved();
     } catch (e) {
       setState(() {
@@ -383,28 +409,57 @@ class _EditBranchSheetState extends State<_EditBranchSheet> {
             Text('Edit Branch', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Name *')),
+            const SizedBox(height: 8),
             TextField(controller: _addrCtrl, decoration: const InputDecoration(labelText: 'Address')),
+            const SizedBox(height: 8),
             TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Contact')),
+            const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _status,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Status'),
-              items: const [DropdownMenuItem(value: 'active', child: Text('Active')), DropdownMenuItem(value: 'pending', child: Text('Pending')), DropdownMenuItem(value: 'inactive', child: Text('Inactive'))],
+              items: const [
+                DropdownMenuItem(value: 'active', child: Text('Active')),
+                DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+              ],
               onChanged: (v) => setState(() => _status = v),
             ),
+            const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _systemType,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Class System'),
               items: const [
-                DropdownMenuItem(value: 'kreedo', child: Text('Kreedo (Playschool, 1G1, 1G2, 1G3)')),
+                DropdownMenuItem(value: 'sunkidz', child: Text('Sunkidz (Playschool, 1G1, 1G2, 1G3)')),
                 DropdownMenuItem(value: 'normal', child: Text('Normal (Nursery, LKG, UKG)')),
               ],
-              onChanged: (v) => setState(() => _systemType = v ?? 'kreedo'),
+              onChanged: (v) => setState(() => _systemType = v ?? 'sunkidz'),
             ),
+            const SizedBox(height: 8),
+            if (_loadingCoords)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: LinearProgressIndicator())
+            else
+              DropdownButtonFormField<String>(
+                key: ValueKey('coord-$_selectedCoordinatorId'),
+                initialValue: _coordinators.any((c) => c['id'] == _selectedCoordinatorId) ? _selectedCoordinatorId : null,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Coordinator'),
+                items: [
+                  const DropdownMenuItem<String>(value: null, child: Text('— None —')),
+                  ..._coordinators.map((c) => DropdownMenuItem<String>(
+                    value: c['id'] as String?,
+                    child: Text(c['full_name'] as String? ?? c['name'] as String? ?? ''),
+                  )),
+                ],
+                onChanged: (v) => setState(() => _selectedCoordinatorId = v),
+              ),
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
             const SizedBox(height: 16),
-            FilledButton(onPressed: _loading ? null : _submit, child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save')),
+            FilledButton(
+              onPressed: _loading ? null : _submit,
+              child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
+            ),
           ],
         ),
       ),

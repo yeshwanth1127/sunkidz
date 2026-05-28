@@ -51,11 +51,12 @@ os.makedirs(HOMEWORK_DIR, exist_ok=True)
 os.makedirs(GALLERY_DIR, exist_ok=True)
 
 
-def _get_holiday_dates(db: Session, start_year: int) -> set:
-    """Get set of holiday dates for an academic year."""
+def _get_holiday_dates(db: Session, start_year: int, branch_id: UUID | None = None) -> set:
+    """Get set of holiday dates for an academic year, optionally branch-scoped."""
     june1 = date(start_year, 6, 1)
     rows = db.query(SyllabusHoliday).filter(
-        SyllabusHoliday.academic_year_start == june1
+        SyllabusHoliday.academic_year_start == june1,
+        (SyllabusHoliday.branch_id.is_(None)) | (SyllabusHoliday.branch_id == branch_id),
     ).all()
     return {r.holiday_date for r in rows}
 
@@ -333,9 +334,12 @@ def get_syllabus_calendar(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to view this class"
         )
+    class_ = db.query(Class).filter(Class.id == class_id).first()
+    if not class_:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
     start_year = academic_year if academic_year else get_academic_year_for_date(date.today())[0]
     ay_start = academic_year_start(start_year)
-    holiday_dates = _get_holiday_dates(db, start_year)
+    holiday_dates = _get_holiday_dates(db, start_year, class_.branch_id)
     days_data = get_school_days_with_dates(start_year, holiday_dates)
     syllabi_by_day = {}
     query = db.query(Syllabus).filter(

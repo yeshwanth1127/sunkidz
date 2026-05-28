@@ -506,10 +506,10 @@ class _AddUserSheetState extends State<_AddUserSheet> {
       (b) => b['id']?.toString() == _branchId,
       orElse: () => <String, dynamic>{},
     );
-    final systemType = (branch['system_type']?.toString().toLowerCase() ?? 'kreedo');
+    final systemType = (branch['system_type']?.toString().toLowerCase() ?? 'sunkidz');
     return systemType == 'normal'
         ? 'Normal (Nursery/LKG/UKG)'
-        : 'Kreedo (Playschool/1G1/1G2/1G3)';
+        : 'Sunkidz (Playschool/1G1/1G2/1G3)';
   }
 
   bool get _needsBranch => widget.role == 'teacher' || widget.role == 'coordinator';
@@ -766,10 +766,10 @@ class _ReassignSheetState extends State<_ReassignSheet> {
       (b) => b['id']?.toString() == _branchId,
       orElse: () => <String, dynamic>{},
     );
-    final systemType = (branch['system_type']?.toString().toLowerCase() ?? 'kreedo');
+    final systemType = (branch['system_type']?.toString().toLowerCase() ?? 'sunkidz');
     return systemType == 'normal'
         ? 'Normal (Nursery/LKG/UKG)'
-        : 'Kreedo (Playschool/1G1/1G2/1G3)';
+        : 'Sunkidz (Playschool/1G1/1G2/1G3)';
   }
 
   @override

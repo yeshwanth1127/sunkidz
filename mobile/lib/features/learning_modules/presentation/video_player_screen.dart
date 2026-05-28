@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
+import '../../../core/config/api_config.dart';
 
-class VideoPlayerScreen extends StatelessWidget {
+class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
   final String title;
   final String filePath;
@@ -13,20 +15,52 @@ class VideoPlayerScreen extends StatelessWidget {
     required this.filePath,
   });
 
-  Future<void> _openVideo() async {
+  @override
+  State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  VideoPlayerController? _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  String _resolveMediaUrl(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    final normalized = path.startsWith('/') ? path : '/$path';
+    return '${ApiConfig.baseUrl}$normalized';
+  }
+
+  Future<void> _initPlayer() async {
+    final url = _resolveMediaUrl(widget.filePath);
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    _controller = controller;
     try {
-      final uri = Uri.parse(filePath);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      }
+      await controller.initialize();
+      if (!mounted) return;
+      setState(() {});
+      await controller.play();
     } catch (e) {
-      // Silently fail
+      if (!mounted) return;
+      setState(() => _error = e.toString());
     }
   }
 
   @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final fileName = filePath.split('/').last;
+    final fileName = widget.filePath.split('/').last;
 
     return Scaffold(
       appBar: AppBar(
@@ -35,10 +69,10 @@ class VideoPlayerScreen extends StatelessWidget {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),
         title: Text(
-          title,
+          widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -56,46 +90,102 @@ class VideoPlayerScreen extends StatelessWidget {
             children: [
               Container(
                 width: double.infinity,
-                height: 200,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
+                  color: Colors.black,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.video_library, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      Text(
-                        fileName,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: _buildPlayer(fileName),
               ),
               const SizedBox(height: 24),
               Text(
-                title,
+                widget.title,
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _openVideo,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Play Video'),
-              ),
-              const SizedBox(height: 8),
               Text(
-                'Tap the button above to play this video in your default player.',
+                'Playing from ${_resolveMediaUrl(widget.filePath)}',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPlayer(String fileName) {
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red.shade200, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              'Could not load video.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              fileName,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return const AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: _controller!.value.aspectRatio,
+          child: VideoPlayer(_controller!),
+        ),
+        Container(
+          color: Colors.black87,
+          child: Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _controller!.value.isPlaying ? _controller!.pause() : _controller!.play();
+                  });
+                },
+              ),
+              Expanded(
+                child: VideoProgressIndicator(
+                  _controller!,
+                  allowScrubbing: true,
+                  colors: VideoProgressColors(
+                    playedColor: Colors.orange.shade400,
+                    bufferedColor: Colors.white24,
+                    backgroundColor: Colors.white12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

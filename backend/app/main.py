@@ -1,8 +1,10 @@
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from uuid import UUID
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.core.database import engine, Base, get_db
@@ -48,11 +50,15 @@ app = FastAPI(
     docs_url="/docs",
 )
 
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
 )
 
 app.include_router(auth_api.router, prefix="/api/v1")

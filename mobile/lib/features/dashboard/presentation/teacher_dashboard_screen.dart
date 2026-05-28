@@ -315,6 +315,15 @@ class TeacherDashboardScreen extends ConsumerWidget {
                       onTap: () => context.push('/teacher/leave'),
                     ),
                   ),
+                  Expanded(
+                    child: _TeacherActionCard(
+                      icon: Icons.play_lesson,
+                      label: 'Learning Videos',
+                      color: Colors.orange,
+                      isOutlined: true,
+                      onTap: () => context.push('/learning-modules'),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),

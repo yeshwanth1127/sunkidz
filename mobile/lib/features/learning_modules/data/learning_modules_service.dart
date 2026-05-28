@@ -8,6 +8,24 @@ class LearningModulesService {
 
   final Dio _dio;
 
+  Exception _mapError(Object error, String fallback) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final detail = data['detail'] ?? data['message'] ?? data['error'];
+        if (detail != null) {
+          return Exception(detail.toString());
+        }
+      }
+      final status = error.response?.statusCode;
+      if (status != null) {
+        return Exception('$fallback (HTTP $status)');
+      }
+      return Exception(fallback);
+    }
+    return Exception(error.toString());
+  }
+
   Future<List<Map<String, dynamic>>> getModules() async {
     try {
       final response = await _dio.get('/learning-modules/');
@@ -63,22 +81,27 @@ class LearningModulesService {
     PlatformFile file,
     String title,
     String? description,
+    int? schoolDay,
+    String? academicYearStart, // YYYY-06-01
   ) async {
     try {
-      final multipartFile = MultipartFile.fromBytes(
-        file.bytes!,
-        filename: file.name,
-      );
+      final multipartFile = file.bytes != null
+          ? MultipartFile.fromBytes(file.bytes!, filename: file.name)
+          : await MultipartFile.fromFile(file.path!, filename: file.name);
       final formData = FormData.fromMap({
         'title': title,
         if (description != null) 'description': description,
         'file': multipartFile,
+        if (schoolDay != null) 'school_day': schoolDay,
+        if (academicYearStart != null) 'academic_year_start_str': academicYearStart,
       });
       final response = await _dio.post(
         '/learning-modules/$moduleId/videos/upload',
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
+          sendTimeout: const Duration(minutes: 30),
+          receiveTimeout: const Duration(minutes: 30),
         ),
       );
       return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
@@ -108,7 +131,7 @@ class LearningModulesService {
       final response = await _dio.post('/learning-modules/$moduleId/assign-to-class/$classId');
       return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
     } catch (e) {
-      throw Exception('Failed to assign module to class: $e');
+      throw _mapError(e, 'Failed to assign module to class');
     }
   }
 
@@ -117,7 +140,7 @@ class LearningModulesService {
       final response = await _dio.post('/learning-modules/$moduleId/assign-to-branch/$branchId');
       return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
     } catch (e) {
-      throw Exception('Failed to assign module to branch: $e');
+      throw _mapError(e, 'Failed to assign module to branch');
     }
   }
 
@@ -134,6 +157,102 @@ class LearningModulesService {
       await _dio.delete('/learning-modules/$moduleId/unassign-from-branch/$branchId');
     } catch (e) {
       throw Exception('Failed to unassign module from branch: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchClassCalendar(String classId, {int? academicYear}) async {
+    try {
+      final params = <String, dynamic>{'class_id': classId};
+      if (academicYear != null) params['academic_year'] = academicYear;
+      final response = await _dio.get('/learning-modules/class-calendar', queryParameters: params);
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to fetch class calendar');
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadVideoForClass(
+    String classId,
+    PlatformFile file,
+    String title,
+    String? description,
+    int schoolDay,
+    String? academicYearStart, {
+    String? subjectName,
+  }) async {
+    try {
+      final multipartFile = file.bytes != null
+          ? MultipartFile.fromBytes(file.bytes!, filename: file.name)
+          : await MultipartFile.fromFile(file.path!, filename: file.name);
+      final formData = FormData.fromMap({
+        'class_id': classId,
+        'school_day': schoolDay,
+        'title': title,
+        if (subjectName != null && subjectName.isNotEmpty) 'subject_name': subjectName,
+        if (description != null) 'description': description,
+        'file': multipartFile,
+        if (academicYearStart != null) 'academic_year_start_str': academicYearStart,
+      });
+      final response = await _dio.post(
+        '/learning-modules/class-upload',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(minutes: 30),
+          receiveTimeout: const Duration(minutes: 30),
+        ),
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to upload video');
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadVideoForAllClasses(
+    String branchId,
+    PlatformFile file,
+    String title,
+    String? subjectName,
+    String? description,
+    int schoolDay,
+    String? academicYearStart,
+  ) async {
+    try {
+      final multipartFile = file.bytes != null
+          ? MultipartFile.fromBytes(file.bytes!, filename: file.name)
+          : await MultipartFile.fromFile(file.path!, filename: file.name);
+      final formData = FormData.fromMap({
+        'branch_id': branchId,
+        'school_day': schoolDay,
+        'title': title,
+        if (subjectName != null && subjectName.isNotEmpty) 'subject_name': subjectName,
+        if (description != null) 'description': description,
+        'file': multipartFile,
+        if (academicYearStart != null) 'academic_year_start_str': academicYearStart,
+      });
+      final response = await _dio.post(
+        '/learning-modules/branch-upload',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(minutes: 30),
+          receiveTimeout: const Duration(minutes: 30),
+        ),
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to upload video to all classes');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchModuleCalendar(String moduleId, String classId, {int? academicYear}) async {
+    try {
+      final params = <String, dynamic>{'class_id': classId};
+      if (academicYear != null) params['academic_year'] = academicYear;
+      final response = await _dio.get('/learning-modules/$moduleId/calendar', queryParameters: params);
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to fetch module calendar');
     }
   }
 

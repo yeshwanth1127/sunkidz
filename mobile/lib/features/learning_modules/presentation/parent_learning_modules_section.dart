@@ -1,131 +1,78 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
-import '../data/learning_modules_provider.dart';
 
-class ParentLearningModulesSection extends ConsumerWidget {
+class ParentLearningModulesSection extends StatelessWidget {
   final String studentId;
 
   const ParentLearningModulesSection({
-    Key? key,
+    super.key,
     required this.studentId,
-  }) : super(key: key);
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final modulesAsync = ref.watch(studentLearningModulesProvider(studentId));
-
-    return modulesAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: SizedBox(
-          height: 120,
-          child: Center(
-            child: CircularProgressIndicator(color: Colors.orange),
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Learning Modules',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
-        ),
-      ),
-      error: (error, st) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Text(
-          'Error loading modules',
-          style: TextStyle(color: Colors.red, fontSize: 14),
-        ),
-      ),
-      data: (modules) {
-        if (modules.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Text(
-              'No learning modules assigned yet',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => context.push('/learning-modules'),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.orange.shade200, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.shade100.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.calendar_today, color: Colors.orange.shade700, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'View Learning Calendar',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Day-wise videos for your child\'s class',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: Colors.orange.shade400),
+                ],
+              ),
             ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Learning Modules',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 140,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: modules.length,
-                  itemBuilder: (context, index) {
-                    final module = modules[index];
-                    return GestureDetector(
-                      onTap: () => context.push(
-                        '/learning-modules/videos?moduleId=${module['id']}'
-                      ),
-                      child: Container(
-                        width: 140,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.orange.shade200,
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.orange.shade100.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            )
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              module['name'] ?? 'Module',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const Spacer(),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.play_circle_outline,
-                                  size: 16,
-                                  color: Colors.orange.shade600,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '\ videos',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

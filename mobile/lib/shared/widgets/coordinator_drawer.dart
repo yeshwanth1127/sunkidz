@@ -63,6 +63,11 @@ class CoordinatorDrawer extends ConsumerWidget {
             onTap: () => _navigate(context, '/coordinator/syllabus'),
           ),
           _DrawerTile(
+            icon: Icons.play_circle_outline,
+            label: 'Learning Modules',
+            onTap: () => _navigate(context, '/learning-modules'),
+          ),
+          _DrawerTile(
             icon: Icons.school,
             label: 'Homework',
             onTap: () => _navigate(context, '/coordinator/homework'),

@@ -96,6 +96,26 @@ def get_dashboard(
         i += 1
     weekly_attendance.reverse()
     classes = db.query(Class).filter(Class.branch_id == branch_id).all()
+    # Birthday cards for students in branch (only on their birthday)
+    birthday_cards: list[dict] = []
+    today = date.today()
+    for s in students:
+        if s.date_of_birth and s.date_of_birth.month == today.month and s.date_of_birth.day == today.day:
+            age = None
+            try:
+                if s.date_of_birth.year:
+                    age = today.year - s.date_of_birth.year
+            except Exception:
+                age = None
+            msg = f"Happy Birthday, {s.name}!"
+            if age:
+                msg = f"Happy {age}th Birthday, {s.name}!"
+            birthday_cards.append({
+                "type": "birthday",
+                "student_id": str(s.id),
+                "student_name": s.name,
+                "message": msg,
+            })
     return {
         "branch_id": str(branch_id),
         "branch_name": branch.name if branch else None,
@@ -104,6 +124,7 @@ def get_dashboard(
         "attendance_today": attendance_today,
         "weekly_attendance": weekly_attendance,
         "classes": [{"id": str(c.id), "name": c.name} for c in classes],
+        "birthday_cards": birthday_cards,
     }
 
 

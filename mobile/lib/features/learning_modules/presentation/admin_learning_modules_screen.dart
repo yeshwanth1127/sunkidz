@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../data/learning_modules_provider.dart';
 import './assign_module_dialog.dart';
 
@@ -18,6 +19,8 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
   final _moduleDescCtrl = TextEditingController();
   final _videoTitleCtrl = TextEditingController();
   final _videoDescCtrl = TextEditingController();
+  final _videoSchoolDayCtrl = TextEditingController();
+  final _videoAcademicYearCtrl = TextEditingController();
   String? _selectedModuleId;
   PlatformFile? _selectedFile;
   bool _isLoading = false;
@@ -29,6 +32,8 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
     _moduleDescCtrl.dispose();
     _videoTitleCtrl.dispose();
     _videoDescCtrl.dispose();
+    _videoSchoolDayCtrl.dispose();
+    _videoAcademicYearCtrl.dispose();
     super.dispose();
   }
 
@@ -113,11 +118,24 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
         return;
       }
 
+      int? schoolDay;
+      if (_videoSchoolDayCtrl.text.isNotEmpty) {
+        schoolDay = int.tryParse(_videoSchoolDayCtrl.text);
+        if (schoolDay == null || schoolDay < 1 || schoolDay > 180) {
+          _showErrorSnackBar('school_day must be a number between 1 and 180');
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+      String? ayStart = _videoAcademicYearCtrl.text.isNotEmpty ? _videoAcademicYearCtrl.text : null;
+
       await service.uploadVideo(
         _selectedModuleId!,
         _selectedFile!,
         _videoTitleCtrl.text,
         _videoDescCtrl.text.isEmpty ? null : _videoDescCtrl.text,
+        schoolDay,
+        ayStart,
       );
 
       _selectedModuleId = null;
@@ -163,7 +181,7 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),
         title: const Text(
           'Manage Learning Modules',
@@ -280,6 +298,8 @@ class _AdminLearningModulesScreenState extends ConsumerState<AdminLearningModule
                       onModuleChanged: (id) => setState(() => _selectedModuleId = id),
                       titleCtrl: _videoTitleCtrl,
                       descCtrl: _videoDescCtrl,
+                      schoolDayCtrl: _videoSchoolDayCtrl,
+                      academicYearCtrl: _videoAcademicYearCtrl,
                       selectedFile: _selectedFile,
                       onPickFile: _pickFile,
                       isLoading: _isLoading,
@@ -342,6 +362,21 @@ class _ModuleAdminCard extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => context.push(
+                    '/learning-modules/${module['id']}/calendar',
+                    extra: {'name': module['name'] ?? 'Module'},
+                  ),
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: const Text('Calendar'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    backgroundColor: Colors.blueAccent,
                   ),
                 ),
               ),
@@ -446,6 +481,8 @@ class _UploadVideoDialog extends StatelessWidget {
   final Function(String?) onModuleChanged;
   final TextEditingController titleCtrl;
   final TextEditingController descCtrl;
+  final TextEditingController schoolDayCtrl;
+  final TextEditingController academicYearCtrl;
   final PlatformFile? selectedFile;
   final VoidCallback onPickFile;
   final bool isLoading;
@@ -458,6 +495,8 @@ class _UploadVideoDialog extends StatelessWidget {
     required this.onModuleChanged,
     required this.titleCtrl,
     required this.descCtrl,
+    required this.schoolDayCtrl,
+    required this.academicYearCtrl,
     required this.selectedFile,
     required this.onPickFile,
     required this.isLoading,
@@ -509,6 +548,23 @@ class _UploadVideoDialog extends StatelessWidget {
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: schoolDayCtrl,
+              decoration: const InputDecoration(
+                labelText: 'School Day (1-180) (optional)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: academicYearCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Academic Year Start (YYYY-06-01) (optional)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

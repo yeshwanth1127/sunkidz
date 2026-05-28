@@ -68,6 +68,11 @@ class TeacherDrawer extends ConsumerWidget {
             onTap: () => _navigate(context, '/teacher/send-message'),
           ),
           _DrawerTile(
+            icon: Icons.play_lesson,
+            label: 'Learning Modules',
+            onTap: () => _navigate(context, '/learning-modules'),
+          ),
+          _DrawerTile(
             icon: Icons.chat_outlined,
             label: 'Chats',
             onTap: () => _navigate(context, '/chat'),

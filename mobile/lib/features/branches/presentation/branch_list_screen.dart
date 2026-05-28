@@ -184,8 +184,8 @@ class _BranchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = branch['status'] as String? ?? 'active';
-    final systemType = (branch['system_type'] as String? ?? 'kreedo').toLowerCase();
-    final systemLabel = systemType == 'normal' ? 'Normal (Nursery/LKG/UKG)' : 'Kreedo (Playschool/1G1/1G2/1G3)';
+    final systemType = (branch['system_type'] as String? ?? 'sunkidz').toLowerCase();
+    final systemLabel = systemType == 'normal' ? 'Normal (Nursery/LKG/UKG)' : 'Sunkidz (Playschool/1G1/1G2/1G3)';
     final statusColor = status == 'active' ? Colors.green : status == 'full' ? Colors.orange : Colors.grey;
     final name = branch['name'] as String? ?? '';
     final coordinator = branch['coordinator_name'] as String? ?? '—';
@@ -307,7 +307,7 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
   final _addrCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String _status = 'active';
-  String _systemType = 'kreedo';
+  String _systemType = 'sunkidz';
   bool _loading = false;
   String? _error;
 
@@ -377,10 +377,10 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Class System'),
               items: const [
-                DropdownMenuItem(value: 'kreedo', child: Text('Kreedo (Playschool, 1G1, 1G2, 1G3)')),
+                DropdownMenuItem(value: 'sunkidz', child: Text('Sunkidz (Playschool, 1G1, 1G2, 1G3)')),
                 DropdownMenuItem(value: 'normal', child: Text('Normal (Nursery, LKG, UKG)')),
               ],
-              onChanged: (v) => setState(() => _systemType = v ?? 'kreedo'),
+              onChanged: (v) => setState(() => _systemType = v ?? 'sunkidz'),
             ),
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
             const SizedBox(height: 16),
