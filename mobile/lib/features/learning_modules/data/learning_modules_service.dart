@@ -256,4 +256,109 @@ class LearningModulesService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getDayFolders(
+    String classId,
+    int schoolDay,
+    String academicYearStart,
+  ) async {
+    try {
+      final year = int.parse(academicYearStart.substring(0, 4));
+      final response = await _dio.get(
+        '/learning-modules/day-folders',
+        queryParameters: {'class_id': classId, 'school_day': schoolDay, 'academic_year': year},
+      );
+      if (response.data is List) return List<Map<String, dynamic>>.from(response.data);
+      return [];
+    } catch (e) {
+      throw _mapError(e, 'Failed to load folders');
+    }
+  }
+
+  Future<Map<String, dynamic>> createDayFolder(
+    String classId,
+    int schoolDay,
+    String name,
+    String academicYearStart,
+  ) async {
+    try {
+      final formData = FormData.fromMap({
+        'class_id': classId,
+        'school_day': schoolDay,
+        'name': name,
+        'academic_year_start': academicYearStart,
+      });
+      final response = await _dio.post('/learning-modules/day-folders', data: formData);
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to create folder');
+    }
+  }
+
+  Future<void> renameDayFolder(String folderId, String newName) async {
+    try {
+      await _dio.patch(
+        '/learning-modules/day-folders/$folderId',
+        data: {'name': newName},
+      );
+    } catch (e) {
+      throw _mapError(e, 'Failed to rename folder');
+    }
+  }
+
+  Future<void> deleteDayFolder(String folderId) async {
+    try {
+      await _dio.delete('/learning-modules/day-folders/$folderId');
+    } catch (e) {
+      throw _mapError(e, 'Failed to delete folder');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFolderContents(String folderId) async {
+    try {
+      final response = await _dio.get('/learning-modules/day-folders/$folderId/contents');
+      if (response.data is List) return List<Map<String, dynamic>>.from(response.data);
+      return [];
+    } catch (e) {
+      throw _mapError(e, 'Failed to load folder contents');
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadFolderContent(
+    String folderId,
+    PlatformFile file,
+    String title,
+    String? description,
+  ) async {
+    try {
+      final multipartFile = file.bytes != null
+          ? MultipartFile.fromBytes(file.bytes!, filename: file.name)
+          : await MultipartFile.fromFile(file.path!, filename: file.name);
+      final formData = FormData.fromMap({
+        'title': title,
+        if (description != null && description.isNotEmpty) 'description': description,
+        'file': multipartFile,
+      });
+      final response = await _dio.post(
+        '/learning-modules/day-folders/$folderId/upload',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(minutes: 30),
+          receiveTimeout: const Duration(minutes: 30),
+        ),
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to upload content');
+    }
+  }
+
+  Future<void> deleteFolderContent(String contentId) async {
+    try {
+      await _dio.delete('/learning-modules/day-folder-contents/$contentId');
+    } catch (e) {
+      throw _mapError(e, 'Failed to delete content');
+    }
+  }
+
 }

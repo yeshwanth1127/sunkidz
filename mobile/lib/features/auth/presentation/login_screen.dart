@@ -27,6 +27,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   bool _obscurePassword = true;
   bool _isParentLogin = false;
   String? _errorMessage;
+  String? _loggedOutMessage;
 
   // New animation properties for premium feel
   late AnimationController _fadeController;
@@ -42,6 +43,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
     _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
     _fadeController.forward();
     _checkBiometricSupport();
+    _checkLogoutReason();
+  }
+
+  Future<void> _checkLogoutReason() async {
+    final reason = await ref.read(authProvider.notifier).consumeLogoutReason();
+    if (reason != null && mounted) {
+      setState(() => _loggedOutMessage = 'You have been logged out. Please login again.');
+    }
   }
 
   String _extractLoginError(Object error) {
@@ -364,6 +373,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                   
                   const SizedBox(height: 32),
                   
+                  if (_loggedOutMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, color: Colors.blue.shade600, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _loggedOutMessage!,
+                              style: TextStyle(color: Colors.blue.shade800, fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   if (_errorMessage != null) ...[
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),

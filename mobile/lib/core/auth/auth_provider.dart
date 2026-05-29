@@ -47,26 +47,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
   static const _keyClassId = 'class_id';
   static const _keyTokenExpiry = 'token_expiry';
   static const _keyRememberMe = 'remember_me';
+  static const _keyLastActivity = 'last_activity';
+  static const _keyLogoutReason = 'logout_reason';
 
   Future<void> _loadFromStorage() async {
     try {
       final token = await _storage.read(key: _keyToken);
       final rememberMe = await _storage.read(key: _keyRememberMe);
-      
+
       if (token != null && rememberMe == 'true') {
+        final lastActivityStr = await _storage.read(key: _keyLastActivity);
+        if (lastActivityStr != null) {
+          final lastActivity = DateTime.tryParse(lastActivityStr);
+          if (lastActivity != null && DateTime.now().difference(lastActivity).inDays >= 30) {
+            await logout(sessionExpired: true);
+            return;
+          }
+        }
+
         final expiryString = await _storage.read(key: _keyTokenExpiry);
         DateTime? expiry;
         if (expiryString != null) {
           expiry = DateTime.tryParse(expiryString);
         }
-        
-        // Only restore session if token hasn't expired
+
         if (expiry == null || DateTime.now().isBefore(expiry)) {
           final userId = await _storage.read(key: _keyUserId);
           final roleStr = await _storage.read(key: _keyRole);
           final branchId = await _storage.read(key: _keyBranchId);
           final classId = await _storage.read(key: _keyClassId);
-          
+
           state = AuthState(
             token: token,
             userId: userId,
@@ -76,12 +86,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
             tokenExpiry: expiry,
           );
         } else {
-          // Token expired, clear storage
-          await logout();
+          await logout(sessionExpired: true);
         }
       }
     } catch (e) {
-      // If any error in loading, just start with empty state
       state = const AuthState();
     }
   }
@@ -137,7 +145,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.write(key: _keyClassId, value: classId);
     }
     
-    // Update state
     state = AuthState(
       token: token,
       userId: userId,
@@ -146,10 +153,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       classId: classId,
       tokenExpiry: expiry,
     );
+    await recordActivity();
   }
 
-  Future<void> logout() async {
-    // Clear all secure storage keys
+  Future<void> logout({bool sessionExpired = false}) async {
+    if (sessionExpired) {
+      await _storage.write(key: _keyLogoutReason, value: 'session_expired');
+    }
     await _storage.delete(key: _keyToken);
     await _storage.delete(key: _keyUserId);
     await _storage.delete(key: _keyRole);
@@ -157,8 +167,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _storage.delete(key: _keyClassId);
     await _storage.delete(key: _keyTokenExpiry);
     await _storage.delete(key: _keyRememberMe);
-    
+    await _storage.delete(key: _keyLastActivity);
+
     state = const AuthState();
+  }
+
+  Future<String?> consumeLogoutReason() async {
+    final reason = await _storage.read(key: _keyLogoutReason);
+    await _storage.delete(key: _keyLogoutReason);
+    return reason;
+  }
+
+  Future<void> recordActivity() async {
+    await _storage.write(
+      key: _keyLastActivity,
+      value: DateTime.now().toIso8601String(),
+    );
   }
   
   /// Extend current session by another period

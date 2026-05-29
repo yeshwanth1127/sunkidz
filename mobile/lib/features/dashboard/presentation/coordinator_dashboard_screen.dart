@@ -534,6 +534,11 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
                       onTap: () => context.go('/learning-modules'),
                     ),
                     _ActionTile(
+                      icon: Icons.event_note_rounded,
+                      label: 'Daily Reports',
+                      onTap: () => context.push('/coordinator/daily-report'),
+                    ),
+                    _ActionTile(
                       icon: Icons.school,
                       label: 'Homework',
                       onTap: () => context.go('/coordinator/homework'),

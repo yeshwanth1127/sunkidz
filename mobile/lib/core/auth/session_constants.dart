@@ -2,5 +2,4 @@
 const int sessionDurationDays = 30;
 
 /// Shown on login after automatic logout when the session ended.
-const String sessionExpiredLoginMessage =
-    "It's been a while — please sign in again to continue.";
+const String sessionExpiredLoginMessage = 'You have been logged out. Please login again.';

@@ -277,6 +277,21 @@ class TeacherDashboardScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _TeacherActionCard(
+                      icon: Icons.event_note_rounded,
+                      label: 'Daily Reports',
+                      color: Colors.teal,
+                      onTap: () => context.push('/teacher/daily-report'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
               const SizedBox(height: 24),
               const SizedBox(height: 24),
               Text(

@@ -62,6 +62,9 @@ import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/learning_modules/presentation/class_learning_calendar_screen.dart';
 import '../../features/learning_modules/presentation/video_player_screen.dart';
 import '../../features/learning_modules/presentation/admin_learning_modules_screen.dart';
+import '../../features/learning_modules/presentation/day_detail_screen.dart';
+import '../../features/learning_modules/presentation/folder_contents_screen.dart';
+import '../../features/daily_report/presentation/grade_list_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -176,6 +179,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'learning-modules',
             builder: (_, __) => const AdminLearningModulesScreen(),
           ),
+          GoRoute(
+            path: 'daily-report',
+            builder: (_, __) => const GradeListScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -235,6 +242,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'leave',
             builder: (_, __) => const StaffLeaveScreen(),
           ),
+          GoRoute(
+            path: 'daily-report',
+            builder: (_, __) => const GradeListScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -288,6 +299,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'leave',
             builder: (_, __) => const StaffLeaveScreen(),
+          ),
+          GoRoute(
+            path: 'daily-report',
+            builder: (_, __) => const GradeListScreen(),
           ),
         ],
       ),
@@ -413,6 +428,28 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 videoId: state.pathParameters['id']!,
                 title: extra['title'] ?? 'Video',
                 filePath: extra['file_path'] ?? '',
+              );
+            },
+          ),
+          GoRoute(
+            path: 'day/:classId/:schoolDay',
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              return DayDetailScreen(
+                classId: state.pathParameters['classId']!,
+                schoolDay: int.parse(state.pathParameters['schoolDay']!),
+                date: extra['date'] as String? ?? '',
+                academicYearStart: extra['academicYearStart'] as String? ?? '',
+              );
+            },
+          ),
+          GoRoute(
+            path: 'folder/:folderId',
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              return FolderContentsScreen(
+                folderId: state.pathParameters['folderId']!,
+                folderName: extra['folderName'] as String? ?? 'Folder',
               );
             },
           ),

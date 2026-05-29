@@ -114,10 +114,8 @@ class _HomeworkUploadScreenState extends ConsumerState<HomeworkUploadScreen> {
     }
   }
 
-  Future<MultipartFile> _buildMultipartFile() async {
-    if (_selectedFile == null) {
-      throw Exception('Please select a file');
-    }
+  Future<MultipartFile?> _buildMultipartFile() async {
+    if (_selectedFile == null) return null;
 
     if (_selectedFile!.bytes != null) {
       return MultipartFile.fromBytes(
@@ -144,13 +142,6 @@ class _HomeworkUploadScreenState extends ConsumerState<HomeworkUploadScreen> {
       );
       return;
     }
-    if (_selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file')),
-      );
-      return;
-    }
-
     setState(() => _uploading = true);
 
     try {
@@ -332,7 +323,7 @@ class _HomeworkUploadScreenState extends ConsumerState<HomeworkUploadScreen> {
                     OutlinedButton.icon(
                       onPressed: _pickFile,
                       icon: const Icon(Icons.attach_file),
-                      label: Text(_selectedFileName ?? 'Select File *'),
+                      label: Text(_selectedFileName ?? 'Select File (optional)'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
                       ),

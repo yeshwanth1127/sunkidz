@@ -1,5 +1,5 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import './upload_content_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/admin_provider.dart';
@@ -10,6 +10,7 @@ import '../../../core/auth/auth_provider.dart';
 import '../data/learning_modules_provider.dart';
 
 const _kAllClasses = '__all__';
+const _kAllBranches = '__all_branches__';
 
 class ClassLearningCalendarScreen extends ConsumerStatefulWidget {
   const ClassLearningCalendarScreen({super.key});
@@ -40,6 +41,7 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
 
   bool get _isAdmin => ref.read(authProvider).role == UserRole.admin;
   bool get _isAllClasses => _selectedClassId == _kAllClasses;
+  bool get _isAllBranches => _selectedBranchId == _kAllBranches;
 
   Future<void> _loadData() async {
     final auth = ref.read(authProvider);
@@ -135,6 +137,17 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
   }
 
   void _onBranchChanged(String? branchId) {
+    if (branchId == _kAllBranches) {
+      setState(() {
+        _selectedBranchId = _kAllBranches;
+        _classes = _allClasses;
+        _selectedClassId = _kAllClasses;
+        _videoByDay = {};
+        _days = [];
+      });
+      _loadCalendar();
+      return;
+    }
     final filtered = _allClasses.where((c) => c['branch_id'] == branchId).toList();
     final firstClassId = filtered.isNotEmpty ? filtered.first['id']?.toString() : null;
     setState(() {
@@ -184,40 +197,51 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
     }
   }
 
+  String _academicYearStartFromDate(String dateStr) {
+    try {
+      final d = DateTime.parse(dateStr);
+      final year = d.month >= 6 ? d.year : d.year - 1;
+      return '$year-06-01';
+    } catch (_) {
+      final now = DateTime.now();
+      final year = now.month >= 6 ? now.year : now.year - 1;
+      return '$year-06-01';
+    }
+  }
+
   void _tapDay(int dayIndex) {
-    if (!_isAdmin && _isAllClasses) return; // non-admin can't use all-classes mode
+    if (!_isAdmin && _isAllClasses) return;
     final dayData = _days[dayIndex];
     final dayNum = dayData['day'] as int;
     final date = dayData['date'] as String? ?? '';
-    final videos = _videoByDay[dayNum] ?? [];
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _DayBottomSheet(
-        day: dayNum,
-        date: date,
-        videos: videos,
-        classId: _isAllClasses ? (_classes.isNotEmpty ? _classes.first['id']?.toString() ?? '' : '') : (_selectedClassId ?? ''),
-        branchId: _selectedBranchId,
-        isAdmin: _isAdmin,
-        isAllClasses: _isAllClasses,
-        onUploaded: () {
-          Navigator.pop(ctx);
-          _loadCalendar();
-        },
-        onPlay: (v) {
-          Navigator.pop(ctx);
-          context.push(
-            '/learning-modules/video/${v['id']}',
-            extra: {'title': v['title'] ?? 'Day $dayNum Video', 'file_path': v['file_path'] ?? ''},
-          );
-        },
-      ),
-    );
+    final ayStart = _academicYearStartFromDate(date);
+
+    if (_isAllClasses) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _AllBranchesDaySheet(
+          day: dayNum,
+          date: date,
+          academicYearStart: ayStart,
+          classes: _classes,
+          isAdmin: _isAdmin,
+          isAllBranches: _isAllBranches,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedClassId != null) {
+      context.push(
+        '/learning-modules/day/$_selectedClassId/$dayNum',
+        extra: {'date': date, 'academicYearStart': ayStart},
+      );
+    }
   }
 
   String _shortDate(String raw) {
@@ -230,16 +254,19 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
 
   List<DropdownMenuItem<String>> _classDropdownItems() {
     final items = <DropdownMenuItem<String>>[];
-    if (_isAdmin && _selectedBranchId != null) {
+    if (_isAdmin) {
       items.add(const DropdownMenuItem(
         value: _kAllClasses,
         child: Text('All Classes', style: TextStyle(fontWeight: FontWeight.bold)),
       ));
     }
     for (final c in _classes) {
+      final label = _isAllBranches
+          ? '${c['branch_name']} – ${c['name']}'
+          : (c['name']?.toString() ?? '');
       items.add(DropdownMenuItem(
         value: c['id']?.toString(),
-        child: Text(c['name']?.toString() ?? '', overflow: TextOverflow.ellipsis),
+        child: Text(label, overflow: TextOverflow.ellipsis),
       ));
     }
     return items;
@@ -283,10 +310,16 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    items: _branches.map((b) => DropdownMenuItem<String>(
-                      value: b['id']?.toString(),
-                      child: Text(b['name']?.toString() ?? '', overflow: TextOverflow.ellipsis),
-                    )).toList(),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: _kAllBranches,
+                        child: Text('All Branches', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      ..._branches.map((b) => DropdownMenuItem<String>(
+                        value: b['id']?.toString(),
+                        child: Text(b['name']?.toString() ?? '', overflow: TextOverflow.ellipsis),
+                      )),
+                    ],
                     onChanged: _isLoading ? null : _onBranchChanged,
                   ),
                   const SizedBox(height: 8),
@@ -324,7 +357,9 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Tap any day to upload a video to all classes in this branch',
+                            _isAllBranches
+                                ? 'Tap any day to upload a video to all classes in ALL branches'
+                                : 'Tap any day to upload a video to all classes in this branch',
                             style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
                           ),
                         ),
@@ -425,143 +460,125 @@ class _Legend extends StatelessWidget {
   }
 }
 
-class _DayBottomSheet extends ConsumerStatefulWidget {
+// ─── All-branches / all-classes day sheet ────────────────────────────────────
+
+class _AllBranchesDaySheet extends ConsumerStatefulWidget {
   final int day;
   final String date;
-  final List<Map<String, dynamic>> videos;
-  final String classId;
-  final String? branchId;
+  final String academicYearStart;
+  final List<Map<String, dynamic>> classes;
   final bool isAdmin;
-  final bool isAllClasses;
-  final VoidCallback onUploaded;
-  final void Function(Map<String, dynamic>) onPlay;
+  final bool isAllBranches;
 
-  const _DayBottomSheet({
+  const _AllBranchesDaySheet({
     required this.day,
     required this.date,
-    required this.videos,
-    required this.classId,
-    required this.branchId,
+    required this.academicYearStart,
+    required this.classes,
     required this.isAdmin,
-    required this.isAllClasses,
-    required this.onUploaded,
-    required this.onPlay,
+    required this.isAllBranches,
   });
 
   @override
-  ConsumerState<_DayBottomSheet> createState() => _DayBottomSheetState();
+  ConsumerState<_AllBranchesDaySheet> createState() => _AllBranchesDaySheetState();
 }
 
-class _DayBottomSheetState extends ConsumerState<_DayBottomSheet> {
-  PlatformFile? _pickedFile;
-  final _titleCtrl = TextEditingController();
-  final _subjectCtrl = TextEditingController();
-  bool _uploading = false;
-  String? _uploadError;
+class _AllBranchesDaySheetState extends ConsumerState<_AllBranchesDaySheet> {
+  Map<String, List<Map<String, dynamic>>> _foldersByClass = {};
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _titleCtrl.text = 'Day ${widget.day} Video';
+    _loadAll();
   }
 
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _subjectCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: false);
-    if (result != null && result.files.isNotEmpty) {
-      setState(() => _pickedFile = result.files.first);
-    }
-  }
-
-  Future<void> _upload() async {
-    if (_pickedFile == null) return;
-    setState(() { _uploading = true; _uploadError = null; });
+  Future<void> _loadAll() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final service = ref.read(learningModulesServiceProvider);
       if (service == null) throw Exception('Not authenticated');
-      final title = _titleCtrl.text.isEmpty ? 'Day ${widget.day} Video' : _titleCtrl.text;
-      final subject = _subjectCtrl.text.trim().isEmpty ? null : _subjectCtrl.text.trim();
-
-      if (widget.isAllClasses) {
-        await service.uploadVideoForAllClasses(
-          widget.branchId!,
-          _pickedFile!,
-          title,
-          subject,
-          null,
-          widget.day,
-          null,
-        );
-      } else {
-        await service.uploadVideoForClass(
-          widget.classId,
-          _pickedFile!,
-          title,
-          null,
-          widget.day,
-          null,
-          subjectName: subject,
-        );
-      }
-      widget.onUploaded();
+      final entries = await Future.wait(
+        widget.classes.map((c) async {
+          try {
+            final folders = await service.getDayFolders(
+              c['id'] as String, widget.day, widget.academicYearStart,
+            );
+            return MapEntry(c['id'] as String, folders);
+          } catch (_) {
+            return MapEntry(c['id'] as String, <Map<String, dynamic>>[]);
+          }
+        }),
+      );
+      setState(() => _foldersByClass = Map.fromEntries(entries));
     } catch (e) {
-      setState(() { _uploadError = e.toString(); _uploading = false; });
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Map<String, List<Map<String, dynamic>>> _groupByGrade() {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final c in widget.classes) {
+      grouped.putIfAbsent(c['name'] as String? ?? 'Unknown', () => []).add(c);
+    }
+    return grouped;
+  }
+
+  Future<void> _addSubjectToAll(String name) async {
+    if (name.isEmpty) return;
+    final service = ref.read(learningModulesServiceProvider);
+    if (service == null) return;
+    setState(() => _loading = true);
+    try {
+      await Future.wait(widget.classes.map((c) => service.createDayFolder(
+        c['id'] as String, widget.day, name, widget.academicYearStart,
+      )));
+      await _loadAll();
+    } catch (e) {
+      setState(() { _loading = false; _error = e.toString(); });
     }
   }
 
   String _formatDate(String raw) {
     try {
       final d = DateTime.parse(raw);
-      const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return '${m[d.month - 1]} ${d.day}, ${d.year}';
+      const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${mo[d.month - 1]} ${d.day}, ${d.year}';
     } catch (_) { return raw; }
-  }
-
-  Map<String, List<Map<String, dynamic>>> _groupBySubject() {
-    final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final v in widget.videos) {
-      final subject = (v['subject_name'] as String?)?.trim();
-      final key = (subject == null || subject.isEmpty) ? 'General' : subject;
-      grouped.putIfAbsent(key, () => []).add(v);
-    }
-    return grouped;
   }
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _groupBySubject();
-    final hasVideos = widget.videos.isNotEmpty;
+    final grouped = _groupByGrade();
+    final accent = widget.isAllBranches ? Colors.deepPurple : Colors.blue;
+    final label  = widget.isAllBranches ? 'All Branches' : 'All Classes';
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scrollCtrl) => Column(
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+            child: Row(
               children: [
                 Container(
                   width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: widget.isAllClasses ? Colors.blue.shade100 : Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: BoxDecoration(color: accent.shade100, borderRadius: BorderRadius.circular(10)),
                   alignment: Alignment.center,
-                  child: Text('${widget.day}', style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16,
-                    color: widget.isAllClasses ? Colors.blue.shade800 : Colors.orange.shade800,
-                  )),
+                  child: Text('${widget.day}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: accent.shade800)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -570,127 +587,237 @@ class _DayBottomSheetState extends ConsumerState<_DayBottomSheet> {
                     children: [
                       Text('Day ${widget.day}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text(_formatDate(widget.date), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                      if (widget.isAllClasses)
-                        Text('Upload to all classes', style: TextStyle(fontSize: 11, color: Colors.blue.shade600, fontWeight: FontWeight.w500)),
+                      Text(label, style: TextStyle(fontSize: 11, color: accent.shade600, fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ),
+                if (widget.isAdmin)
+                  IconButton(
+                    icon: Icon(Icons.create_new_folder_outlined, color: accent.shade600),
+                    tooltip: 'Add subject to all grades',
+                    onPressed: () async {
+                      final ctrl = TextEditingController();
+                      final name = await showDialog<String>(
+                        context: context,
+                        builder: (dctx) => AlertDialog(
+                          title: const Text('Add Subject', style: TextStyle(fontWeight: FontWeight.bold)),
+                          content: TextField(
+                            controller: ctrl,
+                            autofocus: true,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Subject name',
+                              hintText: 'e.g. Maths, Science',
+                              border: OutlineInputBorder(),
+                            ),
+                            onSubmitted: (v) => Navigator.pop(dctx, v.trim()),
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(dctx, ctrl.text.trim()),
+                              style: FilledButton.styleFrom(backgroundColor: accent),
+                              child: const Text('Create'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (name != null && name.isNotEmpty) await _addSubjectToAll(name);
+                    },
+                  ),
               ],
             ),
-            const SizedBox(height: 16),
+          ),
+          const Divider(height: 1),
+          if (_loading)
+            const Expanded(child: Center(child: CircularProgressIndicator(color: Colors.orange)))
+          else if (_error != null)
+            Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
+          else
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadAll,
+                color: Colors.orange,
+                child: ListView(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  children: grouped.entries.map((e) => _GradeCard(
+                    grade: e.key,
+                    classes: e.value,
+                    foldersByClass: _foldersByClass,
+                    isAdmin: widget.isAdmin,
+                    showBranch: widget.isAllBranches,
+                    onRefresh: _loadAll,
+                  )).toList(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
-            // Existing videos grouped by subject (shown when not all-classes mode)
-            if (!widget.isAllClasses && hasVideos) ...[
-              ...grouped.entries.map((entry) => Column(
+class _GradeCard extends StatelessWidget {
+  final String grade;
+  final List<Map<String, dynamic>> classes;
+  final Map<String, List<Map<String, dynamic>>> foldersByClass;
+  final bool isAdmin;
+  final bool showBranch;
+  final VoidCallback onRefresh;
+
+  const _GradeCard({
+    required this.grade,
+    required this.classes,
+    required this.foldersByClass,
+    required this.isAdmin,
+    required this.showBranch,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.school_outlined, size: 16, color: Colors.orange.shade700),
+                const SizedBox(width: 6),
+                Text(grade, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade900)),
+              ],
+            ),
+          ),
+          ...classes.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final cls  = entry.value;
+            final folders = foldersByClass[cls['id'] as String] ?? [];
+            final branchName = cls['branch_name'] as String? ?? '';
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (idx > 0) const Divider(height: 1, indent: 14, endIndent: 14),
+                if (showBranch)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+                    child: Text(branchName, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                  ),
+                if (folders.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(14, showBranch ? 4 : 12, 14, 12),
+                    child: Text('No subjects yet', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                  )
+                else
+                  ...folders.map((f) => _SubjectRow(folder: f, isAdmin: isAdmin, onRefresh: onRefresh)),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubjectRow extends ConsumerWidget {
+  final Map<String, dynamic> folder;
+  final bool isAdmin;
+  final VoidCallback onRefresh;
+
+  const _SubjectRow({required this.folder, required this.isAdmin, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name  = folder['name'] as String? ?? 'Subject';
+    final count = folder['content_count'] as int? ?? 0;
+
+    return InkWell(
+      onTap: () => context.push('/learning-modules/folder/${folder['id']}', extra: {'folderName': name}),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.folder_rounded, color: Colors.orange.shade400, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      entry.key,
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade700),
-                    ),
-                  ),
-                  ...entry.value.map((v) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.play_circle_fill, color: Colors.orange.shade600, size: 28),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            v['title'] as String? ?? 'Video',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                        ),
-                        FilledButton(
-                          onPressed: () => widget.onPlay(v),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Play', style: TextStyle(fontSize: 13)),
-                        ),
-                      ],
-                    ),
-                  )),
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text('$count item${count != 1 ? 's' : ''}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 ],
-              )),
-              if (widget.isAdmin) ...[
-                const Divider(),
-                Text(
-                  'Add another video',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ],
-
-            // Upload form (admin only)
-            if (widget.isAdmin) ...[
-              TextField(
-                controller: _subjectCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Subject name (optional)',
-                  hintText: 'e.g. Maths, Science, English',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  prefixIcon: Icon(Icons.subject, color: Colors.orange.shade400, size: 18),
-                ),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Video title',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
+            ),
+            if (isAdmin)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                padding: EdgeInsets.zero,
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'upload', child: Row(children: [Icon(Icons.upload_outlined, size: 16), SizedBox(width: 8), Text('Upload')])),
+                  const PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_outlined, size: 16), SizedBox(width: 8), Text('Rename')])),
+                ],
+                onSelected: (action) async {
+                  if (action == 'upload') {
+                    showDialog(
+                      context: context,
+                      builder: (_) => UploadContentDialog(folderId: folder['id'] as String, onUploaded: onRefresh),
+                    );
+                  } else if (action == 'rename') {
+                    final ctrl = TextEditingController(text: name);
+                    final newName = await showDialog<String>(
+                      context: context,
+                      builder: (dctx) => AlertDialog(
+                        title: const Text('Rename Subject', style: TextStyle(fontWeight: FontWeight.bold)),
+                        content: TextField(
+                          controller: ctrl,
+                          autofocus: true,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(labelText: 'Subject name', border: OutlineInputBorder()),
+                          onSubmitted: (v) => Navigator.pop(dctx, v.trim()),
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(dctx, ctrl.text.trim()),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+                            child: const Text('Rename'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (newName != null && newName.isNotEmpty && newName != name) {
+                      try {
+                        final service = ref.read(learningModulesServiceProvider);
+                        if (service != null) await service.renameDayFolder(folder['id'] as String, newName);
+                        onRefresh();
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    }
+                  }
+                },
               ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: _uploading ? null : _pickFile,
-                icon: const Icon(Icons.attach_file),
-                label: Text(_pickedFile?.name ?? 'Pick video file'),
-              ),
-              if (_uploadError != null) ...[
-                const SizedBox(height: 8),
-                Text(_uploadError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
-              ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: (_pickedFile == null || _uploading) ? null : _upload,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: widget.isAllClasses ? Colors.blue.shade600 : Colors.orange,
-                  ),
-                  child: _uploading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(widget.isAllClasses
-                          ? 'Upload to All Classes – Day ${widget.day}'
-                          : (hasVideos ? 'Add Video for Day ${widget.day}' : 'Upload Video for Day ${widget.day}')),
-                ),
-              ),
-            ],
-
-            // Non-admin, no videos
-            if (!widget.isAdmin && !hasVideos)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text('No video uploaded for this day yet.', style: TextStyle(color: Colors.grey.shade500)),
-                ),
-              ),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
           ],
         ),
       ),
     );
   }
 }
+

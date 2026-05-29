@@ -220,7 +220,7 @@ class SyllabusService {
     required DateTime uploadDate,
     DateTime? dueDate,
     String? description,
-    required MultipartFile file,
+    MultipartFile? file,
   }) async {
     try {
       final formData = FormData.fromMap({
@@ -229,7 +229,7 @@ class SyllabusService {
         'upload_date': uploadDate.toIso8601String(),
         if (dueDate != null) 'due_date': dueDate.toIso8601String(),
         if (description != null) 'description': description,
-        'file': file,
+        if (file != null) 'file': file,
       });
 
       final response = await _apiClient.dio.post(

@@ -269,6 +269,15 @@ class AdminDashboardScreen extends ConsumerWidget {
                                 onTap: () => context.push('/learning-modules'),
                               ),
                             ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _AdminActionCard(
+                                icon: Icons.event_note_rounded,
+                                label: 'Daily Reports',
+                                color: Colors.teal,
+                                onTap: () => context.push('/admin/daily-report'),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 32),

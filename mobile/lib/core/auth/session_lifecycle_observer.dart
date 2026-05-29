@@ -41,6 +41,8 @@ class _SessionLifecycleObserverState extends ConsumerState<SessionLifecycleObser
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated) return;
 
+    await ref.read(authProvider.notifier).recordActivity();
+
     if (auth.isTokenExpired) {
       await ref.read(authProvider.notifier).logout(sessionExpired: true);
       return;

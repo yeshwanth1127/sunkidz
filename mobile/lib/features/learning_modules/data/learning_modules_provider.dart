@@ -25,3 +25,21 @@ final studentLearningModulesProvider = FutureProvider.family<List<Map<String, dy
   if (service == null) return [];
   return service.getModulesForStudent(studentId);
 });
+
+// keyed by (classId, schoolDay, academicYearStart)
+final dayFoldersProvider = FutureProvider.family<List<Map<String, dynamic>>, (String, int, String)>(
+  (ref, params) async {
+    final service = ref.watch(learningModulesServiceProvider);
+    if (service == null) return [];
+    return service.getDayFolders(params.$1, params.$2, params.$3);
+  },
+);
+
+// keyed by folderId
+final folderContentsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>(
+  (ref, folderId) async {
+    final service = ref.watch(learningModulesServiceProvider);
+    if (service == null) return [];
+    return service.getFolderContents(folderId);
+  },
+);
