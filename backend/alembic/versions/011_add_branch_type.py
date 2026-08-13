@@ -15,11 +15,9 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        'branches',
-        sa.Column('branch_type', sa.String(20), nullable=True, server_default='normal'),
-    )
-    # Set existing branches to 'normal' type
+    # Use IF NOT EXISTS to avoid duplicate-column errors on hosts with drifted schema
+    op.execute("ALTER TABLE branches ADD COLUMN IF NOT EXISTS branch_type VARCHAR(20) DEFAULT 'normal'")
+    # Set existing branches to 'normal' type where null
     op.execute("UPDATE branches SET branch_type = 'normal' WHERE branch_type IS NULL")
 
 

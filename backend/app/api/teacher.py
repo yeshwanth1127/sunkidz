@@ -105,6 +105,29 @@ def get_dashboard(
         ).count()
         attendance_today = present
 
+    # Birthday cards for students in this class (only on their birthday)
+    birthday_cards: list[dict] = []
+    if class_id:
+        today = date.today()
+        for s in students:
+            if s.date_of_birth and s.date_of_birth.month == today.month and s.date_of_birth.day == today.day:
+                # compute age when possible
+                age = None
+                try:
+                    if s.date_of_birth.year:
+                        age = today.year - s.date_of_birth.year
+                except Exception:
+                    age = None
+                msg = f"Happy Birthday, {s.name}!"
+                if age:
+                    msg = f"Happy {age}th Birthday, {s.name}!"
+                birthday_cards.append({
+                    "type": "birthday",
+                    "student_id": str(s.id),
+                    "student_name": s.name,
+                    "message": msg,
+                })
+
     return {
         "branch_name": branch_name,
         "class_id": class_id,
@@ -114,6 +137,7 @@ def get_dashboard(
         "boys_count": boys_count,
         "girls_count": girls_count,
         "attendance_today": attendance_today,
+        "birthday_cards": birthday_cards,
     }
 
 

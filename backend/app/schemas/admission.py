@@ -4,8 +4,8 @@ from uuid import UUID
 
 
 class AdmissionDirectCreate(BaseModel):
-    branch_id: UUID
-    class_id: UUID
+    branch_id: UUID | None = None
+    class_id: UUID | None = None
     # Child
     name: str
     date_of_birth: date

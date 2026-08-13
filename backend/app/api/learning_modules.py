@@ -3,6 +3,7 @@ from uuid import UUID
 from datetime import datetime, date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -734,6 +735,45 @@ def create_day_folder(
         created_by=str(user.id),
     )
     db.add(folder)
+    db.commit()
+    db.refresh(folder)
+
+    return {
+        "id": str(folder.id),
+        "name": folder.name,
+        "class_id": folder.class_id,
+        "school_day": folder.school_day,
+        "academic_year_start": folder.academic_year_start.isoformat(),
+        "created_at": folder.created_at.isoformat() if folder.created_at else None,
+    }
+
+
+class RenameFolderBody(BaseModel):
+    name: str
+
+@router.patch("/day-folders/{folder_id}")
+def rename_day_folder(
+    folder_id: str,
+    body: RenameFolderBody,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Rename a day folder (admin only)."""
+    folder = db.query(DayFolder).filter(DayFolder.id == folder_id).first()
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+
+    duplicate = db.query(DayFolder).filter(
+        DayFolder.class_id == folder.class_id,
+        DayFolder.school_day == folder.school_day,
+        DayFolder.academic_year_start == folder.academic_year_start,
+        DayFolder.name == body.name,
+        DayFolder.id != folder_id,
+    ).first()
+    if duplicate:
+        raise HTTPException(status_code=400, detail="A folder with this name already exists for this day")
+
+    folder.name = body.name
     db.commit()
     db.refresh(folder)
 

@@ -297,6 +297,7 @@ def get_branch(
         system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
+        coordinator_id=str(coord.user_id) if coord else None,
         student_count=student_count,
     )
 
@@ -345,6 +346,7 @@ def update_branch(
         system_type=normalize_system_type(getattr(branch, "system_type", None)),
         classes=[ClassResponse(id=str(c.id), branch_id=str(c.branch_id), name=c.name, academic_year=c.academic_year) for c in branch.classes],
         coordinator_name=coord.user.full_name if coord else None,
+        coordinator_id=str(coord.user_id) if coord else None,
         student_count=student_count,
     )
 
@@ -456,6 +458,20 @@ def update_class(
     db.commit()
     db.refresh(cls)
     return ClassResponse(id=str(cls.id), branch_id=str(cls.branch_id), name=cls.name, academic_year=cls.academic_year)
+
+
+@router.delete("/classes/{class_id}")
+def delete_class(
+    class_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    cls = db.query(Class).filter(Class.id == class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    db.delete(cls)
+    db.commit()
+    return {"message": "Class deleted successfully"}
 
 
 # --- Users (Teachers, Coordinators, Bus Staff, Toddlers, Daycare) ---
@@ -636,14 +652,6 @@ def delete_user(
     _: User = Depends(require_admin),
 ):
     """Delete a staff member (teacher/coordinator/bus_staff). Cannot delete admin."""
-    from app.models.message import MessageThread
-    from app.models.notification import Notification
-    from app.models.syllabus import Syllabus, Homework, GalleryImage
-    from app.models.leave import LeaveApplication
-    from app.models.bus_route import BusRoute
-    from app.models.ride_session import RideSession
-    from app.models.daycare import DaycareGroup, DaycareDailyUpdate
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -652,44 +660,27 @@ def delete_user(
     if user.role not in ("teacher", "coordinator", "bus_staff", "toddlers", "daycare"):
         raise HTTPException(status_code=403, detail="Can only delete teachers, coordinators, bus staff, toddlers, and daycare")
 
-    blockers: list[str] = []
-
-    syllabus_count = db.query(func.count(Syllabus.id)).filter(Syllabus.uploaded_by == user_id).scalar() or 0
-    homework_count = db.query(func.count(Homework.id)).filter(Homework.uploaded_by == user_id).scalar() or 0
-    gallery_count = db.query(func.count(GalleryImage.id)).filter(GalleryImage.uploaded_by == user_id).scalar() or 0
-    if syllabus_count:
-        blockers.append(f"{syllabus_count} syllabus upload(s)")
-    if homework_count:
-        blockers.append(f"{homework_count} homework upload(s)")
-    if gallery_count:
-        blockers.append(f"{gallery_count} gallery upload(s)")
-
-    bus_route_count = db.query(func.count(BusRoute.id)).filter(BusRoute.bus_staff_id == user_id).scalar() or 0
-    ride_session_count = db.query(func.count(RideSession.id)).filter(RideSession.bus_staff_id == user_id).scalar() or 0
-    if bus_route_count:
-        blockers.append(f"{bus_route_count} bus route(s)")
-    if ride_session_count:
-        blockers.append(f"{ride_session_count} ride session(s)")
-
-    daycare_group_count = db.query(func.count(DaycareGroup.id)).filter(DaycareGroup.daycare_staff_id == user_id).scalar() or 0
-    if daycare_group_count:
-        blockers.append(f"{daycare_group_count} daycare group(s)")
-
-    if blockers:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete this user because they are still linked to: {', '.join(blockers)}. Reassign or clear those records first.",
-        )
-
     from sqlalchemy import text
     uid = str(user_id)
     try:
         # All raw SQL — no ORM unit-of-work interference.
-        # Null out NO-ACTION sender FK references.
+        # Null out nullable sender/reviewer FK references.
         db.execute(text("UPDATE notifications SET sender_id = NULL WHERE sender_id = CAST(:uid AS uuid)"), {"uid": uid})
         db.execute(text("UPDATE messages SET sender_id = NULL WHERE sender_id = CAST(:uid AS uuid)"), {"uid": uid})
         db.execute(text("UPDATE syllabus_holidays SET created_by = NULL WHERE created_by = CAST(:uid AS uuid)"), {"uid": uid})
         db.execute(text("UPDATE leave_applications SET reviewed_by = NULL WHERE reviewed_by = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete content uploaded by this staff member.
+        db.execute(text("DELETE FROM syllabus WHERE uploaded_by = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("DELETE FROM homework WHERE uploaded_by = CAST(:uid AS uuid)"), {"uid": uid})
+        db.execute(text("DELETE FROM gallery_images WHERE uploaded_by = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete daycare daily updates authored by this staff member.
+        db.execute(text("DELETE FROM daycare_daily_updates WHERE author_id = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete bus routes (DB cascade removes route_students, ride_sessions, location_updates).
+        db.execute(text("DELETE FROM bus_routes WHERE bus_staff_id = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete any orphaned ride sessions still referencing this staff member.
+        db.execute(text("DELETE FROM ride_sessions WHERE bus_staff_id = CAST(:uid AS uuid)"), {"uid": uid})
+        # Delete daycare groups (DB cascade removes daycare_group_students).
+        db.execute(text("DELETE FROM daycare_groups WHERE daycare_staff_id = CAST(:uid AS uuid)"), {"uid": uid})
         # Delete chat threads (messages cascade automatically via FK).
         db.execute(text("DELETE FROM message_threads WHERE staff_user_id = CAST(:uid AS uuid) OR parent_user_id = CAST(:uid AS uuid)"), {"uid": uid})
         # Delete remaining owned rows.
@@ -1178,6 +1169,9 @@ def delete_student(
     from app.models.student import ParentStudentLink
     from app.models.marks_card import MarksCard
     from app.models.attendance import Attendance
+    from app.models.message import MessageThread
+    from app.models.notification import Notification
+    from app.models.fees import FeeStructure
 
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
@@ -1185,6 +1179,12 @@ def delete_student(
     db.query(ParentStudentLink).filter(ParentStudentLink.student_id == student_id).delete()
     db.query(MarksCard).filter(MarksCard.student_id == student_id).delete()
     db.query(Attendance).filter(Attendance.student_id == student_id).delete()
+    # FeeStructure.student_id is NOT NULL — must delete the row (cascades to FeePayment/FeeReceipt via DB)
+    db.query(FeeStructure).filter(FeeStructure.student_id == student_id).delete()
+    # Null out the student reference in message threads (column is nullable)
+    db.query(MessageThread).filter(MessageThread.student_id == student_id).update({"student_id": None})
+    # Null out target_student_id in notifications (column is nullable)
+    db.query(Notification).filter(Notification.target_student_id == student_id).update({"target_student_id": None})
     db.delete(student)
     db.commit()
     return {"ok": True}

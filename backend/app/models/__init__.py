@@ -18,6 +18,7 @@ from app.models.fees import FeeStructure, FeePayment
 from app.models.message import MessageThread, Message
 from app.models.leave import LeaveApplication
 from app.models.learning_module import LearningModule, LearningVideo, LearningModuleAssignment, DayFolder, DayFolderContent
+from app.models.daily_report import DailyReport, DailyReportSlot
 
 __all__ = [
     "Base",
@@ -58,4 +59,6 @@ __all__ = [
     "LearningModuleAssignment",
     "DayFolder",
     "DayFolderContent",
+    "DailyReport",
+    "DailyReportSlot",
 ]

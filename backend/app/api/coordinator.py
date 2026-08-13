@@ -8,10 +8,15 @@ import logging
 
 from app.core.database import get_db
 from app.core.auth import require_coordinator
+from app.core.security import get_password_hash
 from app.models import User, Branch, Class, Student, BranchAssignment, Attendance, StaffAttendance, Enquiry
+from app.models.student import ParentStudentLink
+from app.models.branch import Branch, Class
 from app.schemas.student import StudentUpdate
 from app.schemas.enquiry import EnquiryCreate
+from app.schemas.admission import AdmissionDirectCreate
 from app.services.notification_service import send_enquiry_notification
+from app.api.admin import _generate_admission_number_for_branch
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +145,61 @@ def list_teachers(
             "class_name": cls_name,
         })
     return result
+
+
+@router.get("/students/new")
+def get_new_student_form_data(
+    user: User = Depends(require_coordinator),
+    db: Session = Depends(get_db),
+):
+    """Return a blank student template pre-filled with the coordinator's branch/class."""
+    branch_id = _coordinator_branch_id(user, db)
+    if not branch_id:
+        raise HTTPException(status_code=403, detail="Coordinator is not assigned to a branch")
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    cls = db.query(Class).filter(Class.branch_id == branch_id).order_by(Class.name.asc()).first()
+    return {
+        "id": None,
+        "admission_number": None,
+        "name": None,
+        "date_of_birth": None,
+        "age_years": None,
+        "age_months": None,
+        "gender": None,
+        "place_of_birth": None,
+        "nationality": None,
+        "religion": None,
+        "mother_tongue": None,
+        "blood_group": None,
+        "medical_allergies": None,
+        "medical_surgeries": None,
+        "medical_chronic_illness": None,
+        "branch_id": str(branch.id),
+        "branch_name": branch.name,
+        "class_id": str(cls.id) if cls else None,
+        "class_name": cls.name if cls else None,
+        "residential_address": None,
+        "residential_contact_no": None,
+        "father_name": None,
+        "father_occupation": None,
+        "father_contact_no": None,
+        "father_email": None,
+        "mother_name": None,
+        "mother_occupation": None,
+        "mother_contact_no": None,
+        "mother_email": None,
+        "guardian_name": None,
+        "guardian_relation": None,
+        "guardian_contact_no": None,
+        "emergency_contact_name": None,
+        "emergency_contact_phone": None,
+        "parent_name": None,
+        "parent_phone": None,
+        "transport_required": False,
+        "declaration_date": None,
+    }
 
 
 @router.get("/students/{student_id}")
@@ -930,3 +990,108 @@ def search_parents(
             }
         )
     return results
+
+
+@router.post("/admissions/direct")
+def coordinator_create_direct_admission(
+    data: AdmissionDirectCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_coordinator),
+):
+    branch_id = _coordinator_branch_id(user, db)
+    if not branch_id:
+        raise HTTPException(status_code=403, detail="Coordinator is not assigned to a branch")
+
+    branch = db.query(Branch).filter(Branch.id == branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    cls = db.query(Class).filter(Class.branch_id == branch_id).order_by(Class.name.asc()).first()
+
+    admission_date = date.today()
+    admission_number = _generate_admission_number_for_branch(db, branch, admission_date)
+
+    if data.parent_user_id:
+        parent = db.query(User).filter(User.id == data.parent_user_id).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent user not found")
+    else:
+        dob_str = data.date_of_birth.isoformat()
+        parent = User(
+            email=None,
+            password_hash=get_password_hash(dob_str),
+            full_name=data.parent_name,
+            role="parent",
+            phone=data.parent_contact,
+            is_active="true",
+        )
+        db.add(parent)
+        db.commit()
+        db.refresh(parent)
+
+    today = date.today()
+    age_years = today.year - data.date_of_birth.year
+    if (today.month, today.day) < (data.date_of_birth.month, data.date_of_birth.day):
+        age_years -= 1
+    age_months = age_years * 12 + (today.month - data.date_of_birth.month)
+
+    student = Student(
+        admission_number=admission_number,
+        name=data.name,
+        date_of_birth=data.date_of_birth,
+        age_years=age_years,
+        age_months=age_months,
+        gender=data.gender,
+        place_of_birth=data.place_of_birth,
+        nationality=data.nationality,
+        mother_tongue=data.mother_tongue,
+        religion=data.religion,
+        blood_group=data.blood_group,
+        medical_allergies=data.medical_allergies,
+        medical_surgeries=data.medical_surgeries,
+        medical_chronic_illness=data.medical_chronic_illness,
+        class_id=cls.id if cls else None,
+        branch_id=branch_id,
+        enquiry_id=None,
+        residential_address=data.residential_address,
+        residential_contact_no=data.residential_contact_no,
+        father_name=data.father_name,
+        father_occupation=data.father_occupation,
+        father_contact_no=data.father_contact_no,
+        father_email=data.father_email,
+        mother_name=data.mother_name,
+        mother_occupation=data.mother_occupation,
+        mother_contact_no=data.mother_contact_no,
+        mother_email=data.mother_email,
+        guardian_name=data.guardian_name,
+        guardian_relation=data.guardian_relation,
+        guardian_contact_no=data.guardian_contact_no,
+        emergency_contact_name=data.emergency_contact_name,
+        emergency_contact_phone=data.emergency_contact_phone,
+        transport_required=data.transport_required,
+        attended_previously=data.attended_previously,
+        school_daycare_name=data.school_daycare_name,
+        prev_school_duration=data.prev_school_duration,
+        prev_school_class=data.prev_school_class,
+        birth_certificate=data.birth_certificate,
+        immunization_record=data.immunization_record,
+        transfer_certificate=data.transfer_certificate,
+        passport_photos=data.passport_photos,
+        progress_report=data.progress_report,
+        passport=data.passport,
+        other_medical_report=data.other_medical_report,
+        declaration_date=admission_date,
+    )
+    db.add(student)
+    db.commit()
+    db.refresh(student)
+
+    db.add(ParentStudentLink(user_id=parent.id, student_id=student.id, is_primary=True))
+    db.commit()
+
+    return {
+        "admission_number": admission_number,
+        "student_id": str(student.id),
+        "parent_id": str(parent.id),
+        "message": f"Student created. Parent can login with admission_number={admission_number} and date_of_birth={data.date_of_birth.isoformat()}",
+    }

@@ -1,8 +1,10 @@
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from uuid import UUID
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.core.database import engine, Base, get_db
@@ -31,6 +33,7 @@ from app.api import almanac as almanac_api
 from app.api import stories as stories_api
 from app.api import birthdays as birthdays_api
 from app.api import learning_modules as learning_modules_api
+from app.api import daily_report as daily_report_api
 
 # Configure logging
 logging.basicConfig(
@@ -48,11 +51,15 @@ app = FastAPI(
     docs_url="/docs",
 )
 
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
 )
 
 app.include_router(auth_api.router, prefix="/api/v1")
@@ -78,6 +85,7 @@ app.include_router(almanac_api.router, prefix="/api/v1")
 app.include_router(stories_api.router, prefix="/api/v1")
 app.include_router(birthdays_api.router, prefix="/api/v1")
 app.include_router(learning_modules_api.router, prefix="/api/v1")
+app.include_router(daily_report_api.router, prefix="/api/v1")
 
 
 @app.get("/")

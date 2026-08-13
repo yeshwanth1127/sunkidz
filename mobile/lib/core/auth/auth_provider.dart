@@ -52,21 +52,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final token = await _storage.read(key: _keyToken);
       final rememberMe = await _storage.read(key: _keyRememberMe);
-      
+
       if (token != null && rememberMe == 'true') {
         final expiryString = await _storage.read(key: _keyTokenExpiry);
         DateTime? expiry;
         if (expiryString != null) {
           expiry = DateTime.tryParse(expiryString);
         }
-        
+
         // Only restore session if token hasn't expired
         if (expiry == null || DateTime.now().isBefore(expiry)) {
           final userId = await _storage.read(key: _keyUserId);
           final roleStr = await _storage.read(key: _keyRole);
           final branchId = await _storage.read(key: _keyBranchId);
           final classId = await _storage.read(key: _keyClassId);
-          
+
           state = AuthState(
             token: token,
             userId: userId,
