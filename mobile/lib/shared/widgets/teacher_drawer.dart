@@ -1,131 +1,85 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/auth/auth_provider.dart';
+import 'app_drawer_shell.dart';
 
-class TeacherDrawer extends ConsumerWidget {
+class TeacherDrawer extends StatelessWidget {
   const TeacherDrawer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: const Color(0xFF42F07C).withValues(alpha: 0.2),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(Icons.school, size: 40, color: const Color(0xFF42F07C)),
-                const SizedBox(height: 8),
-                Text(
-                  'Teacher Portal',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-          _DrawerTile(
-            icon: Icons.dashboard,
-            label: 'Home',
-            onTap: () => _navigate(context, '/teacher'),
-          ),
-          _DrawerTile(
-            icon: Icons.face,
-            label: 'Students',
-            onTap: () => _navigate(context, '/teacher/students'),
-          ),
-          _DrawerTile(
-            icon: Icons.event_available,
-            label: 'Attendance',
-            onTap: () => _navigate(context, '/teacher/attendance'),
-          ),
-          _DrawerTile(
-            icon: Icons.menu_book,
-            label: 'Syllabus',
-            onTap: () => _navigate(context, '/teacher/syllabus'),
-          ),
-          _DrawerTile(
-            icon: Icons.assignment,
-            label: 'Homework',
-            onTap: () => _navigate(context, '/teacher/homework'),
-          ),
-          _DrawerTile(
-            icon: Icons.grade,
-            label: 'Marks Card',
-            onTap: () => _navigate(context, '/teacher/marks'),
-          ),
-          _DrawerTile(
-            icon: Icons.send,
-            label: 'Send Message',
-            onTap: () => _navigate(context, '/teacher/send-message'),
-          ),
-          _DrawerTile(
-            icon: Icons.play_lesson,
-            label: 'Learning Modules',
-            onTap: () => _navigate(context, '/learning-modules'),
-          ),
-          _DrawerTile(
-            icon: Icons.chat_outlined,
-            label: 'Chats',
-            onTap: () => _navigate(context, '/chat'),
-          ),
-          _DrawerTile(
-            icon: Icons.event_available_outlined,
-            label: 'Leave Requests',
-            onTap: () => _navigate(context, '/teacher/leave'),
-          ),
-          _DrawerTile(
-            icon: Icons.settings,
-            label: 'Profile & Settings',
-            onTap: () => _navigate(context, '/teacher/settings'),
-          ),
-          const Divider(),
-          _DrawerTile(
-            icon: Icons.logout,
-            label: 'Logout',
-            onTap: () => _logout(context, ref),
-          ),
-        ],
-      ),
+  Widget build(BuildContext context) {
+    return const AppDrawerShell(
+      avatarIcon: Icons.school,
+      roleLabel: 'Teacher',
+      fallbackName: 'Teacher',
+      items: [
+        AppDrawerItem(
+          icon: Icons.dashboard_rounded,
+          label: 'Home',
+          route: '/teacher',
+        ),
+        AppDrawerItem(
+          icon: Icons.face_6_rounded,
+          label: 'Students',
+          route: '/teacher/students',
+        ),
+        AppDrawerItem(
+          icon: Icons.event_available_rounded,
+          label: 'Attendance',
+          route: '/teacher/attendance',
+        ),
+        AppDrawerItem(
+          icon: Icons.menu_book_rounded,
+          label: 'Syllabus',
+          route: '/teacher/syllabus',
+        ),
+        AppDrawerItem(
+          icon: Icons.assignment_turned_in_rounded,
+          label: 'Homework',
+          route: '/teacher/homework',
+        ),
+        AppDrawerItem(
+          icon: Icons.assignment_rounded,
+          label: 'Marks Card',
+          route: '/teacher/marks',
+        ),
+        AppDrawerItem(
+          icon: Icons.document_scanner_rounded,
+          label: 'Admission Documents',
+          route: '/teacher/documents',
+        ),
+        AppDrawerItem(
+          icon: Icons.send_rounded,
+          label: 'Send Message',
+          route: '/teacher/send-message',
+        ),
+        AppDrawerItem(
+          icon: Icons.play_lesson_rounded,
+          label: 'Learning Modules',
+          route: '/learning-modules',
+        ),
+        AppDrawerItem(
+          icon: Icons.chat_rounded,
+          label: 'Chats',
+          route: '/chat',
+          isActive: _isChatRoute,
+        ),
+        AppDrawerItem(
+          icon: Icons.photo_library_rounded,
+          label: 'Gallery',
+          route: '/gallery',
+        ),
+        AppDrawerItem(
+          icon: Icons.event_available_rounded,
+          label: 'Leave Requests',
+          route: '/teacher/leave',
+        ),
+        AppDrawerItem(
+          icon: Icons.settings_suggest_rounded,
+          label: 'Profile & Settings',
+          route: '/teacher/settings',
+        ),
+      ],
     );
   }
-
-  void _navigate(BuildContext context, String path) {
-    Navigator.pop(context);
-    context.go(path);
-  }
-
-  void _logout(BuildContext context, WidgetRef ref) {
-    Navigator.pop(context);
-    ref.read(authProvider.notifier).logout();
-    while (GoRouter.of(context).canPop()) {
-      context.pop();
-    }
-    context.go('/login');
-  }
 }
 
-class _DrawerTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _DrawerTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(leading: Icon(icon), title: Text(label), onTap: onTap);
-  }
-}
+bool _isChatRoute(String loc) => loc == '/chat' || loc.startsWith('/chat/');

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 import 'package:sunkidz_lms/core/theme/app_theme.dart';
 import 'package:sunkidz_lms/shared/widgets/shimmer_loading.dart';
 import 'package:sunkidz_lms/shared/widgets/admin_drawer.dart';
+import 'package:sunkidz_lms/shared/widgets/stat_card.dart';
 import 'package:sunkidz_lms/features/dashboard/data/dashboard_provider.dart';
 import 'package:sunkidz_lms/core/api/current_user_provider.dart';
 
@@ -18,27 +20,17 @@ class AdminDashboardScreen extends ConsumerWidget {
     return 'Good Evening';
   }
 
-  static String _motivatingPhrase() {
-    final phrases = [
-      'Where Joy Begins',
-      'Nurturing Young Minds',
-      'Every Child Shines',
-      'Learning Through Play',
-      'Little Stars, Big Dreams',
-      'Growing Together Daily',
-    ];
-    return phrases[DateTime.now().day % phrases.length];
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(dashboardDataProvider);
     final currentUser = ref.watch(currentUserProvider);
     final currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
-    final firstName = currentUser.valueOrNull?['full_name']?.toString().split(' ').first ?? '';
+    final firstName =
+        currentUser.valueOrNull?['full_name']?.toString().split(' ').first ??
+        '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.backgroundLight,
       drawer: const AdminDrawer(),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(dashboardDataProvider.future),
@@ -55,23 +47,33 @@ class AdminDashboardScreen extends ConsumerWidget {
                   fit: StackFit.expand,
                   children: [
                     Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primary,
-                            AppColors.primary.withValues(alpha: 0.8),
-                            const Color(0xFFF59E0B),
-                          ],
+                      decoration: const BoxDecoration(
+                        image: DecorationImage(
+                          image: AssetImage('assets/images/backg.jpeg'),
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
                     Positioned(
                       right: -30,
                       top: -20,
-                      child: Icon(Icons.wb_sunny_rounded, size: 200,
-                          color: Colors.white.withValues(alpha: 0.1)),
+                      child: Icon(
+                        Icons.wb_sunny_rounded,
+                        size: 200,
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 10,
+                      child: SizedBox(
+                        height: 130,
+                        width: 130,
+                        child: Lottie.asset(
+                          'assets/images/Lilly Monkey.json',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                     Positioned(
                       left: 56,
@@ -83,7 +85,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Image.asset(
-                            'assets/images/sunkidz_logo_hd.png',
+                            'assets/images/landlogo.png',
                             height: 38,
                             fit: BoxFit.contain,
                             alignment: Alignment.centerLeft,
@@ -92,18 +94,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                           Text(
                             '${_greeting()}${firstName.isNotEmpty ? ', $firstName' : ''} 👋',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Colors.black,
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _motivatingPhrase(),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
                             ),
                           ),
                         ],
@@ -114,7 +107,10 @@ class AdminDashboardScreen extends ConsumerWidget {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Colors.white,
+                  ),
                   onPressed: () => context.push('/admin/notifications'),
                 ),
                 const SizedBox(width: 8),
@@ -123,25 +119,32 @@ class AdminDashboardScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: dashboardAsync.when(
                 loading: () => const _DashboardLoadingPlaceholder(),
-                error: (err, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Error: $err'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => ref.refresh(dashboardDataProvider),
-                          child: const Text('Retry'),
+                error:
+                    (err, _) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            Text('Error: $err'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed:
+                                  () => ref.refresh(dashboardDataProvider),
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
                 data: (data) {
-                  if (data == null) return const Center(child: Text('No data available'));
+                  if (data == null)
+                    return const Center(child: Text('No data available'));
                   return Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -160,7 +163,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                               icon: Icons.apartment_rounded,
                               label: 'Branches',
                               value: '${data.branchesCount}',
-                              backgroundColor: AppColors.pastelBlue,
+                              backgroundColor: const Color(0xFF08D1D0),
                               iconColor: Colors.blue.shade600,
                               onTap: () => context.push('/branches'),
                             ),
@@ -168,7 +171,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                               icon: Icons.face_retouching_natural_rounded,
                               label: 'Students',
                               value: '${data.studentsCount}',
-                              backgroundColor: AppColors.pastelGreen,
+                              backgroundColor: const Color(0xFFFF3F47),
                               iconColor: Colors.green.shade600,
                               onTap: () => context.push('/students'),
                             ),
@@ -176,7 +179,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                               icon: Icons.groups_rounded,
                               label: 'Staff',
                               value: '${data.staffCount}',
-                              backgroundColor: AppColors.pastelYellow,
+                              backgroundColor: const Color(0xFFFFAA34),
                               iconColor: Colors.orange.shade600,
                               onTap: () => context.push('/staff'),
                             ),
@@ -184,15 +187,15 @@ class AdminDashboardScreen extends ConsumerWidget {
                               icon: Icons.account_balance_wallet_rounded,
                               label: 'Pending Fees',
                               value: currencyFmt.format(data.feesPending),
-                              backgroundColor: AppColors.pastelOrange,
+                              backgroundColor: const Color(0xFF7FB94B),
                               iconColor: Colors.deepOrange.shade600,
                               onTap: () => context.push('/admin/fees'),
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 32),
-                        
+
                         // Metrics Section
                         AnimatedListItem(
                           index: 3,
@@ -210,7 +213,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                               Expanded(
                                 child: _StatusBox(
                                   label: 'Conversion Rate',
-                                  value: '${data.conversionRate.toStringAsFixed(1)}%',
+                                  value:
+                                      '${data.conversionRate.toStringAsFixed(1)}%',
                                   icon: Icons.auto_graph_rounded,
                                   color: AppColors.accentGreen,
                                 ),
@@ -218,11 +222,14 @@ class AdminDashboardScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 32),
 
                         // Messaging & Communication Section
-                        Text('Messaging & Communication', style: Theme.of(context).textTheme.titleLarge),
+                        Text(
+                          'Messaging & Communication',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -240,7 +247,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                                 icon: Icons.campaign_rounded,
                                 label: 'Broadcast',
                                 color: AppColors.primary,
-                                onTap: () => context.push('/admin/send-message'),
+                                onTap:
+                                    () => context.push('/admin/send-message'),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -257,7 +265,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                         const SizedBox(height: 32),
 
                         // Content & Learning Section
-                        Text('Content & Learning', style: Theme.of(context).textTheme.titleLarge),
+                        Text(
+                          'Content & Learning',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -275,7 +286,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                                 icon: Icons.event_note_rounded,
                                 label: 'Daily Reports',
                                 color: Colors.teal,
-                                onTap: () => context.push('/admin/daily-report'),
+                                onTap:
+                                    () => context.push('/admin/daily-report'),
                               ),
                             ),
                           ],
@@ -286,7 +298,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Recent Enquiries', style: Theme.of(context).textTheme.titleLarge),
+                            Text(
+                              'Recent Enquiries',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
                             TextButton(
                               onPressed: () => context.push('/enquiries'),
                               child: const Text('View All'),
@@ -297,19 +312,23 @@ class AdminDashboardScreen extends ConsumerWidget {
                         if (data.recentEnquiries.isEmpty)
                           const _EmptyEnquiries()
                         else
-                          ...data.recentEnquiries.asMap().entries.map((e) => AnimatedListItem(
-                            index: e.key + 5,
-                            child: _EnquiryTile(
-                              name: () {
-                                final raw = e.value['child_name']?.toString().trim();
-                                if (raw == null || raw.isEmpty) return 'Unknown';
-                                return raw;
-                              }(),
-                              date: _fmtDate(e.value['created_at']),
-                              status: e.value['status'] ?? 'pending',
+                          ...data.recentEnquiries.asMap().entries.map(
+                            (e) => AnimatedListItem(
+                              index: e.key + 5,
+                              child: _EnquiryTile(
+                                name: () {
+                                  final raw =
+                                      e.value['child_name']?.toString().trim();
+                                  if (raw == null || raw.isEmpty)
+                                    return 'Unknown';
+                                  return raw;
+                                }(),
+                                date: _fmtDate(e.value['created_at']),
+                                status: e.value['status'] ?? 'pending',
+                              ),
                             ),
-                          )),
-                        
+                          ),
+
                         const SizedBox(height: 32),
                       ],
                     ),
@@ -392,90 +411,18 @@ class _AdminActionCard extends StatelessWidget {
   }
 }
 
-class StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color backgroundColor;
-  final Color iconColor;
-  final VoidCallback onTap;
-
-  const StatCard({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.backgroundColor,
-    required this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF000000).withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 24),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _StatusBox extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
   final Color color;
 
-  const _StatusBox({required this.label, required this.value, required this.icon, required this.color});
+  const _StatusBox({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -493,8 +440,22 @@ class _StatusBox extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-              Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                ),
+              ),
             ],
           ),
         ],
@@ -520,7 +481,11 @@ class _EnquiryTile extends StatelessWidget {
   final String date;
   final String status;
 
-  const _EnquiryTile({required this.name, required this.date, required this.status});
+  const _EnquiryTile({
+    required this.name,
+    required this.date,
+    required this.status,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -536,15 +501,33 @@ class _EnquiryTile extends StatelessWidget {
         children: [
           CircleAvatar(
             backgroundColor: AppColors.pastelBlue,
-            child: Text(name[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+            child: Text(
+              name[0],
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                Text(date, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  date,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
               ],
             ),
           ),
@@ -556,7 +539,11 @@ class _EnquiryTile extends StatelessWidget {
             ),
             child: Text(
               status.toUpperCase(),
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _getStatusColor(status)),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: _getStatusColor(status),
+              ),
             ),
           ),
         ],
@@ -566,9 +553,12 @@ class _EnquiryTile extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'converted': return Colors.green;
-      case 'rejected': return Colors.red;
-      default: return AppColors.primary;
+      case 'converted':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return AppColors.primary;
     }
   }
 }
@@ -591,7 +581,10 @@ class _DashboardLoadingPlaceholder extends StatelessWidget {
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
             childAspectRatio: 1.1,
-            children: List.generate(4, (index) => const ShimmerLoading.rectangular(height: 100)),
+            children: List.generate(
+              4,
+              (index) => const ShimmerLoading.rectangular(height: 100),
+            ),
           ),
           const SizedBox(height: 32),
           const ShimmerLoading.rectangular(height: 80),
@@ -616,13 +609,22 @@ class _EmptyEnquiries extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          style: BorderStyle.solid,
+        ),
       ),
       child: Column(
         children: [
           Icon(Icons.inbox_rounded, size: 48, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          const Text('No recent enquiries yet', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+          const Text(
+            'No recent enquiries yet',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
+          ),
         ],
       ),
     );

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/utils/branch_system.dart';
 
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
@@ -46,15 +47,17 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
       for (final branch in branches) {
         if (branch['classes'] != null) {
           for (final cls in branch['classes']) {
+            final grade = canonicalGradeLabel(cls['name']?.toString());
             classes.add({
               'id': cls['id'],
-              'name': '${cls['name']} - ${branch['name']}',
+              'name': '$grade - ${branch['name']}',
+              'grade': grade,
             });
           }
         }
       }
       setState(() {
-        _classes = classes;
+        _classes = sortByCanonicalGrade(classes, (c) => c['grade'] as String?);
       });
     } catch (e) {
       // Handle error silently
@@ -89,20 +92,26 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
   Future<void> _deleteHomework(String homeworkId) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Homework'),
-        content: const Text('Are you sure you want to delete this homework?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Delete Homework'),
+            content: const Text(
+              'Are you sure you want to delete this homework?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
@@ -151,7 +160,11 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
         ),
         title: const Text(
           'Homework',
-          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -258,15 +271,16 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
                           homework: homework,
                           isAdmin: isAdmin,
                           onView: () => _viewHomeworkFile(homework.id),
-                          onDelete: isAdmin
-                              ? () => _deleteHomework(homework.id)
-                              : null,
+                          onDelete:
+                              isAdmin
+                                  ? () => _deleteHomework(homework.id)
+                                  : null,
                         );
                       },
                     );
                   },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
+                  loading:
+                      () => const Center(child: CircularProgressIndicator()),
                   error: (error, stack) => Center(child: Text('Error: $error')),
                 ),
           ),
@@ -305,7 +319,7 @@ class _HomeworkCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Class: ${homework.className}'),
+            Text('Class: ${canonicalGradeLabel(homework.className)}'),
             Text(
               'Upload Date: ${DateFormat('MMM dd, yyyy').format(homework.uploadDate)}',
             ),
@@ -319,29 +333,30 @@ class _HomeworkCard extends StatelessWidget {
           ],
         ),
         trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'view',
-              child: Row(
-                children: [
-                  Icon(Icons.visibility),
-                  SizedBox(width: 8),
-                  Text('View'),
-                ],
-              ),
-            ),
-            if (isAdmin)
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(
+                  value: 'view',
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility),
+                      SizedBox(width: 8),
+                      Text('View'),
+                    ],
+                  ),
                 ),
-              ),
-          ],
+                if (isAdmin)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+              ],
           onSelected: (value) {
             if (value == 'delete' && onDelete != null) {
               onDelete!();

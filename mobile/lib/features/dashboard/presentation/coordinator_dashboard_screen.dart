@@ -7,7 +7,7 @@ import '../../../core/api/coordinator_api.dart';
 import '../../../core/api/coordinator_provider.dart';
 import '../../../shared/widgets/stat_card.dart';
 import '../../../shared/widgets/coordinator_drawer.dart';
-import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/dashboard_app_bar.dart';
 import '../../../shared/widgets/dob_picker.dart';
 import '../data/coordinator_dashboard_provider.dart';
 
@@ -44,13 +44,14 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
-      builder: (ctx) => _EnquiryFormSheet(
-        onSaved: () {
-          Navigator.of(ctx).pop();
-          ref.invalidate(coordinatorDashboardDataProvider);
-        },
-        api: ref.read(coordinatorApiProvider)!,
-      ),
+      builder:
+          (ctx) => _EnquiryFormSheet(
+            onSaved: () {
+              Navigator.of(ctx).pop();
+              ref.invalidate(coordinatorDashboardDataProvider);
+            },
+            api: ref.read(coordinatorApiProvider)!,
+          ),
     );
   }
 
@@ -69,634 +70,599 @@ class CoordinatorDashboardScreen extends ConsumerWidget {
     final classes = dashboardAsync.valueOrNull?.classes ?? [];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
+      backgroundColor: AppColors.backgroundLight,
       drawer: const CoordinatorDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        titleSpacing: 0,
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black87),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF4E0),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Image.asset(
-                'assets/images/sunkidz_logo_hd.png',
-                height: 28,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    Icons.school,
-                    color: AppColors.primary,
-                    size: 24,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+      appBar: DashboardAppBar(
+        title: branchName,
+        subtitle: 'Branch Coordinator',
+        accentColor: AppColors.primary,
+        notificationsRoute: '/coordinator/notifications',
+        onAvatarTap: () => context.go('/coordinator/settings'),
+        avatarInitial: userName.isNotEmpty ? userName[0].toUpperCase() : 'C',
+      ),
+      body: dashboardAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error:
+            (e, _) => Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    branchName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF2D2323),
-                      letterSpacing: -0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    e.toString(),
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
                   ),
-                  Text(
-                    'Branch Coordinator',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade800,
-                      letterSpacing: 0.5,
-                    ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed:
+                        () => ref.invalidate(coordinatorDashboardDataProvider),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          NotificationBell(
-            notificationsRoute: '/coordinator/notifications',
-            iconColor: Colors.black87,
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => context.go('/coordinator/settings'),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.orange.shade100),
-              ),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                child: Text(
-                  userName.isNotEmpty ? userName[0].toUpperCase() : 'C',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: Colors.orange.shade50.withValues(alpha: 0.5),
-          ),
-        ),
-      ),
-      body: dashboardAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                e.toString(),
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () =>
-                    ref.invalidate(coordinatorDashboardDataProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-        data: (_) => RefreshIndicator(
-          onRefresh: () async =>
-              ref.invalidate(coordinatorDashboardDataProvider),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.primaryLight,
-                        AppColors.primaryLight.withValues(alpha: 0.7),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryLight.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_greeting()}, $userName!',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleLarge?.copyWith(color: Colors.white),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        branchName != '—'
-                            ? 'Overview for $branchName'
-                            : 'No branch assigned',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.event, size: 16, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text(
-                              _formatDate(DateTime.now()),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
+        data:
+            (_) => RefreshIndicator(
+              onRefresh:
+                  () async => ref.invalidate(coordinatorDashboardDataProvider),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.primaryLight,
+                            AppColors.primaryLight.withValues(alpha: 0.7),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const SizedBox(height: 24),
-                Text(
-                  'Messaging & Communication',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _CoordMessageCard(
-                        icon: Icons.chat_rounded,
-                        label: 'Chats',
-                        onTap: () => context.push('/chat'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _CoordMessageCard(
-                        icon: Icons.campaign_rounded,
-                        label: 'Broadcast',
-                        onTap: () => context.push('/coordinator/send-message'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _CoordMessageCard(
-                        icon: Icons.event_note_rounded,
-                        label: 'Leave Req',
-                        onTap: () => context.push('/coordinator/leave'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.1,
-                  children: [
-                    StatCard(
-                      icon: Icons.person,
-                      label: 'Teachers',
-                      value: '$teachersCount',
-                      trend: 'In Branch',
-                      backgroundColor: AppColors.pastelBlue,
-                      iconColor: Colors.blue.shade600,
-                    ),
-                    StatCard(
-                      icon: Icons.groups,
-                      label: 'Total Students',
-                      value: '$studentsCount',
-                      trend: 'Enrolled',
-                      backgroundColor: AppColors.pastelGreen,
-                      iconColor: Colors.green.shade600,
-                    ),
-                    StatCard(
-                      icon: Icons.how_to_reg,
-                      label: 'Attendance Today',
-                      value: '$attendanceToday',
-                      trend: studentsCount > 0
-                          ? '${(attendanceToday / studentsCount * 100).toStringAsFixed(0)}% present'
-                          : '—',
-                      trendUp:
-                          studentsCount > 0 &&
-                          attendanceToday >= studentsCount * 0.8,
-                      backgroundColor: AppColors.pastelYellow,
-                      iconColor: Colors.orange.shade600,
-                    ),
-                    StatCard(
-                      icon: Icons.class_,
-                      label: 'Classes',
-                      value: '${classes.length}',
-                      trend: 'Grades',
-                      backgroundColor: AppColors.pastelOrange,
-                      iconColor: Colors.deepOrange.shade600,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                // Enquiry Analytics Section
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardTheme.color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryLight.withValues(
+                              alpha: 0.3,
+                            ),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_greeting()}, $userName!',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(color: Colors.white),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            branchName != '—'
+                                ? 'Overview for $branchName'
+                                : 'No branch assigned',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  'New Enquiries',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: Colors.grey),
-                                ),
                                 Icon(
-                                  Icons.mail_outline,
-                                  color: Colors.blue,
-                                  size: 20,
+                                  Icons.event,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _formatDate(DateTime.now()),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              (dashboardAsync.valueOrNull?.newEnquiries ?? 0)
-                                  .toString(),
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Messaging & Communication',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _CoordMessageCard(
+                            icon: Icons.chat_rounded,
+                            label: 'Chats',
+                            onTap: () => context.push('/chat'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _CoordMessageCard(
+                            icon: Icons.campaign_rounded,
+                            label: 'Broadcast',
+                            onTap:
+                                () => context.push('/coordinator/send-message'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _CoordMessageCard(
+                            icon: Icons.event_note_rounded,
+                            label: 'Leave Req',
+                            onTap: () => context.push('/coordinator/leave'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: [
+                        StatCard(
+                          icon: Icons.person,
+                          label: 'Teachers',
+                          value: '$teachersCount',
+                          trend: 'In Branch',
+                          backgroundColor: AppColors.pastelBlue,
+                          iconColor: Colors.blue.shade600,
+                        ),
+                        StatCard(
+                          icon: Icons.groups,
+                          label: 'Total Students',
+                          value: '$studentsCount',
+                          trend: 'Enrolled',
+                          backgroundColor: AppColors.pastelGreen,
+                          iconColor: Colors.green.shade600,
+                        ),
+                        StatCard(
+                          icon: Icons.how_to_reg,
+                          label: 'Attendance Today',
+                          value: '$attendanceToday',
+                          trend:
+                              studentsCount > 0
+                                  ? '${(attendanceToday / studentsCount * 100).toStringAsFixed(0)}% present'
+                                  : '—',
+                          trendUp:
+                              studentsCount > 0 &&
+                              attendanceToday >= studentsCount * 0.8,
+                          backgroundColor: AppColors.pastelYellow,
+                          iconColor: Colors.orange.shade600,
+                        ),
+                        StatCard(
+                          icon: Icons.class_,
+                          label: 'Classes',
+                          value: '${classes.length}',
+                          trend: 'Grades',
+                          backgroundColor: AppColors.pastelOrange,
+                          iconColor: Colors.deepOrange.shade600,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Enquiry Analytics Section
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardTheme.color,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'New Enquiries',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: Colors.grey),
+                                    ),
+                                    Icon(
+                                      Icons.mail_outline,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  (dashboardAsync.valueOrNull?.newEnquiries ??
+                                          0)
+                                      .toString(),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium?.copyWith(
                                     color: Colors.blue,
                                     fontWeight: FontWeight.bold,
                                   ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardTheme.color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Converted',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: Colors.grey),
-                                ),
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  color: Colors.green,
-                                  size: 20,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              (dashboardAsync.valueOrNull?.convertedEnquiries ??
-                                      0)
-                                  .toString(),
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardTheme.color,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Converted',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: Colors.grey),
+                                    ),
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      color: Colors.green,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  (dashboardAsync
+                                              .valueOrNull
+                                              ?.convertedEnquiries ??
+                                          0)
+                                      .toString(),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium?.copyWith(
                                     color: Colors.green,
                                     fontWeight: FontWeight.bold,
                                   ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.blue.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.blue, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Enquiry conversions are handled by the admin. You can view enquiry status here.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Quick Actions',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.9,
-                  children: [
-                    _ActionTile(
-                      icon: Icons.badge,
-                      label: 'Teachers',
-                      onTap: () => context.go('/coordinator/teachers'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.face,
-                      label: 'Students',
-                      onTap: () => context.go('/coordinator/students'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.event_available,
-                      label: 'Attendance',
-                      onTap: () => context.go('/coordinator/attendance'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.people_alt,
-                      label: 'Staff Attendance',
-                      onTap: () => context.go('/coordinator/staff-attendance'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.menu_book,
-                      label: 'Syllabus',
-                      onTap: () => context.go('/coordinator/syllabus'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.play_circle_outline,
-                      label: 'Learning Modules',
-                      onTap: () => context.go('/learning-modules'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.event_note_rounded,
-                      label: 'Daily Reports',
-                      onTap: () => context.push('/coordinator/daily-report'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.school,
-                      label: 'Homework',
-                      onTap: () => context.go('/coordinator/homework'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.photo_library_outlined,
-                      label: 'Gallery',
-                      onTap: () => context.go('/coordinator/gallery'),
-                    ),
-                    _ActionTile(
-                      icon: Icons.mail_outline,
-                      label: 'Add Enquiry',
-                      onTap: () => _showEnquiryForm(context, ref),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardTheme.color,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Weekly Attendance',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
                                 ),
-                              ),
-                              Text(
-                                weeklyAttendance.isNotEmpty
-                                    ? '${(weeklyAttendance.map((e) => (e['pct'] as num?)?.toDouble() ?? 0.0).reduce((a, b) => a + b) / weeklyAttendance.length).toStringAsFixed(0)}% Average'
-                                    : '—',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              'MON - FRI',
+                              'Enquiry conversions are handled by the admin. You can view enquiry status here.',
                               style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: Colors.blue.shade700,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        height: 100,
-                        child: weeklyAttendance.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No data yet',
-                                  style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Quick Actions',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.9,
+                      children: [
+                        _ActionTile(
+                          icon: Icons.badge,
+                          label: 'Teachers',
+                          onTap: () => context.go('/coordinator/teachers'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.face,
+                          label: 'Students',
+                          onTap: () => context.go('/coordinator/students'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.event_available,
+                          label: 'Attendance',
+                          onTap: () => context.go('/coordinator/attendance'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.people_alt,
+                          label: 'Staff Attendance',
+                          onTap:
+                              () => context.go('/coordinator/staff-attendance'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.menu_book,
+                          label: 'Syllabus',
+                          onTap: () => context.go('/coordinator/syllabus'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.play_circle_outline,
+                          label: 'Learning Modules',
+                          onTap: () => context.go('/learning-modules'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.event_note_rounded,
+                          label: 'Daily Reports',
+                          onTap:
+                              () => context.push('/coordinator/daily-report'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.school,
+                          label: 'Homework',
+                          onTap: () => context.go('/coordinator/homework'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.photo_library_outlined,
+                          label: 'Gallery',
+                          onTap: () => context.go('/coordinator/gallery'),
+                        ),
+                        _ActionTile(
+                          icon: Icons.mail_outline,
+                          label: 'Add Enquiry',
+                          onTap: () => _showEnquiryForm(context, ref),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardTheme.color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Weekly Attendance',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    weeklyAttendance.isNotEmpty
+                                        ? '${(weeklyAttendance.map((e) => (e['pct'] as num?)?.toDouble() ?? 0.0).reduce((a, b) => a + b) / weeklyAttendance.length).toStringAsFixed(0)}% Average'
+                                        : '—',
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
                                 ),
-                              )
-                            : Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: weeklyAttendance.asMap().entries.map((
-                                  e,
-                                ) {
-                                  final pct =
-                                      (e.value['pct'] as num?)?.toDouble() ??
-                                      0.0;
-                                  final h = (pct / 100).clamp(0.1, 1.0);
-                                  final dayLabel =
-                                      (e.value['day'] as String?) ??
-                                      '${e.key + 1}';
-                                  return Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'MON - FRI',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: 100,
+                            child:
+                                weeklyAttendance.isEmpty
+                                    ? Center(
+                                      child: Text(
+                                        'No data yet',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                        ),
                                       ),
-                                      child: LayoutBuilder(
-                                        builder: (_, constraints) {
-                                          final barMax =
-                                              (constraints.maxHeight - 24)
-                                                  .clamp(20.0, 72.0);
-                                          return Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.end,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Container(
-                                                height: (barMax * h).clamp(
-                                                  4.0,
-                                                  barMax,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.primary
-                                                      .withValues(alpha: 0.2),
-                                                  borderRadius:
-                                                      const BorderRadius.vertical(
-                                                        top: Radius.circular(4),
-                                                      ),
-                                                ),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: AppColors.primary,
-                                                    borderRadius:
-                                                        const BorderRadius.vertical(
-                                                          top: Radius.circular(
-                                                            4,
+                                    )
+                                    : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children:
+                                          weeklyAttendance.asMap().entries.map((
+                                            e,
+                                          ) {
+                                            final pct =
+                                                (e.value['pct'] as num?)
+                                                    ?.toDouble() ??
+                                                0.0;
+                                            final h = (pct / 100).clamp(
+                                              0.1,
+                                              1.0,
+                                            );
+                                            final dayLabel =
+                                                (e.value['day'] as String?) ??
+                                                '${e.key + 1}';
+                                            return Expanded(
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                child: LayoutBuilder(
+                                                  builder: (_, constraints) {
+                                                    final barMax = (constraints
+                                                                .maxHeight -
+                                                            24)
+                                                        .clamp(20.0, 72.0);
+                                                    return Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.end,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Container(
+                                                          height: (barMax * h)
+                                                              .clamp(
+                                                                4.0,
+                                                                barMax,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color: AppColors
+                                                                .primary
+                                                                .withValues(
+                                                                  alpha: 0.2,
+                                                                ),
+                                                            borderRadius:
+                                                                const BorderRadius.vertical(
+                                                                  top:
+                                                                      Radius.circular(
+                                                                        4,
+                                                                      ),
+                                                                ),
+                                                          ),
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  AppColors
+                                                                      .primary,
+                                                              borderRadius:
+                                                                  const BorderRadius.vertical(
+                                                                    top:
+                                                                        Radius.circular(
+                                                                          4,
+                                                                        ),
+                                                                  ),
+                                                            ),
                                                           ),
                                                         ),
-                                                  ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        Text(
+                                                          dayLabel.substring(
+                                                            0,
+                                                            1,
+                                                          ),
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Colors.grey,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
                                                 ),
                                               ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                dayLabel.substring(0, 1),
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
+                                            );
+                                          }).toList(),
                                     ),
-                                  );
-                                }).toList(),
-                              ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 80),
+                  ],
                 ),
-                const SizedBox(height: 80),
-              ],
+              ),
             ),
-          ),
-        ),
       ),
     );
   }
@@ -744,7 +710,6 @@ class _CoordMessageCard extends StatelessWidget {
     );
   }
 }
-
 
 class _ActionTile extends StatelessWidget {
   final IconData icon;
@@ -836,63 +801,52 @@ class _EnquiryFormSheetState extends State<_EnquiryFormSheet> {
   }
 
   Map<String, dynamic> _toData() {
-    final (ageYears, ageMonths) = _selectedDob != null
-        ? DobPicker.calculateAge(_selectedDob!)
-        : (0, 0);
+    final (ageYears, ageMonths) =
+        _selectedDob != null ? DobPicker.calculateAge(_selectedDob!) : (0, 0);
     return {
       'child_name': _childName.text.trim(),
       'date_of_birth': _selectedDob?.toIso8601String().split('T').first,
       'age_years': _selectedDob != null ? ageYears : null,
       'age_months': _selectedDob != null ? ageMonths : null,
       'gender': _gender,
-      'father_name': _fatherName.text.trim().isEmpty
-          ? null
-          : _fatherName.text.trim(),
-      'father_occupation': _fatherOccupation.text.trim().isEmpty
-          ? null
-          : _fatherOccupation.text.trim(),
-      'father_place_of_work': _fatherPlace.text.trim().isEmpty
-          ? null
-          : _fatherPlace.text.trim(),
-      'father_email': _fatherEmail.text.trim().isEmpty
-          ? null
-          : _fatherEmail.text.trim(),
-      'father_contact_no': _fatherPhone.text.trim().isEmpty
-          ? null
-          : _fatherPhone.text.trim(),
-      'mother_name': _motherName.text.trim().isEmpty
-          ? null
-          : _motherName.text.trim(),
-      'mother_occupation': _motherOccupation.text.trim().isEmpty
-          ? null
-          : _motherOccupation.text.trim(),
-      'mother_place_of_work': _motherPlace.text.trim().isEmpty
-          ? null
-          : _motherPlace.text.trim(),
-      'mother_email': _motherEmail.text.trim().isEmpty
-          ? null
-          : _motherEmail.text.trim(),
-      'mother_contact_no': _motherPhone.text.trim().isEmpty
-          ? null
-          : _motherPhone.text.trim(),
-      'siblings_info': _siblingsInfo.text.trim().isEmpty
-          ? null
-          : _siblingsInfo.text.trim(),
-      'siblings_age': _siblingsAge.text.trim().isEmpty
-          ? null
-          : _siblingsAge.text.trim(),
-      'residential_address': _address.text.trim().isEmpty
-          ? null
-          : _address.text.trim(),
-      'residential_contact_no': _residentialPhone.text.trim().isEmpty
-          ? null
-          : _residentialPhone.text.trim(),
-      'challenges_specialities': _challenges.text.trim().isEmpty
-          ? null
-          : _challenges.text.trim(),
-      'expectations_from_school': _expectations.text.trim().isEmpty
-          ? null
-          : _expectations.text.trim(),
+      'father_name':
+          _fatherName.text.trim().isEmpty ? null : _fatherName.text.trim(),
+      'father_occupation':
+          _fatherOccupation.text.trim().isEmpty
+              ? null
+              : _fatherOccupation.text.trim(),
+      'father_place_of_work':
+          _fatherPlace.text.trim().isEmpty ? null : _fatherPlace.text.trim(),
+      'father_email':
+          _fatherEmail.text.trim().isEmpty ? null : _fatherEmail.text.trim(),
+      'father_contact_no':
+          _fatherPhone.text.trim().isEmpty ? null : _fatherPhone.text.trim(),
+      'mother_name':
+          _motherName.text.trim().isEmpty ? null : _motherName.text.trim(),
+      'mother_occupation':
+          _motherOccupation.text.trim().isEmpty
+              ? null
+              : _motherOccupation.text.trim(),
+      'mother_place_of_work':
+          _motherPlace.text.trim().isEmpty ? null : _motherPlace.text.trim(),
+      'mother_email':
+          _motherEmail.text.trim().isEmpty ? null : _motherEmail.text.trim(),
+      'mother_contact_no':
+          _motherPhone.text.trim().isEmpty ? null : _motherPhone.text.trim(),
+      'siblings_info':
+          _siblingsInfo.text.trim().isEmpty ? null : _siblingsInfo.text.trim(),
+      'siblings_age':
+          _siblingsAge.text.trim().isEmpty ? null : _siblingsAge.text.trim(),
+      'residential_address':
+          _address.text.trim().isEmpty ? null : _address.text.trim(),
+      'residential_contact_no':
+          _residentialPhone.text.trim().isEmpty
+              ? null
+              : _residentialPhone.text.trim(),
+      'challenges_specialities':
+          _challenges.text.trim().isEmpty ? null : _challenges.text.trim(),
+      'expectations_from_school':
+          _expectations.text.trim().isEmpty ? null : _expectations.text.trim(),
       'status': 'pending',
     };
   }
@@ -923,143 +877,155 @@ class _EnquiryFormSheetState extends State<_EnquiryFormSheet> {
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
       expand: false,
-      builder: (_, scrollController) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'New Enquiry',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              _section('Child', context),
-              TextField(
-                controller: _childName,
-                decoration: const InputDecoration(labelText: 'Child Name *'),
-              ),
-              DobPicker(
-                value: _selectedDob,
-                onChanged: (d) => setState(() => _selectedDob = d),
-              ),
-              DropdownButtonFormField<String>(
-                value: _gender,
-                decoration: const InputDecoration(labelText: 'Gender'),
-                items: const [
-                  DropdownMenuItem(value: 'male', child: Text('Male')),
-                  DropdownMenuItem(value: 'female', child: Text('Female')),
-                  DropdownMenuItem(value: 'other', child: Text('Other')),
+      builder:
+          (_, scrollController) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'New Enquiry',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  _section('Child', context),
+                  TextField(
+                    controller: _childName,
+                    decoration: const InputDecoration(
+                      labelText: 'Child Name *',
+                    ),
+                  ),
+                  DobPicker(
+                    value: _selectedDob,
+                    onChanged: (d) => setState(() => _selectedDob = d),
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: _gender,
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                    items: const [
+                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                      DropdownMenuItem(value: 'female', child: Text('Female')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) => setState(() => _gender = v),
+                  ),
+                  const SizedBox(height: 16),
+                  _section('Father', context),
+                  TextField(
+                    controller: _fatherName,
+                    decoration: const InputDecoration(labelText: 'Father Name'),
+                  ),
+                  TextField(
+                    controller: _fatherOccupation,
+                    decoration: const InputDecoration(labelText: 'Occupation'),
+                  ),
+                  TextField(
+                    controller: _fatherPlace,
+                    decoration: const InputDecoration(
+                      labelText: 'Place of Work',
+                    ),
+                  ),
+                  TextField(
+                    controller: _fatherEmail,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  TextField(
+                    controller: _fatherPhone,
+                    decoration: const InputDecoration(labelText: 'Contact'),
+                  ),
+                  const SizedBox(height: 16),
+                  _section('Mother', context),
+                  TextField(
+                    controller: _motherName,
+                    decoration: const InputDecoration(labelText: 'Mother Name'),
+                  ),
+                  TextField(
+                    controller: _motherOccupation,
+                    decoration: const InputDecoration(labelText: 'Occupation'),
+                  ),
+                  TextField(
+                    controller: _motherPlace,
+                    decoration: const InputDecoration(
+                      labelText: 'Place of Work',
+                    ),
+                  ),
+                  TextField(
+                    controller: _motherEmail,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  TextField(
+                    controller: _motherPhone,
+                    decoration: const InputDecoration(labelText: 'Contact'),
+                  ),
+                  const SizedBox(height: 16),
+                  _section('Siblings', context),
+                  TextField(
+                    controller: _siblingsInfo,
+                    decoration: const InputDecoration(
+                      labelText: 'Siblings Info',
+                    ),
+                    maxLines: 2,
+                  ),
+                  TextField(
+                    controller: _siblingsAge,
+                    decoration: const InputDecoration(
+                      labelText: 'Siblings Age',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _section('Address', context),
+                  TextField(
+                    controller: _address,
+                    decoration: const InputDecoration(
+                      labelText: 'Residential Address',
+                    ),
+                    maxLines: 2,
+                  ),
+                  TextField(
+                    controller: _residentialPhone,
+                    decoration: const InputDecoration(
+                      labelText: 'Residential Contact',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _section('Other', context),
+                  TextField(
+                    controller: _challenges,
+                    decoration: const InputDecoration(
+                      labelText: 'Challenges / Specialities',
+                    ),
+                    maxLines: 2,
+                  ),
+                  TextField(
+                    controller: _expectations,
+                    decoration: const InputDecoration(
+                      labelText: 'Expectations from School',
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    child:
+                        _loading
+                            ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Text('Save Enquiry'),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _gender = v),
               ),
-              const SizedBox(height: 16),
-              _section('Father', context),
-              TextField(
-                controller: _fatherName,
-                decoration: const InputDecoration(labelText: 'Father Name'),
-              ),
-              TextField(
-                controller: _fatherOccupation,
-                decoration: const InputDecoration(labelText: 'Occupation'),
-              ),
-              TextField(
-                controller: _fatherPlace,
-                decoration: const InputDecoration(labelText: 'Place of Work'),
-              ),
-              TextField(
-                controller: _fatherEmail,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: _fatherPhone,
-                decoration: const InputDecoration(labelText: 'Contact'),
-              ),
-              const SizedBox(height: 16),
-              _section('Mother', context),
-              TextField(
-                controller: _motherName,
-                decoration: const InputDecoration(labelText: 'Mother Name'),
-              ),
-              TextField(
-                controller: _motherOccupation,
-                decoration: const InputDecoration(labelText: 'Occupation'),
-              ),
-              TextField(
-                controller: _motherPlace,
-                decoration: const InputDecoration(labelText: 'Place of Work'),
-              ),
-              TextField(
-                controller: _motherEmail,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: _motherPhone,
-                decoration: const InputDecoration(labelText: 'Contact'),
-              ),
-              const SizedBox(height: 16),
-              _section('Siblings', context),
-              TextField(
-                controller: _siblingsInfo,
-                decoration: const InputDecoration(labelText: 'Siblings Info'),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _siblingsAge,
-                decoration: const InputDecoration(labelText: 'Siblings Age'),
-              ),
-              const SizedBox(height: 16),
-              _section('Address', context),
-              TextField(
-                controller: _address,
-                decoration: const InputDecoration(
-                  labelText: 'Residential Address',
-                ),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _residentialPhone,
-                decoration: const InputDecoration(
-                  labelText: 'Residential Contact',
-                ),
-              ),
-              const SizedBox(height: 16),
-              _section('Other', context),
-              TextField(
-                controller: _challenges,
-                decoration: const InputDecoration(
-                  labelText: 'Challenges / Specialities',
-                ),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _expectations,
-                decoration: const InputDecoration(
-                  labelText: 'Expectations from School',
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save Enquiry'),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 

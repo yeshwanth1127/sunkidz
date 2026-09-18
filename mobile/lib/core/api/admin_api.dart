@@ -1,4 +1,4 @@
-
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 
@@ -130,9 +130,10 @@ class AdminApi {
     final params = <String, String>{};
     if (role != null) params['role'] = role;
     if (branchId != null) params['branch_id'] = branchId;
-    final q = params.isEmpty
-        ? ''
-        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final q =
+        params.isEmpty
+            ? ''
+            : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
     final r = await _dio.get('/admin/users$q');
     return List<Map<String, dynamic>>.from(r.data as List);
   }
@@ -304,9 +305,10 @@ class AdminApi {
     final params = <String, String>{};
     if (status != null) params['status'] = status;
     if (branchId != null) params['branch_id'] = branchId;
-    final q = params.isEmpty
-        ? ''
-        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final q =
+        params.isEmpty
+            ? ''
+            : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
     final r = await _dio.get('/admin/enquiries$q');
     return List<Map<String, dynamic>>.from(r.data as List);
   }
@@ -350,12 +352,18 @@ class AdminApi {
     if (branchId != null) params['branch_id'] = branchId;
     if (classId != null) params['class_id'] = classId;
     if (search != null && search.isNotEmpty) params['search'] = search;
-    final r = await _dio.get('/admin/admissions', queryParameters: params.isEmpty ? null : params);
+    final r = await _dio.get(
+      '/admin/admissions',
+      queryParameters: params.isEmpty ? null : params,
+    );
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
   Future<List<Map<String, dynamic>>> searchStudents(String query) async {
-    final r = await _dio.get('/admin/admissions', queryParameters: {'search': query});
+    final r = await _dio.get(
+      '/admin/admissions',
+      queryParameters: {'search': query},
+    );
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
@@ -367,7 +375,10 @@ class AdminApi {
   }
 
   Future<List<Map<String, dynamic>>> searchParents(String phone) async {
-    final r = await _dio.get('/admin/parents/search', queryParameters: {'phone': phone});
+    final r = await _dio.get(
+      '/admin/parents/search',
+      queryParameters: {'phone': phone},
+    );
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
@@ -404,6 +415,29 @@ class AdminApi {
       queryParameters: {'academic_year': academicYear},
     );
     return r.data as Map<String, dynamic>;
+  }
+
+  /// Upload / replace a signature image ('parent' | 'class_teacher' |
+  /// 'principal') on the student's current marks card. Returns the server
+  /// response (`path` = stored relative path, `data` = full updated card data).
+  Future<Map<String, dynamic>> uploadMarksSignature(
+    String studentId, {
+    required String academicYear,
+    required String role,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final form = FormData.fromMap({
+      'role': role,
+      'academic_year': academicYear,
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final r = await _dio.post(
+      '/admin/marks/$studentId/signature',
+      data: form,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    return Map<String, dynamic>.from(r.data as Map);
   }
 
   // Attendance
@@ -531,7 +565,9 @@ class AdminApi {
   }
 
   // Daycare groups (admin creates groups, assigns daycare staff + students)
-  Future<List<Map<String, dynamic>>> getDaycareGroups({String? branchId}) async {
+  Future<List<Map<String, dynamic>>> getDaycareGroups({
+    String? branchId,
+  }) async {
     final q = branchId != null ? '?branch_id=$branchId' : '';
     final r = await _dio.get('/daycare/admin/groups$q');
     return List<Map<String, dynamic>>.from(r.data as List);
@@ -574,14 +610,20 @@ class AdminApi {
     await _dio.delete('/daycare/admin/groups/$id');
   }
 
-  Future<void> addStudentToDaycareGroup(String groupId, String studentId) async {
+  Future<void> addStudentToDaycareGroup(
+    String groupId,
+    String studentId,
+  ) async {
     await _dio.post(
       '/daycare/admin/groups/$groupId/students',
       data: {'student_id': studentId},
     );
   }
 
-  Future<void> removeStudentFromDaycareGroup(String groupId, String studentId) async {
+  Future<void> removeStudentFromDaycareGroup(
+    String groupId,
+    String studentId,
+  ) async {
     await _dio.delete('/daycare/admin/groups/$groupId/students/$studentId');
   }
 
@@ -629,18 +671,22 @@ class AdminApi {
     required String message,
     required String studentId,
   }) async {
-    final r = await _dio.post('/admin/messages/send', data: {
-      'title': title,
-      'message': message,
-      'target_type': 'particular_user',
-      'target_student_id': studentId,
-    });
+    final r = await _dio.post(
+      '/admin/messages/send',
+      data: {
+        'title': title,
+        'message': message,
+        'target_type': 'particular_user',
+        'target_student_id': studentId,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> createDirectAdmission(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createDirectAdmission(
+    Map<String, dynamic> data,
+  ) async {
     final r = await _dio.post('/admin/admissions/direct', data: data);
     return r.data as Map<String, dynamic>;
   }
 }
-

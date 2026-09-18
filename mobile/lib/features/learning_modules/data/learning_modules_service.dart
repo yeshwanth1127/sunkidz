@@ -160,14 +160,29 @@ class LearningModulesService {
     }
   }
 
-  Future<Map<String, dynamic>> fetchClassCalendar(String classId, {int? academicYear}) async {
+  Future<Map<String, dynamic>> fetchClassCalendar(
+    String classId, {
+    int? academicYear,
+    bool refresh = false,
+  }) async {
     try {
       final params = <String, dynamic>{'class_id': classId};
       if (academicYear != null) params['academic_year'] = academicYear;
+      if (refresh) params['refresh'] = true;
       final response = await _dio.get('/learning-modules/class-calendar', queryParameters: params);
       return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
     } catch (e) {
       throw _mapError(e, 'Failed to fetch class calendar');
+    }
+  }
+
+  /// Force the backend to re-pull the school calendar from the Google Sheet.
+  Future<Map<String, dynamic>> refreshSchoolCalendar() async {
+    try {
+      final response = await _dio.post('/learning-modules/calendar/refresh');
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      throw _mapError(e, 'Failed to refresh calendar from Google Sheet');
     }
   }
 
@@ -285,7 +300,7 @@ class LearningModulesService {
         'class_id': classId,
         'school_day': schoolDay,
         'name': name,
-        'academic_year_start': academicYearStart,
+        'academic_year_start_str': academicYearStart,
       });
       final response = await _dio.post('/learning-modules/day-folders', data: formData);
       return response.data is Map ? Map<String, dynamic>.from(response.data) : {};

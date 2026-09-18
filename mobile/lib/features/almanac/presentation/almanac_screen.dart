@@ -7,6 +7,7 @@ import '../../../core/api/teacher_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/api/almanac_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/branch_system.dart';
 import 'almanac_manage_screen.dart';
 
 class AlmanacScreen extends ConsumerStatefulWidget {
@@ -44,7 +45,7 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
             for (final cls in (b['classes'] as List? ?? [])) {
               _classes.add({
                 'id': cls['id'],
-                'name': cls['name'],
+                'name': canonicalGradeLabel(cls['name']?.toString()),
               });
             }
           }
@@ -56,7 +57,10 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
           _branchId = dash['branch_id']?.toString();
           _branchName = dash['branch_name']?.toString() ?? '';
           for (final cls in (dash['classes'] as List? ?? [])) {
-            _classes.add({'id': cls['id'], 'name': cls['name']});
+            _classes.add({
+              'id': cls['id'],
+              'name': canonicalGradeLabel(cls['name']?.toString()),
+            });
           }
         }
       } else if (auth.role == UserRole.teacher) {
@@ -68,7 +72,10 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
             _branchName = assigned.first['branch_name']?.toString() ?? '';
             _classId = assigned.first['class_id']?.toString();
             for (final c in assigned) {
-              _classes.add({'id': c['class_id'], 'name': c['class_name']});
+              _classes.add({
+                'id': c['class_id'],
+                'name': canonicalGradeLabel(c['class_name']?.toString()),
+              });
             }
           } else {
             final dash = await api.getDashboard();
@@ -91,6 +98,7 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
       }
     } catch (_) {}
 
+    _classes = sortByCanonicalGrade(_classes, (c) => c['name'] as String?);
     if (_branchId != null) await _loadCalendar();
     if (mounted) setState(() => _loading = false);
   }
@@ -123,7 +131,9 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Almanac${_branchName.isNotEmpty ? ' — $_branchName' : ''}'),
+        title: Text(
+          'Almanac${_branchName.isNotEmpty ? ' — $_branchName' : ''}',
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -134,10 +144,11 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AlmanacManageScreen(
-                      branchId: _branchId!,
-                      branchName: _branchName,
-                    ),
+                    builder:
+                        (_) => AlmanacManageScreen(
+                          branchId: _branchId!,
+                          branchName: _branchName,
+                        ),
                   ),
                 );
                 _loadCalendar();
@@ -152,13 +163,20 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
               padding: const EdgeInsets.all(16),
               child: DropdownButtonFormField<String>(
                 initialValue: _classId,
-                decoration: const InputDecoration(labelText: 'Class (optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Class (optional)',
+                ),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('All classes')),
-                  ..._classes.map((c) => DropdownMenuItem(
-                        value: c['id'] as String,
-                        child: Text(c['name'] as String? ?? ''),
-                      )),
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('All classes'),
+                  ),
+                  ..._classes.map(
+                    (c) => DropdownMenuItem(
+                      value: c['id'] as String,
+                      child: Text(c['name'] as String? ?? ''),
+                    ),
+                  ),
                 ],
                 onChanged: (v) {
                   setState(() => _classId = v);
@@ -167,96 +185,121 @@ class _AlmanacScreenState extends ConsumerState<AlmanacScreen> {
               ),
             ),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _days.length,
-                    itemBuilder: (_, i) {
-                      final d = _days[i];
-                      final events = (d['events'] as List?) ?? [];
-                      final holidays = (d['holidays'] as List?) ?? [];
-                      final syllabusCount = d['syllabus_count'] as int? ?? 0;
-                      return Card(
-                        child: ExpansionTile(
-                          title: Text('Day ${d['day']} — ${d['date']}'),
-                          subtitle: Text(
-                            [
-                              if (holidays.isNotEmpty) '${holidays.length} holiday(s)',
-                              if (events.isNotEmpty) '${events.length} event(s)',
-                              if (syllabusCount > 0) '$syllabusCount syllabus',
-                            ].join(' · '),
+            child:
+                _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _days.length,
+                      itemBuilder: (_, i) {
+                        final d = _days[i];
+                        final events = (d['events'] as List?) ?? [];
+                        final holidays = (d['holidays'] as List?) ?? [];
+                        final syllabusCount = d['syllabus_count'] as int? ?? 0;
+                        return Card(
+                          child: ExpansionTile(
+                            title: Text('Day ${d['day']} — ${d['date']}'),
+                            subtitle: Text(
+                              [
+                                if (holidays.isNotEmpty)
+                                  '${holidays.length} holiday(s)',
+                                if (events.isNotEmpty)
+                                  '${events.length} event(s)',
+                                if (syllabusCount > 0)
+                                  '$syllabusCount syllabus',
+                              ].join(' · '),
+                            ),
+                            children: [
+                              if (holidays.isNotEmpty)
+                                ...holidays.map((h) {
+                                  final m = h as Map<String, dynamic>;
+                                  final isGlobal = m['is_global'] == true;
+                                  final scope =
+                                      isGlobal
+                                          ? 'All branches'
+                                          : (m['branch_name']?.toString() ??
+                                              _branchName);
+                                  return ListTile(
+                                    leading: Icon(
+                                      Icons.beach_access,
+                                      color:
+                                          isGlobal ? Colors.red : Colors.orange,
+                                    ),
+                                    title: Text(
+                                      m['reason']?.toString() ?? 'Holiday',
+                                    ),
+                                    subtitle: Text(scope),
+                                    trailing:
+                                        isGlobal
+                                            ? const Chip(
+                                              label: Text(
+                                                'All',
+                                                style: TextStyle(fontSize: 10),
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                            )
+                                            : null,
+                                  );
+                                }),
+                              if (events.isNotEmpty)
+                                ...events.map((e) {
+                                  final m = e as Map<String, dynamic>;
+                                  final isGlobal = m['is_global'] == true;
+                                  final cls =
+                                      m['class_name'] != null
+                                          ? canonicalGradeLabel(
+                                            m['class_name']?.toString(),
+                                          )
+                                          : null;
+                                  final br = m['branch_name']?.toString();
+                                  final scope =
+                                      isGlobal
+                                          ? 'Broadcast · All branches'
+                                          : [
+                                            if (br != null && br.isNotEmpty) br,
+                                            if (cls != null && cls.isNotEmpty)
+                                              cls,
+                                          ].join(' · ');
+                                  return ListTile(
+                                    leading: Icon(
+                                      isGlobal ? Icons.campaign : Icons.event,
+                                      color:
+                                          isGlobal
+                                              ? Colors.deepPurple
+                                              : AppColors.primary,
+                                    ),
+                                    title: Text(m['title']?.toString() ?? ''),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (scope.isNotEmpty)
+                                          Text(
+                                            scope,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        if (m['description'] != null)
+                                          Text(m['description'].toString()),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              if (syllabusCount > 0)
+                                ListTile(
+                                  leading: const Icon(Icons.menu_book),
+                                  title: Text(
+                                    '$syllabusCount syllabus item(s)',
+                                  ),
+                                ),
+                            ],
                           ),
-                          children: [
-                            if (holidays.isNotEmpty)
-                              ...holidays.map((h) {
-                                final m = h as Map<String, dynamic>;
-                                final isGlobal = m['is_global'] == true;
-                                final scope = isGlobal
-                                    ? 'All branches'
-                                    : (m['branch_name']?.toString() ??
-                                        _branchName);
-                                return ListTile(
-                                  leading: Icon(
-                                    Icons.beach_access,
-                                    color: isGlobal ? Colors.red : Colors.orange,
-                                  ),
-                                  title: Text(m['reason']?.toString() ?? 'Holiday'),
-                                  subtitle: Text(scope),
-                                  trailing: isGlobal
-                                      ? const Chip(
-                                          label: Text('All',
-                                              style: TextStyle(fontSize: 10)),
-                                          padding: EdgeInsets.zero,
-                                          visualDensity: VisualDensity.compact,
-                                        )
-                                      : null,
-                                );
-                              }),
-                            if (events.isNotEmpty)
-                              ...events.map((e) {
-                                final m = e as Map<String, dynamic>;
-                                final isGlobal = m['is_global'] == true;
-                                final cls = m['class_name']?.toString();
-                                final br = m['branch_name']?.toString();
-                                final scope = isGlobal
-                                    ? 'Broadcast · All branches'
-                                    : [
-                                        if (br != null && br.isNotEmpty) br,
-                                        if (cls != null && cls.isNotEmpty) cls,
-                                      ].join(' · ');
-                                return ListTile(
-                                  leading: Icon(
-                                    isGlobal
-                                        ? Icons.campaign
-                                        : Icons.event,
-                                    color: isGlobal
-                                        ? Colors.deepPurple
-                                        : AppColors.primary,
-                                  ),
-                                  title: Text(m['title']?.toString() ?? ''),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (scope.isNotEmpty)
-                                        Text(scope,
-                                            style: const TextStyle(fontSize: 12)),
-                                      if (m['description'] != null)
-                                        Text(m['description'].toString()),
-                                    ],
-                                  ),
-                                );
-                              }),
-                            if (syllabusCount > 0)
-                              ListTile(
-                                leading: const Icon(Icons.menu_book),
-                                title: Text('$syllabusCount syllabus item(s)'),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
           ),
         ],
       ),

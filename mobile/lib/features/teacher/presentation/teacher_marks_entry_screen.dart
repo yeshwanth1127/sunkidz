@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/teacher_provider.dart';
+import '../../../core/config/api_config.dart';
 import '../../../shared/widgets/marks_card_form.dart';
 
 class TeacherMarksEntryScreen extends ConsumerStatefulWidget {
@@ -10,10 +13,12 @@ class TeacherMarksEntryScreen extends ConsumerStatefulWidget {
   const TeacherMarksEntryScreen({super.key, required this.studentId});
 
   @override
-  ConsumerState<TeacherMarksEntryScreen> createState() => _TeacherMarksEntryScreenState();
+  ConsumerState<TeacherMarksEntryScreen> createState() =>
+      _TeacherMarksEntryScreenState();
 }
 
-class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScreen> {
+class _TeacherMarksEntryScreenState
+    extends ConsumerState<TeacherMarksEntryScreen> {
   Map<String, dynamic>? _student;
   Map<String, dynamic> _data = {};
   String _academicYear = '2026-27';
@@ -40,27 +45,72 @@ class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScree
     });
     try {
       final student = await api.getStudent(widget.studentId);
-      final marks = await api.getMarks(widget.studentId, academicYear: _academicYear);
-      if (mounted) setState(() {
-        _student = student;
-        _data = Map<String, dynamic>.from(marks['data'] as Map? ?? {});
-        _sentToParentAt = marks['sent_to_parent_at'] as String?;
-        _loading = false;
-      });
+      final marks = await api.getMarks(
+        widget.studentId,
+        academicYear: _academicYear,
+      );
+      if (mounted)
+        setState(() {
+          _student = student;
+          _data = Map<String, dynamic>.from(marks['data'] as Map? ?? {});
+          _sentToParentAt = marks['sent_to_parent_at'] as String?;
+          _loading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _loading = false;
-      });
+      if (mounted)
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
+        });
     }
   }
 
   Future<void> _save(Map<String, dynamic> data) async {
-    await ref.read(teacherApiProvider)!.upsertMarks(
-          widget.studentId,
-          academicYear: _academicYear,
-          data: data,
+    await ref
+        .read(teacherApiProvider)!
+        .upsertMarks(widget.studentId, academicYear: _academicYear, data: data);
+  }
+
+  Future<String?> _uploadSignature(
+    String role,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final api = ref.read(teacherApiProvider);
+    if (api == null) return null;
+    if (_data.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Save the marks card before adding a signature'),
+          ),
         );
+      }
+      return null;
+    }
+    try {
+      final res = await api.uploadMarksSignature(
+        widget.studentId,
+        academicYear: _academicYear,
+        role: role,
+        bytes: bytes,
+        filename: filename,
+      );
+      final d = res['data'];
+      if (d is Map) _data = Map<String, dynamic>.from(d);
+      return res['path'] as String?;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
+          ),
+        );
+      }
+      return null;
+    }
   }
 
   @override
@@ -81,28 +131,56 @@ class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScree
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Chip(
-                avatar: Icon(Icons.check_circle, size: 16, color: Colors.green.shade700),
-                label: Text('Sent', style: TextStyle(fontSize: 12, color: Colors.green.shade700)),
+                avatar: Icon(
+                  Icons.check_circle,
+                  size: 16,
+                  color: Colors.green.shade700,
+                ),
+                label: Text(
+                  'Sent',
+                  style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+                ),
               ),
             ),
           TextButton.icon(
-            onPressed: _sendingToParent ? null : () async {
-              setState(() => _sendingToParent = true);
-              try {
-                await ref.read(teacherApiProvider)!.sendMarksToParent(widget.studentId, academicYear: _academicYear);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marks card sent to parent')));
-                  setState(() => _sendingToParent = false);
-                  _load();
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  setState(() => _sendingToParent = false);
-                }
-              }
-            },
-            icon: _sendingToParent ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send, size: 18),
+            onPressed:
+                _sendingToParent
+                    ? null
+                    : () async {
+                      setState(() => _sendingToParent = true);
+                      try {
+                        await ref
+                            .read(teacherApiProvider)!
+                            .sendMarksToParent(
+                              widget.studentId,
+                              academicYear: _academicYear,
+                            );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Marks card sent to parent'),
+                            ),
+                          );
+                          setState(() => _sendingToParent = false);
+                          _load();
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          setState(() => _sendingToParent = false);
+                        }
+                      }
+                    },
+            icon:
+                _sendingToParent
+                    ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.send, size: 18),
             label: Text(_sendingToParent ? 'Sending...' : 'Send to Parent'),
           ),
           DropdownButton<String>(
@@ -120,31 +198,43 @@ class _TeacherMarksEntryScreenState extends ConsumerState<TeacherMarksEntryScree
           const SizedBox(width: 8),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      FilledButton(onPressed: _load, child: const Text('Retry')),
-                    ],
-                  ),
-                )
-              : _student == null
-                  ? const Center(child: Text('Student not found'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: MarksCardForm(
-                        student: _student!,
-                        academicYear: _academicYear,
-                        initialData: _data,
-                        onSave: _save,
-                        error: _error,
-                      ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 16),
+                    FilledButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+              )
+              : _student == null
+              ? const Center(child: Text('Student not found'))
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: MarksCardForm(
+                  student: _student!,
+                  academicYear: _academicYear,
+                  initialData: _data,
+                  onSave: _save,
+                  error: _error,
+                  onUploadSignature: _uploadSignature,
+                  signatureUploadRoles: const {
+                    'parent',
+                    'class_teacher',
+                    'principal',
+                  },
+                  signatureBaseUrl: ApiConfig.baseUrl,
+                ),
+              ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../../core/api/coordinator_provider.dart';
 import '../../../core/api/teacher_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/utils/branch_system.dart';
 import '../data/learning_modules_provider.dart';
 
 const _kAllClasses = '__all__';
@@ -16,11 +17,14 @@ class ClassLearningCalendarScreen extends ConsumerStatefulWidget {
   const ClassLearningCalendarScreen({super.key});
 
   @override
-  ConsumerState<ClassLearningCalendarScreen> createState() => _ClassLearningCalendarScreenState();
+  ConsumerState<ClassLearningCalendarScreen> createState() =>
+      _ClassLearningCalendarScreenState();
 }
 
-class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalendarScreen> {
+class _ClassLearningCalendarScreenState
+    extends ConsumerState<ClassLearningCalendarScreen> {
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _error;
 
   List<Map<String, dynamic>> _branches = [];
@@ -49,7 +53,10 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
       if (auth.role == UserRole.admin) {
         final api = ref.read(adminApiProvider);
         if (api == null) {
-          setState(() { _isLoading = false; _error = 'Not authenticated'; });
+          setState(() {
+            _isLoading = false;
+            _error = 'Not authenticated';
+          });
           return;
         }
         final branches = await api.getBranches();
@@ -62,47 +69,76 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
           for (final cls in (b['classes'] as List? ?? [])) {
             allClasses.add({
               'id': cls['id']?.toString(),
-              'name': cls['name']?.toString() ?? '',
+              'name': canonicalGradeLabel(cls['name']?.toString()),
               'branch_id': bId,
               'branch_name': bName,
             });
           }
         }
-        final firstBranchId = branchList.isNotEmpty ? branchList.first['id'] as String? : null;
-        final filteredClasses = allClasses.where((c) => c['branch_id'] == firstBranchId).toList();
+        final sortedAllClasses = sortByCanonicalGrade(
+          allClasses,
+          (c) => c['name'] as String?,
+        );
+        final firstBranchId =
+            branchList.isNotEmpty ? branchList.first['id'] as String? : null;
+        final filteredClasses =
+            sortedAllClasses
+                .where((c) => c['branch_id'] == firstBranchId)
+                .toList();
         setState(() {
           _branches = branchList;
-          _allClasses = allClasses;
+          _allClasses = sortedAllClasses;
           _selectedBranchId = firstBranchId;
           _classes = filteredClasses;
-          _selectedClassId = filteredClasses.isNotEmpty ? filteredClasses.first['id']?.toString() : null;
+          _selectedClassId =
+              filteredClasses.isNotEmpty
+                  ? filteredClasses.first['id']?.toString()
+                  : null;
         });
       } else if (auth.role == UserRole.coordinator) {
         final api = ref.read(coordinatorApiProvider);
         if (api == null) {
-          setState(() { _isLoading = false; _error = 'Not authenticated'; });
+          setState(() {
+            _isLoading = false;
+            _error = 'Not authenticated';
+          });
           return;
         }
         final dashboard = await api.getDashboard();
         final branchName = dashboard['branch_name'] ?? '';
         final classes = <Map<String, dynamic>>[];
         for (final cls in (dashboard['classes'] as List? ?? [])) {
-          classes.add({'id': cls['id']?.toString(), 'name': cls['name']?.toString() ?? '', 'branch_name': branchName});
+          classes.add({
+            'id': cls['id']?.toString(),
+            'name': canonicalGradeLabel(cls['name']?.toString()),
+            'branch_name': branchName,
+          });
         }
+        final sortedClasses = sortByCanonicalGrade(
+          classes,
+          (c) => c['name'] as String?,
+        );
         setState(() {
-          _classes = classes;
-          _selectedClassId = classes.isNotEmpty ? classes.first['id']?.toString() : null;
+          _classes = sortedClasses;
+          _selectedClassId =
+              sortedClasses.isNotEmpty
+                  ? sortedClasses.first['id']?.toString()
+                  : null;
         });
       } else if (auth.role == UserRole.teacher) {
         final api = ref.read(teacherApiProvider);
         if (api != null) {
           final dashboard = await api.getDashboard();
           final classId = dashboard['class_id']?.toString();
-          final className = dashboard['class_name']?.toString() ?? '';
+          final className = canonicalGradeLabel(
+            dashboard['class_name']?.toString(),
+          );
           final branchName = dashboard['branch_name']?.toString() ?? '';
           if (classId != null) {
             setState(() {
-              _classes = [{'id': classId, 'name': '$className – $branchName'}];
+              _classes = [
+                {'id': classId, 'name': '$className – $branchName'},
+              ];
               _selectedClassId = classId;
             });
           }
@@ -116,23 +152,42 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
           for (final child in (data['children'] as List? ?? [])) {
             final classId = child['class_id']?.toString();
             if (classId != null && seen.add(classId)) {
-              final className = child['class_name']?.toString() ?? '';
+              final className = canonicalGradeLabel(
+                child['class_name']?.toString(),
+              );
               final branchName = child['branch_name']?.toString() ?? '';
-              classes.add({'id': classId, 'name': '$className – $branchName'});
+              classes.add({
+                'id': classId,
+                'name': '$className – $branchName',
+                'grade': className,
+              });
             }
           }
+          final sortedClasses = sortByCanonicalGrade(
+            classes,
+            (c) => c['grade'] as String?,
+          );
           setState(() {
-            _classes = classes;
-            _selectedClassId = classes.isNotEmpty ? classes.first['id']?.toString() : null;
+            _classes = sortedClasses;
+            _selectedClassId =
+                sortedClasses.isNotEmpty
+                    ? sortedClasses.first['id']?.toString()
+                    : null;
           });
         }
       } else {
-        setState(() { _isLoading = false; _error = 'Not authorized'; });
+        setState(() {
+          _isLoading = false;
+          _error = 'Not authorized';
+        });
         return;
       }
       if (_selectedClassId != null) await _loadCalendar();
     } catch (e) {
-      setState(() { _error = e.toString(); _isLoading = false; });
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
     }
   }
 
@@ -148,8 +203,10 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
       _loadCalendar();
       return;
     }
-    final filtered = _allClasses.where((c) => c['branch_id'] == branchId).toList();
-    final firstClassId = filtered.isNotEmpty ? filtered.first['id']?.toString() : null;
+    final filtered =
+        _allClasses.where((c) => c['branch_id'] == branchId).toList();
+    final firstClassId =
+        filtered.isNotEmpty ? filtered.first['id']?.toString() : null;
     setState(() {
       _selectedBranchId = branchId;
       _classes = filtered;
@@ -160,18 +217,49 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
     if (firstClassId != null) _loadCalendar();
   }
 
+  Future<void> _refreshFromSheet() async {
+    final service = ref.read(learningModulesServiceProvider);
+    if (service == null) return;
+    setState(() => _isRefreshing = true);
+    try {
+      await service.refreshSchoolCalendar();
+      await _loadCalendar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Calendar synced from Google Sheet')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
   Future<void> _loadCalendar() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final service = ref.read(learningModulesServiceProvider);
       if (service == null) throw Exception('Not authenticated');
 
       // For "All Classes" mode, use first real class to get the date mapping
-      final fetchClassId = _isAllClasses
-          ? (_classes.isNotEmpty ? _classes.first['id']?.toString() : null)
-          : _selectedClassId;
+      final fetchClassId =
+          _isAllClasses
+              ? (_classes.isNotEmpty ? _classes.first['id']?.toString() : null)
+              : _selectedClassId;
       if (fetchClassId == null) {
-        setState(() { _isLoading = false; _days = []; _videoByDay = {}; });
+        setState(() {
+          _isLoading = false;
+          _days = [];
+          _videoByDay = {};
+        });
         return;
       }
 
@@ -181,19 +269,28 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
 
       if (!_isAllClasses) {
         for (final d in days) {
+          final day = d['day'] as int?;
           final vids = (d['videos'] as List?) ?? [];
-          if (vids.isNotEmpty) {
-            byDay[d['day'] as int] = vids.map((v) => Map<String, dynamic>.from(v as Map)).toList();
+          if (day != null && vids.isNotEmpty) {
+            byDay[day] =
+                vids.map((v) => Map<String, dynamic>.from(v as Map)).toList();
           }
         }
       }
       // In all-classes mode, show grid with no video status (all grey)
 
-      setState(() { _days = days; _videoByDay = byDay; });
+      setState(() {
+        _days = days;
+        _videoByDay = byDay;
+      });
     } catch (e) {
-      setState(() { _error = e.toString(); });
+      setState(() {
+        _error = e.toString();
+      });
     } finally {
-      setState(() { _isLoading = false; });
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -212,9 +309,26 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
   void _tapDay(int dayIndex) {
     if (!_isAdmin && _isAllClasses) return;
     final dayData = _days[dayIndex];
-    final dayNum = dayData['day'] as int;
+    final dayNum = dayData['day'] as int?;
     final date = dayData['date'] as String? ?? '';
     final ayStart = _academicYearStartFromDate(date);
+
+    // Non-working day (weekend / holiday): no Learning Day number, nothing to
+    // upload against. Show what the school calendar says instead.
+    if (dayNum == null) {
+      final label = (dayData['label'] as String?)?.trim();
+      final weekday = dayData['weekday'] as String? ?? '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            label != null && label.isNotEmpty
+                ? '$weekday ${_shortDate(date)} — $label (non-working day)'
+                : '$weekday ${_shortDate(date)} — weekend / holiday',
+          ),
+        ),
+      );
+      return;
+    }
 
     if (_isAllClasses) {
       showModalBottomSheet(
@@ -224,14 +338,15 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        builder: (_) => _AllBranchesDaySheet(
-          day: dayNum,
-          date: date,
-          academicYearStart: ayStart,
-          classes: _classes,
-          isAdmin: _isAdmin,
-          isAllBranches: _isAllBranches,
-        ),
+        builder:
+            (_) => _AllBranchesDaySheet(
+              day: dayNum,
+              date: date,
+              academicYearStart: ayStart,
+              classes: _classes,
+              isAdmin: _isAdmin,
+              isAllBranches: _isAllBranches,
+            ),
       );
       return;
     }
@@ -247,27 +362,50 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
   String _shortDate(String raw) {
     try {
       final d = DateTime.parse(raw);
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return '${months[d.month - 1]} ${d.day}';
-    } catch (_) { return ''; }
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${months[d.month - 1]} ${d.day}, ${d.year}';
+    } catch (_) {
+      return '';
+    }
   }
 
   List<DropdownMenuItem<String>> _classDropdownItems() {
     final items = <DropdownMenuItem<String>>[];
     if (_isAdmin) {
-      items.add(const DropdownMenuItem(
-        value: _kAllClasses,
-        child: Text('All Classes', style: TextStyle(fontWeight: FontWeight.bold)),
-      ));
+      items.add(
+        const DropdownMenuItem(
+          value: _kAllClasses,
+          child: Text(
+            'All Classes',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
     }
     for (final c in _classes) {
-      final label = _isAllBranches
-          ? '${c['branch_name']} – ${c['name']}'
-          : (c['name']?.toString() ?? '');
-      items.add(DropdownMenuItem(
-        value: c['id']?.toString(),
-        child: Text(label, overflow: TextOverflow.ellipsis),
-      ));
+      final label =
+          _isAllBranches
+              ? '${c['branch_name']} – ${c['name']}'
+              : (c['name']?.toString() ?? '');
+      items.add(
+        DropdownMenuItem(
+          value: c['id']?.toString(),
+          child: Text(label, overflow: TextOverflow.ellipsis),
+        ),
+      );
     }
     return items;
   }
@@ -286,9 +424,30 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
         ),
         title: const Text(
           'Learning Modules',
-          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 18),
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
         centerTitle: true,
+        actions: [
+          if (_isAdmin)
+            IconButton(
+              icon: _isRefreshing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.orange,
+                      ),
+                    )
+                  : const Icon(Icons.sync, color: Colors.black87),
+              tooltip: 'Sync calendar from Google Sheet',
+              onPressed: _isRefreshing ? null : _refreshFromSheet,
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -308,17 +467,28 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
                       filled: true,
                       fillColor: Colors.white,
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: [
                       const DropdownMenuItem<String>(
                         value: _kAllBranches,
-                        child: Text('All Branches', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: Text(
+                          'All Branches',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      ..._branches.map((b) => DropdownMenuItem<String>(
-                        value: b['id']?.toString(),
-                        child: Text(b['name']?.toString() ?? '', overflow: TextOverflow.ellipsis),
-                      )),
+                      ..._branches.map(
+                        (b) => DropdownMenuItem<String>(
+                          value: b['id']?.toString(),
+                          child: Text(
+                            b['name']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
                     ],
                     onChanged: _isLoading ? null : _onBranchChanged,
                   ),
@@ -334,18 +504,31 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
                       filled: true,
                       fillColor: Colors.white,
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: _classDropdownItems(),
-                    onChanged: _isLoading ? null : (v) {
-                      setState(() { _selectedClassId = v; _videoByDay = {}; _days = []; });
-                      _loadCalendar();
-                    },
+                    onChanged:
+                        _isLoading
+                            ? null
+                            : (v) {
+                              setState(() {
+                                _selectedClassId = v;
+                                _videoByDay = {};
+                                _days = [];
+                              });
+                              _loadCalendar();
+                            },
                   ),
                 const SizedBox(height: 8),
                 if (_isAllClasses)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
@@ -353,36 +536,61 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, size: 14, color: Colors.orange.shade700),
+                        Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: Colors.orange.shade700,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             _isAllBranches
                                 ? 'Tap any day to upload a video to all classes in ALL branches'
                                 : 'Tap any day to upload a video to all classes in this branch',
-                            style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.orange.shade800,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   )
                 else
-                  Row(
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 4,
                     children: [
-                      _Legend(color: Colors.orange.shade400, label: 'Video uploaded'),
-                      const SizedBox(width: 16),
-                      _Legend(color: Colors.grey.shade300, label: 'No video'),
+                      _Legend(
+                        color: Colors.orange.shade400,
+                        label: 'Video uploaded',
+                      ),
+                      _Legend(color: Colors.grey.shade300, label: 'Working day'),
+                      _Legend(
+                        color: const Color(0xFFEDE7DF),
+                        label: 'Weekend / holiday',
+                      ),
                     ],
                   ),
               ],
             ),
           ),
           if (_isLoading)
-            const Expanded(child: Center(child: CircularProgressIndicator(color: Colors.orange)))
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              ),
+            )
           else if (_error != null)
-            Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
+            Expanded(
+              child: Center(
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            )
           else if (_days.isEmpty)
-            const Expanded(child: Center(child: Text('Select a class to view calendar')))
+            const Expanded(
+              child: Center(child: Text('Select a class to view calendar')),
+            )
           else
             Expanded(
               child: GridView.builder(
@@ -395,41 +603,79 @@ class _ClassLearningCalendarScreenState extends ConsumerState<ClassLearningCalen
                 ),
                 itemCount: _days.length,
                 itemBuilder: (context, index) {
-                  final dayNum = _days[index]['day'] as int;
-                  final dateStr = _days[index]['date'] as String? ?? '';
-                  final hasVideo = !_isAllClasses && _videoByDay.containsKey(dayNum);
+                  final row = _days[index];
+                  final dayNum = row['day'] as int?;
+                  final dateStr = row['date'] as String? ?? '';
+                  // Backend flags weekends/holidays; older responses without the
+                  // field fall back to "has a day number".
+                  final isWorking =
+                      row['is_working_day'] as bool? ?? (dayNum != null);
+                  final hasVideo = !_isAllClasses &&
+                      dayNum != null &&
+                      _videoByDay.containsKey(dayNum);
+                  final label = (row['label'] as String?)?.trim() ?? '';
+
+                  final Color bg;
+                  final Color fg;
+                  if (_isAllClasses) {
+                    bg = Colors.blue.shade50;
+                    fg = Colors.blue.shade700;
+                  } else if (!isWorking) {
+                    bg = const Color(0xFFEDE7DF); // muted sand = non-working
+                    fg = Colors.brown.shade300;
+                  } else if (hasVideo) {
+                    bg = Colors.orange.shade400;
+                    fg = Colors.white;
+                  } else {
+                    bg = Colors.grey.shade200;
+                    fg = Colors.grey.shade700;
+                  }
+
                   return GestureDetector(
                     onTap: () => _tapDay(index),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: _isAllClasses
-                            ? Colors.blue.shade50
-                            : (hasVideo ? Colors.orange.shade400 : Colors.grey.shade200),
+                        color: bg,
                         borderRadius: BorderRadius.circular(7),
+                        border: !isWorking && !_isAllClasses
+                            ? Border.all(color: Colors.brown.shade100)
+                            : null,
                       ),
                       alignment: Alignment.center,
+                      padding: const EdgeInsets.all(2),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '$dayNum',
+                            isWorking ? '${dayNum ?? ''}' : '—',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: _isAllClasses
-                                  ? Colors.blue.shade700
-                                  : (hasVideo ? Colors.white : Colors.grey.shade700),
+                              color: fg,
                             ),
                           ),
                           Text(
                             _shortDate(dateStr),
                             style: TextStyle(
                               fontSize: 8,
-                              color: _isAllClasses
-                                  ? Colors.blue.shade400
-                                  : (hasVideo ? Colors.white70 : Colors.grey.shade500),
+                              color: fg.withValues(alpha: 0.75),
                             ),
                           ),
+                          if (!isWorking && label.isNotEmpty && !_isAllClasses)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 1),
+                              child: Text(
+                                label,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 6.5,
+                                  height: 1.1,
+                                  color: Colors.brown.shade400,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -452,9 +698,19 @@ class _Legend extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(width: 14, height: 14, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Colors.black54),
+        ),
       ],
     );
   }
@@ -480,7 +736,8 @@ class _AllBranchesDaySheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_AllBranchesDaySheet> createState() => _AllBranchesDaySheetState();
+  ConsumerState<_AllBranchesDaySheet> createState() =>
+      _AllBranchesDaySheetState();
 }
 
 class _AllBranchesDaySheetState extends ConsumerState<_AllBranchesDaySheet> {
@@ -495,7 +752,10 @@ class _AllBranchesDaySheetState extends ConsumerState<_AllBranchesDaySheet> {
   }
 
   Future<void> _loadAll() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final service = ref.read(learningModulesServiceProvider);
       if (service == null) throw Exception('Not authenticated');
@@ -503,7 +763,9 @@ class _AllBranchesDaySheetState extends ConsumerState<_AllBranchesDaySheet> {
         widget.classes.map((c) async {
           try {
             final folders = await service.getDayFolders(
-              c['id'] as String, widget.day, widget.academicYearStart,
+              c['id'] as String,
+              widget.day,
+              widget.academicYearStart,
             );
             return MapEntry(c['id'] as String, folders);
           } catch (_) {
@@ -533,127 +795,224 @@ class _AllBranchesDaySheetState extends ConsumerState<_AllBranchesDaySheet> {
     if (service == null) return;
     setState(() => _loading = true);
     try {
-      await Future.wait(widget.classes.map((c) => service.createDayFolder(
-        c['id'] as String, widget.day, name, widget.academicYearStart,
-      )));
+      await Future.wait(
+        widget.classes.map(
+          (c) => service.createDayFolder(
+            c['id'] as String,
+            widget.day,
+            name,
+            widget.academicYearStart,
+          ),
+        ),
+      );
       await _loadAll();
     } catch (e) {
-      setState(() { _loading = false; _error = e.toString(); });
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
     }
   }
 
   String _formatDate(String raw) {
     try {
       final d = DateTime.parse(raw);
-      const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const mo = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${mo[d.month - 1]} ${d.day}, ${d.year}';
-    } catch (_) { return raw; }
+    } catch (_) {
+      return raw;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final grouped = _groupByGrade();
     final accent = widget.isAllBranches ? Colors.deepPurple : Colors.blue;
-    final label  = widget.isAllBranches ? 'All Branches' : 'All Classes';
+    final label = widget.isAllBranches ? 'All Branches' : 'All Classes';
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       minChildSize: 0.4,
       maxChildSize: 0.95,
       expand: false,
-      builder: (_, scrollCtrl) => Column(
-        children: [
-          Center(
-            child: Container(
-              width: 40, height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(color: accent.shade100, borderRadius: BorderRadius.circular(10)),
-                  alignment: Alignment.center,
-                  child: Text('${widget.day}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: accent.shade800)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Day ${widget.day}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text(_formatDate(widget.date), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                      Text(label, style: TextStyle(fontSize: 11, color: accent.shade600, fontWeight: FontWeight.w500)),
-                    ],
+      builder:
+          (_, scrollCtrl) => Column(
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                ),
-                if (widget.isAdmin)
-                  IconButton(
-                    icon: Icon(Icons.create_new_folder_outlined, color: accent.shade600),
-                    tooltip: 'Add subject to all grades',
-                    onPressed: () async {
-                      final ctrl = TextEditingController();
-                      final name = await showDialog<String>(
-                        context: context,
-                        builder: (dctx) => AlertDialog(
-                          title: const Text('Add Subject', style: TextStyle(fontWeight: FontWeight.bold)),
-                          content: TextField(
-                            controller: ctrl,
-                            autofocus: true,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(
-                              labelText: 'Subject name',
-                              hintText: 'e.g. Maths, Science',
-                              border: OutlineInputBorder(),
-                            ),
-                            onSubmitted: (v) => Navigator.pop(dctx, v.trim()),
-                          ),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
-                            FilledButton(
-                              onPressed: () => Navigator.pop(dctx, ctrl.text.trim()),
-                              style: FilledButton.styleFrom(backgroundColor: accent),
-                              child: const Text('Create'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (name != null && name.isNotEmpty) await _addSubjectToAll(name);
-                    },
-                  ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator(color: Colors.orange)))
-          else if (_error != null)
-            Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))))
-          else
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _loadAll,
-                color: Colors.orange,
-                child: ListView(
-                  controller: scrollCtrl,
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  children: grouped.entries.map((e) => _GradeCard(
-                    grade: e.key,
-                    classes: e.value,
-                    foldersByClass: _foldersByClass,
-                    isAdmin: widget.isAdmin,
-                    showBranch: widget.isAllBranches,
-                    onRefresh: _loadAll,
-                  )).toList(),
                 ),
               ),
-            ),
-        ],
-      ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: accent.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${widget.day}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: accent.shade800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Day ${widget.day}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            _formatDate(widget.date),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: accent.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.isAdmin)
+                      IconButton(
+                        icon: Icon(
+                          Icons.create_new_folder_outlined,
+                          color: accent.shade600,
+                        ),
+                        tooltip: 'Add subject to all grades',
+                        onPressed: () async {
+                          final ctrl = TextEditingController();
+                          final name = await showDialog<String>(
+                            context: context,
+                            builder:
+                                (dctx) => AlertDialog(
+                                  title: const Text(
+                                    'Add Subject',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    autofocus: true,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Subject name',
+                                      hintText: 'e.g. Maths, Science',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onSubmitted:
+                                        (v) => Navigator.pop(dctx, v.trim()),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dctx),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      onPressed:
+                                          () => Navigator.pop(
+                                            dctx,
+                                            ctrl.text.trim(),
+                                          ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: accent,
+                                      ),
+                                      child: const Text('Create'),
+                                    ),
+                                  ],
+                                ),
+                          );
+                          if (name != null && name.isNotEmpty)
+                            await _addSubjectToAll(name);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              if (_loading)
+                const Expanded(
+                  child: Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  ),
+                )
+              else if (_error != null)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadAll,
+                    color: Colors.orange,
+                    child: ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                      children:
+                          grouped.entries
+                              .map(
+                                (e) => _GradeCard(
+                                  grade: e.key,
+                                  classes: e.value,
+                                  foldersByClass: _foldersByClass,
+                                  isAdmin: widget.isAdmin,
+                                  showBranch: widget.isAllBranches,
+                                  onRefresh: _loadAll,
+                                ),
+                              )
+                              .toList(),
+                    ),
+                  ),
+                ),
+            ],
+          ),
     );
   }
 }
@@ -691,37 +1050,75 @@ class _GradeCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.orange.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
             ),
             child: Row(
               children: [
-                Icon(Icons.school_outlined, size: 16, color: Colors.orange.shade700),
+                Icon(
+                  Icons.school_outlined,
+                  size: 16,
+                  color: Colors.orange.shade700,
+                ),
                 const SizedBox(width: 6),
-                Text(grade, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade900)),
+                Text(
+                  grade,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.orange.shade900,
+                  ),
+                ),
               ],
             ),
           ),
           ...classes.asMap().entries.map((entry) {
             final idx = entry.key;
-            final cls  = entry.value;
+            final cls = entry.value;
             final folders = foldersByClass[cls['id'] as String] ?? [];
             final branchName = cls['branch_name'] as String? ?? '';
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (idx > 0) const Divider(height: 1, indent: 14, endIndent: 14),
+                if (idx > 0)
+                  const Divider(height: 1, indent: 14, endIndent: 14),
                 if (showBranch)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-                    child: Text(branchName, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                    child: Text(
+                      branchName,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                   ),
                 if (folders.isEmpty)
                   Padding(
-                    padding: EdgeInsets.fromLTRB(14, showBranch ? 4 : 12, 14, 12),
-                    child: Text('No subjects yet', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                    padding: EdgeInsets.fromLTRB(
+                      14,
+                      showBranch ? 4 : 12,
+                      14,
+                      12,
+                    ),
+                    child: Text(
+                      'No subjects yet',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
                   )
                 else
-                  ...folders.map((f) => _SubjectRow(folder: f, isAdmin: isAdmin, onRefresh: onRefresh)),
+                  ...folders.map(
+                    (f) => _SubjectRow(
+                      folder: f,
+                      isAdmin: isAdmin,
+                      onRefresh: onRefresh,
+                    ),
+                  ),
               ],
             );
           }),
@@ -736,15 +1133,23 @@ class _SubjectRow extends ConsumerWidget {
   final bool isAdmin;
   final VoidCallback onRefresh;
 
-  const _SubjectRow({required this.folder, required this.isAdmin, required this.onRefresh});
+  const _SubjectRow({
+    required this.folder,
+    required this.isAdmin,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name  = folder['name'] as String? ?? 'Subject';
+    final name = folder['name'] as String? ?? 'Subject';
     final count = folder['content_count'] as int? ?? 0;
 
     return InkWell(
-      onTap: () => context.push('/learning-modules/folder/${folder['id']}', extra: {'folderName': name}),
+      onTap:
+          () => context.push(
+            '/learning-modules/folder/${folder['id']}',
+            extra: {'folderName': name},
+          ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
@@ -755,8 +1160,17 @@ class _SubjectRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  Text('$count item${count != 1 ? 's' : ''}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    '$count item${count != 1 ? 's' : ''}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
                 ],
               ),
             ),
@@ -764,48 +1178,95 @@ class _SubjectRow extends ConsumerWidget {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
                 padding: EdgeInsets.zero,
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'upload', child: Row(children: [Icon(Icons.upload_outlined, size: 16), SizedBox(width: 8), Text('Upload')])),
-                  const PopupMenuItem(value: 'rename', child: Row(children: [Icon(Icons.edit_outlined, size: 16), SizedBox(width: 8), Text('Rename')])),
-                ],
+                itemBuilder:
+                    (_) => [
+                      const PopupMenuItem(
+                        value: 'upload',
+                        child: Row(
+                          children: [
+                            Icon(Icons.upload_outlined, size: 16),
+                            SizedBox(width: 8),
+                            Text('Upload'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 16),
+                            SizedBox(width: 8),
+                            Text('Rename'),
+                          ],
+                        ),
+                      ),
+                    ],
                 onSelected: (action) async {
                   if (action == 'upload') {
                     showDialog(
                       context: context,
-                      builder: (_) => UploadContentDialog(folderId: folder['id'] as String, onUploaded: onRefresh),
+                      builder:
+                          (_) => UploadContentDialog(
+                            folderId: folder['id'] as String,
+                            onUploaded: onRefresh,
+                          ),
                     );
                   } else if (action == 'rename') {
                     final ctrl = TextEditingController(text: name);
                     final newName = await showDialog<String>(
                       context: context,
-                      builder: (dctx) => AlertDialog(
-                        title: const Text('Rename Subject', style: TextStyle(fontWeight: FontWeight.bold)),
-                        content: TextField(
-                          controller: ctrl,
-                          autofocus: true,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(labelText: 'Subject name', border: OutlineInputBorder()),
-                          onSubmitted: (v) => Navigator.pop(dctx, v.trim()),
-                        ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('Cancel')),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(dctx, ctrl.text.trim()),
-                            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-                            child: const Text('Rename'),
+                      builder:
+                          (dctx) => AlertDialog(
+                            title: const Text(
+                              'Rename Subject',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            content: TextField(
+                              controller: ctrl,
+                              autofocus: true,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                labelText: 'Subject name',
+                                border: OutlineInputBorder(),
+                              ),
+                              onSubmitted: (v) => Navigator.pop(dctx, v.trim()),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dctx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed:
+                                    () => Navigator.pop(dctx, ctrl.text.trim()),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                ),
+                                child: const Text('Rename'),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
                     );
-                    if (newName != null && newName.isNotEmpty && newName != name) {
+                    if (newName != null &&
+                        newName.isNotEmpty &&
+                        newName != name) {
                       try {
-                        final service = ref.read(learningModulesServiceProvider);
-                        if (service != null) await service.renameDayFolder(folder['id'] as String, newName);
+                        final service = ref.read(
+                          learningModulesServiceProvider,
+                        );
+                        if (service != null)
+                          await service.renameDayFolder(
+                            folder['id'] as String,
+                            newName,
+                          );
                         onRefresh();
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Colors.red,
+                            ),
                           );
                         }
                       }
@@ -820,4 +1281,3 @@ class _SubjectRow extends ConsumerWidget {
     );
   }
 }
-

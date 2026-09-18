@@ -25,10 +25,13 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
   String? _error;
   late TabController _tabController;
 
+  /// Fee information is Admin-only. Coordinators/teachers do not see the Fees tab.
+  bool get _canSeeFees => ref.read(adminApiProvider) != null;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: _canSeeFees ? 4 : 3, vsync: this);
     _load();
   }
 
@@ -158,11 +161,11 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
           TabBar(
             controller: _tabController,
             isScrollable: true,
-            tabs: const [
-              Tab(text: 'Details'),
-              Tab(text: 'Attendance'),
-              Tab(text: 'Report Cards'),
-              Tab(text: 'Fees'),
+            tabs: [
+              const Tab(text: 'Details'),
+              const Tab(text: 'Attendance'),
+              const Tab(text: 'Report Cards'),
+              if (_canSeeFees) const Tab(text: 'Fees'),
             ],
           ),
           Expanded(
@@ -172,7 +175,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                 _DetailsTab(student: s),
                 _AttendanceTab(studentId: widget.studentId),
                 _MarksTab(studentId: widget.studentId, student: s),
-                _FeesTab(studentId: widget.studentId),
+                if (_canSeeFees) _FeesTab(studentId: widget.studentId),
               ],
             ),
           ),

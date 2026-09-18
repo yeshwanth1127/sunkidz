@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'core/theme/app_theme.dart';
+import 'core/config/api_config.dart';
 import 'core/router/app_router.dart';
 import 'core/auth/auth_provider.dart';
 import 'core/services/device_registration_service.dart';
@@ -17,6 +18,13 @@ const String _oneSignalAppId = String.fromEnvironment(
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Surfaces which backend this build talks to. A base-URL change is only
+  // picked up by a full `flutter run` restart, not hot reload/restart.
+  if (kDebugMode) {
+    debugPrint('[api] base URL = ${ApiConfig.baseUrl}${ApiConfig.apiPrefix}');
+  }
+
   const storage = FlutterSecureStorage();
 
   // OneSignal is mobile-only (iOS/Android) - skip on web to avoid MissingPluginException

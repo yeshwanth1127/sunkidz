@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
 
-
 class BranchListScreen extends ConsumerStatefulWidget {
   const BranchListScreen({super.key});
 
@@ -54,13 +53,14 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _AddBranchSheet(
-        onSaved: () {
-          Navigator.pop(ctx);
-          _load();
-        },
-        api: ref.read(adminApiProvider)!,
-      ),
+      builder:
+          (ctx) => _AddBranchSheet(
+            onSaved: () {
+              Navigator.pop(ctx);
+              _load();
+            },
+            api: ref.read(adminApiProvider)!,
+          ),
     );
   }
 
@@ -84,7 +84,11 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
         ),
         title: const Text(
           'Branches',
-          style: TextStyle(color: Color(0xFF2D2323), fontWeight: FontWeight.w800, fontSize: 20),
+          style: TextStyle(
+            color: Color(0xFF2D2323),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -92,7 +96,10 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: CircleAvatar(
               backgroundColor: AppColors.primary,
-              child: IconButton(icon: const Icon(Icons.add, color: Colors.white), onPressed: _showAddBranch),
+              child: IconButton(
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed: _showAddBranch,
+              ),
             ),
           ),
         ],
@@ -110,7 +117,10 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
                     prefixIcon: Icon(Icons.search),
                     filled: true,
                     fillColor: Colors.grey.shade200,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -118,13 +128,29 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _FilterChip(label: 'All', selected: _filterIndex == 0, onTap: () => setState(() => _filterIndex = 0)),
+                      _FilterChip(
+                        label: 'All',
+                        selected: _filterIndex == 0,
+                        onTap: () => setState(() => _filterIndex = 0),
+                      ),
                       const SizedBox(width: 8),
-                      _FilterChip(label: 'Active', selected: _filterIndex == 1, onTap: () => setState(() => _filterIndex = 1)),
+                      _FilterChip(
+                        label: 'Active',
+                        selected: _filterIndex == 1,
+                        onTap: () => setState(() => _filterIndex = 1),
+                      ),
                       const SizedBox(width: 8),
-                      _FilterChip(label: 'Pending', selected: _filterIndex == 2, onTap: () => setState(() => _filterIndex = 2)),
+                      _FilterChip(
+                        label: 'Pending',
+                        selected: _filterIndex == 2,
+                        onTap: () => setState(() => _filterIndex = 2),
+                      ),
                       const SizedBox(width: 8),
-                      _FilterChip(label: 'Full Capacity', selected: _filterIndex == 3, onTap: () => setState(() => _filterIndex = 3)),
+                      _FilterChip(
+                        label: 'Full Capacity',
+                        selected: _filterIndex == 3,
+                        onTap: () => setState(() => _filterIndex = 3),
+                      ),
                     ],
                   ),
                 ),
@@ -132,18 +158,28 @@ class _BranchListScreenState extends ConsumerState<BranchListScreen> {
             ),
           ),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _branches.length,
-                        itemBuilder: (_, i) => _BranchCard(
-                          branch: _branches[i],
-                          onTap: () => context.push('/branches/${_branches[i]['id']}'),
-                        ),
+            child:
+                _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                    ? Center(
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
                       ),
+                    )
+                    : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _branches.length,
+                      itemBuilder:
+                          (_, i) => _BranchCard(
+                            branch: _branches[i],
+                            onTap:
+                                () => context.push(
+                                  '/branches/${_branches[i]['id']}',
+                                ),
+                          ),
+                    ),
           ),
         ],
       ),
@@ -156,7 +192,11 @@ class _FilterChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -165,11 +205,22 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Theme.of(context).cardTheme.color,
+          color:
+              selected ? AppColors.primary : Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(999),
-          border: selected ? null : Border.all(color: Theme.of(context).dividerColor),
+          border:
+              selected
+                  ? null
+                  : Border.all(color: Theme.of(context).dividerColor),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: selected ? Colors.white : Colors.grey)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : Colors.grey,
+          ),
+        ),
       ),
     );
   }
@@ -184,9 +235,18 @@ class _BranchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = branch['status'] as String? ?? 'active';
-    final systemType = (branch['system_type'] as String? ?? 'sunkidz').toLowerCase();
-    final systemLabel = systemType == 'normal' ? 'Normal (Nursery/LKG/UKG)' : 'Sunkidz (Playschool/1G1/1G2/1G3)';
-    final statusColor = status == 'active' ? Colors.green : status == 'full' ? Colors.orange : Colors.grey;
+    final systemType =
+        (branch['system_type'] as String? ?? 'sunkidz').toLowerCase();
+    final systemLabel =
+        systemType == 'normal'
+            ? 'Normal (Playgroup/IG1/IG2/IG3)'
+            : 'Sunkidz (Playgroup/IG1/IG2/IG3)';
+    final statusColor =
+        status == 'active'
+            ? Colors.green
+            : status == 'full'
+            ? Colors.orange
+            : Colors.grey;
     final name = branch['name'] as String? ?? '';
     final coordinator = branch['coordinator_name'] as String? ?? '—';
     final students = branch['student_count'] as int? ?? 0;
@@ -200,7 +260,13 @@ class _BranchCard extends StatelessWidget {
           color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Theme.of(context).dividerColor),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,20 +276,43 @@ class _BranchCard extends StatelessWidget {
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(color: AppColors.pastelBlue, borderRadius: BorderRadius.circular(8)),
-                  child: Icon(Icons.business, color: AppColors.primary, size: 28),
+                  decoration: BoxDecoration(
+                    color: AppColors.pastelBlue,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.business,
+                    color: AppColors.primary,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(999)),
-                        child: Text(status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -238,8 +327,26 @@ class _BranchCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('COORDINATOR', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                      Row(children: [Icon(Icons.person, size: 14), const SizedBox(width: 4), Expanded(child: Text(coordinator, style: TextStyle(fontWeight: FontWeight.w500)))])
+                      Text(
+                        'COORDINATOR',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.person, size: 14),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              coordinator,
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -247,8 +354,24 @@ class _BranchCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('STUDENTS', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-                      Row(children: [Icon(Icons.groups, size: 14), const SizedBox(width: 4), Text('$students Students', style: TextStyle(fontWeight: FontWeight.w500))])
+                      Text(
+                        'STUDENTS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.groups, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$students Students',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -257,12 +380,20 @@ class _BranchCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.auto_awesome_mosaic_rounded, size: 14, color: Colors.grey.shade600),
+                Icon(
+                  Icons.auto_awesome_mosaic_rounded,
+                  size: 14,
+                  color: Colors.grey.shade600,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     systemLabel,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -272,13 +403,28 @@ class _BranchCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ADDRESS', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                  Text(
+                    'ADDRESS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.location_on, size: 14, color: Colors.grey),
                       const SizedBox(width: 4),
-                      Expanded(child: Text(address, style: TextStyle(fontSize: 14, color: Colors.grey.shade700))),
+                      Expanded(
+                        child: Text(
+                          address,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -332,9 +478,13 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
     try {
       await widget.api.createBranch(
         name: _nameCtrl.text.trim(),
-        code: _codeCtrl.text.trim().isEmpty ? null : _codeCtrl.text.trim().toLowerCase(),
+        code:
+            _codeCtrl.text.trim().isEmpty
+                ? null
+                : _codeCtrl.text.trim().toLowerCase(),
         address: _addrCtrl.text.trim().isEmpty ? null : _addrCtrl.text.trim(),
-        contactNo: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        contactNo:
+            _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         status: _status,
         systemType: _systemType,
       );
@@ -350,7 +500,9 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -359,10 +511,24 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
           children: [
             Text('Add Branch', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Name *')),
-            TextField(controller: _codeCtrl, decoration: const InputDecoration(labelText: 'Code (e.g. acs, mun, ash for admission numbers)')),
-            TextField(controller: _addrCtrl, decoration: const InputDecoration(labelText: 'Address')),
-            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Contact')),
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(labelText: 'Name *'),
+            ),
+            TextField(
+              controller: _codeCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Code (e.g. acs, mun, ash for admission numbers)',
+              ),
+            ),
+            TextField(
+              controller: _addrCtrl,
+              decoration: const InputDecoration(labelText: 'Address'),
+            ),
+            TextField(
+              controller: _phoneCtrl,
+              decoration: const InputDecoration(labelText: 'Contact'),
+            ),
             DropdownButtonFormField<String>(
               initialValue: _status,
               decoration: const InputDecoration(labelText: 'Status'),
@@ -377,14 +543,34 @@ class _AddBranchSheetState extends State<_AddBranchSheet> {
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Class System'),
               items: const [
-                DropdownMenuItem(value: 'sunkidz', child: Text('Sunkidz (Playschool, 1G1, 1G2, 1G3)')),
-                DropdownMenuItem(value: 'normal', child: Text('Normal (Nursery, LKG, UKG)')),
+                DropdownMenuItem(
+                  value: 'sunkidz',
+                  child: Text('Sunkidz (Playgroup, IG1, IG2, IG3)'),
+                ),
+                DropdownMenuItem(
+                  value: 'normal',
+                  child: Text('Normal (Playgroup, IG1, IG2, IG3)'),
+                ),
               ],
               onChanged: (v) => setState(() => _systemType = v ?? 'sunkidz'),
             ),
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
             const SizedBox(height: 16),
-            FilledButton(onPressed: _loading ? null : _submit, child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Add Branch')),
+            FilledButton(
+              onPressed: _loading ? null : _submit,
+              child:
+                  _loading
+                      ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Text('Add Branch'),
+            ),
           ],
         ),
       ),

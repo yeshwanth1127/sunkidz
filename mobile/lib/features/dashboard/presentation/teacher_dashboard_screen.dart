@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
-import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/dashboard_app_bar.dart';
 import '../../../shared/widgets/stat_card.dart';
 import '../data/teacher_dashboard_provider.dart';
 
@@ -25,111 +25,23 @@ class TeacherDashboardScreen extends ConsumerWidget {
     final boysCount = dashboardAsync.valueOrNull?.boysCount ?? 0;
     final girlsCount = dashboardAsync.valueOrNull?.girlsCount ?? 0;
     final attendanceToday = dashboardAsync.valueOrNull?.attendanceToday ?? 0;
-    final genderStr = boysCount > 0 || girlsCount > 0
-        ? '$boysCount Boys, $girlsCount Girls'
-        : '—';
+    final genderStr =
+        boysCount > 0 || girlsCount > 0
+            ? '$boysCount Boys, $girlsCount Girls'
+            : '—';
 
     final dateStr = _formatDate(DateTime.now());
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF4E0),
+      backgroundColor: AppColors.backgroundLight,
       drawer: const TeacherDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        titleSpacing: 0,
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black87),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9), // Light green for teacher
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Image.asset(
-                'assets/images/sunkidz_logo_hd.png',
-                height: 28,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.school, color: Colors.green, size: 24);
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    className,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF2D2323),
-                      letterSpacing: -0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    'Branch: $branchName',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          NotificationBell(
-            notificationsRoute: '/teacher/notifications',
-            iconColor: Colors.black87,
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => context.go('/teacher/settings'),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.green.shade100),
-              ),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: teacherPrimary.withValues(alpha: 0.1),
-                child: Text(
-                  userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
-                  style: TextStyle(
-                    color: teacherPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: Colors.green.shade50.withValues(alpha: 0.5),
-          ),
-        ),
+      appBar: DashboardAppBar(
+        title: className,
+        subtitle: 'Branch: $branchName',
+        accentColor: teacherPrimary,
+        notificationsRoute: '/teacher/notifications',
+        onAvatarTap: () => context.go('/teacher/settings'),
+        avatarInitial: userName.isNotEmpty ? userName[0].toUpperCase() : 'T',
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -190,9 +102,10 @@ class TeacherDashboardScreen extends ConsumerWidget {
                     icon: Icons.how_to_reg,
                     label: 'Attendance Today',
                     value: '$attendanceToday',
-                    trend: studentsCount > 0
-                        ? '${(attendanceToday / studentsCount * 100).toStringAsFixed(0)}% present'
-                        : '—',
+                    trend:
+                        studentsCount > 0
+                            ? '${(attendanceToday / studentsCount * 100).toStringAsFixed(0)}% present'
+                            : '—',
                     trendUp:
                         studentsCount > 0 &&
                         attendanceToday >= studentsCount * 0.8,
@@ -301,7 +214,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                   Expanded(
+                  Expanded(
                     child: _TeacherActionCard(
                       icon: Icons.chat_rounded,
                       label: 'Chats',
@@ -457,18 +370,20 @@ class _TeacherActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isOutlined ? color.withValues(alpha: 0.1) : color,
           borderRadius: BorderRadius.circular(12),
-          border: isOutlined
-              ? Border.all(color: color.withValues(alpha: 0.5))
-              : null,
-          boxShadow: isOutlined
-              ? null
-              : [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          border:
+              isOutlined
+                  ? Border.all(color: color.withValues(alpha: 0.5))
+                  : null,
+          boxShadow:
+              isOutlined
+                  ? null
+                  : [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

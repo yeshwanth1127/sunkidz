@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 
@@ -5,15 +6,17 @@ class TeacherApi {
   TeacherApi(this._token);
 
   final String _token;
-  late final Dio _dio = Dio(BaseOptions(
-    baseUrl: '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}',
-    connectTimeout: const Duration(seconds: 30),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $_token',
-    },
-  ));
+  late final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}',
+      connectTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+    ),
+  );
 
   Future<Map<String, dynamic>> getDashboard() async {
     final r = await _dio.get('/teacher/dashboard');
@@ -30,34 +33,88 @@ class TeacherApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getMarks(String studentId, {String academicYear = '2026-27'}) async {
-    final r = await _dio.get('/teacher/marks/$studentId', queryParameters: {'academic_year': academicYear});
+  Future<Map<String, dynamic>> getMarks(
+    String studentId, {
+    String academicYear = '2026-27',
+  }) async {
+    final r = await _dio.get(
+      '/teacher/marks/$studentId',
+      queryParameters: {'academic_year': academicYear},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> upsertMarks(String studentId, {required String academicYear, required Map<String, dynamic> data}) async {
-    final r = await _dio.put('/teacher/marks/$studentId', data: {'academic_year': academicYear, 'data': data});
+  Future<Map<String, dynamic>> upsertMarks(
+    String studentId, {
+    required String academicYear,
+    required Map<String, dynamic> data,
+  }) async {
+    final r = await _dio.put(
+      '/teacher/marks/$studentId',
+      data: {'academic_year': academicYear, 'data': data},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> sendMarksToParent(String studentId, {String academicYear = '2026-27'}) async {
-    final r = await _dio.post('/teacher/marks/$studentId/send-to-parent', queryParameters: {'academic_year': academicYear});
+  Future<Map<String, dynamic>> sendMarksToParent(
+    String studentId, {
+    String academicYear = '2026-27',
+  }) async {
+    final r = await _dio.post(
+      '/teacher/marks/$studentId/send-to-parent',
+      queryParameters: {'academic_year': academicYear},
+    );
     return r.data as Map<String, dynamic>;
+  }
+
+  /// Upload / replace a signature image on the current marks card.
+  Future<Map<String, dynamic>> uploadMarksSignature(
+    String studentId, {
+    required String academicYear,
+    required String role,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final form = FormData.fromMap({
+      'role': role,
+      'academic_year': academicYear,
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final r = await _dio.post(
+      '/teacher/marks/$studentId/signature',
+      data: form,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    return Map<String, dynamic>.from(r.data as Map);
   }
 
   // Attendance
   Future<Map<String, dynamic>> getAttendance({required String date}) async {
-    final r = await _dio.get('/teacher/attendance', queryParameters: {'att_date': date});
+    final r = await _dio.get(
+      '/teacher/attendance',
+      queryParameters: {'att_date': date},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> upsertAttendance({required String date, required List<Map<String, dynamic>> records}) async {
-    final r = await _dio.put('/teacher/attendance', data: {'date': date, 'records': records});
+  Future<Map<String, dynamic>> upsertAttendance({
+    required String date,
+    required List<Map<String, dynamic>> records,
+  }) async {
+    final r = await _dio.put(
+      '/teacher/attendance',
+      data: {'date': date, 'records': records},
+    );
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getAttendanceHistory({String period = 'week'}) async {
-    final r = await _dio.get('/teacher/attendance/history', queryParameters: {'period': period});
+  Future<Map<String, dynamic>> getAttendanceHistory({
+    String period = 'week',
+  }) async {
+    final r = await _dio.get(
+      '/teacher/attendance/history',
+      queryParameters: {'period': period},
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -67,17 +124,23 @@ class TeacherApi {
     required String targetType,
     String? targetUserId,
   }) async {
-    final r = await _dio.post('/teacher/send', data: {
-      'title': title,
-      'message': message,
-      'target_type': targetType,
-      if (targetUserId != null) 'target_user_id': targetUserId,
-    });
+    final r = await _dio.post(
+      '/teacher/send',
+      data: {
+        'title': title,
+        'message': message,
+        'target_type': targetType,
+        if (targetUserId != null) 'target_user_id': targetUserId,
+      },
+    );
     return r.data as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> searchParents(String phone) async {
-    final r = await _dio.get('/teacher/parents/search', queryParameters: {'phone': phone});
+    final r = await _dio.get(
+      '/teacher/parents/search',
+      queryParameters: {'phone': phone},
+    );
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 }

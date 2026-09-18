@@ -1,7 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-enum UserRole { admin, coordinator, teacher, parent, busStaff, toddlers, daycare }
+enum UserRole {
+  admin,
+  coordinator,
+  teacher,
+  parent,
+  busStaff,
+  toddlers,
+  daycare,
+}
 
 class AuthState {
   final String? token;
@@ -20,17 +28,20 @@ class AuthState {
     this.tokenExpiry,
   });
 
-  bool get isAuthenticated => token != null && token!.isNotEmpty && !isTokenExpired;
-  
+  bool get isAuthenticated =>
+      token != null && token!.isNotEmpty && !isTokenExpired;
+
   bool get isTokenExpired {
     if (tokenExpiry == null) return true;
     return DateTime.now().isAfter(tokenExpiry!);
   }
-  
+
   bool get needsRefresh {
     if (tokenExpiry == null) return false;
     // Refresh if token expires within next 24 hours
-    return DateTime.now().isAfter(tokenExpiry!.subtract(const Duration(hours: 24)));
+    return DateTime.now().isAfter(
+      tokenExpiry!.subtract(const Duration(hours: 24)),
+    );
   }
 }
 
@@ -59,7 +70,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final lastActivityStr = await _storage.read(key: _keyLastActivity);
         if (lastActivityStr != null) {
           final lastActivity = DateTime.tryParse(lastActivityStr);
-          if (lastActivity != null && DateTime.now().difference(lastActivity).inDays >= 30) {
+          if (lastActivity != null &&
+              DateTime.now().difference(lastActivity).inDays >= 30) {
             await logout(sessionExpired: true);
             return;
           }
@@ -71,6 +83,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           expiry = DateTime.tryParse(expiryString);
         }
 
+        // Only restore session if token hasn't expired
         if (expiry == null || DateTime.now().isBefore(expiry)) {
           final userId = await _storage.read(key: _keyUserId);
           final roleStr = await _storage.read(key: _keyRole);
@@ -130,21 +143,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     int sessionDurationDays = 30, // Default 30 days
   }) async {
     final expiry = DateTime.now().add(Duration(days: sessionDurationDays));
-    
+
     // Write to secure storage
     await _storage.write(key: _keyToken, value: token);
     await _storage.write(key: _keyUserId, value: userId);
     await _storage.write(key: _keyRole, value: role.name);
     await _storage.write(key: _keyRememberMe, value: rememberMe.toString());
     await _storage.write(key: _keyTokenExpiry, value: expiry.toIso8601String());
-    
+
     if (branchId != null) {
       await _storage.write(key: _keyBranchId, value: branchId);
     }
     if (classId != null) {
       await _storage.write(key: _keyClassId, value: classId);
     }
-    
+
     state = AuthState(
       token: token,
       userId: userId,
@@ -184,14 +197,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       value: DateTime.now().toIso8601String(),
     );
   }
-  
+
   /// Extend current session by another period
   Future<void> extendSession({int days = 30}) async {
     if (state.token == null) return;
-    
+
     final newExpiry = DateTime.now().add(Duration(days: days));
-    await _storage.write(key: _keyTokenExpiry, value: newExpiry.toIso8601String());
-    
+    await _storage.write(
+      key: _keyTokenExpiry,
+      value: newExpiry.toIso8601String(),
+    );
+
     state = AuthState(
       token: state.token,
       userId: state.userId,
@@ -201,19 +217,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       tokenExpiry: newExpiry,
     );
   }
-  
+
   /// Check if session is valid and extend if needed
   Future<bool> validateAndExtendSession() async {
     if (!state.isAuthenticated) return false;
-    
+
     // If token is close to expiry, extend it
     if (state.needsRefresh) {
       await extendSession();
     }
-    
+
     return true;
   }
-  
+
   /// Clear all stored data (useful for debugging or account deletion)
   Future<void> clearAllData() async {
     await _storage.deleteAll();
@@ -222,5 +238,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  throw UnimplementedError('AuthNotifier requires FlutterSecureStorage - use override');
+  throw UnimplementedError(
+    'AuthNotifier requires FlutterSecureStorage - use override',
+  );
 });

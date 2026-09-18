@@ -28,7 +28,8 @@ class StatCard extends StatefulWidget {
   State<StatCard> createState() => _StatCardState();
 }
 
-class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin {
+class _StatCardState extends State<StatCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   bool _isPressed = false;
@@ -40,9 +41,10 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    _scaleAnimation = Tween<double>(begin: 1, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1,
+      end: 0.96,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -57,9 +59,21 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
     final ic = widget.iconColor ?? AppColors.primary;
 
     return GestureDetector(
-      onTapDown: (_) => setState(() { _isPressed = true; _controller.forward(); }),
-      onTapUp: (_) => setState(() { _isPressed = false; _controller.reverse(); }),
-      onTapCancel: () => setState(() { _isPressed = false; _controller.reverse(); }),
+      onTapDown:
+          (_) => setState(() {
+            _isPressed = true;
+            _controller.forward();
+          }),
+      onTapUp:
+          (_) => setState(() {
+            _isPressed = false;
+            _controller.reverse();
+          }),
+      onTapCancel:
+          () => setState(() {
+            _isPressed = false;
+            _controller.reverse();
+          }),
       onTap: widget.onTap,
       child: ScaleTransition(
         scale: _scaleAnimation,
@@ -67,7 +81,7 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: bg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _isPressed ? ic : const Color(0xFFE2E8F0),
@@ -86,7 +100,7 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: bg,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(widget.icon, color: ic, size: 22),
@@ -95,16 +109,22 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
                     Flexible(
                       child: Container(
                         margin: const EdgeInsets.only(left: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: (widget.trendUp ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                          color: (widget.trendUp ? Colors.green : Colors.red)
+                              .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              widget.trendUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                              widget.trendUp
+                                  ? Icons.trending_up_rounded
+                                  : Icons.trending_down_rounded,
                               size: 12,
                               color: widget.trendUp ? Colors.green : Colors.red,
                             ),
@@ -115,7 +135,10 @@ class _StatCardState extends State<StatCard> with SingleTickerProviderStateMixin
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w700,
-                                  color: widget.trendUp ? Colors.green : Colors.red,
+                                  color:
+                                      widget.trendUp
+                                          ? Colors.green
+                                          : Colors.red,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),

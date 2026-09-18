@@ -97,25 +97,7 @@ class CoordinatorApi {
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 
-  Future<Map<String, dynamic>> getStudentFees(String studentId) async {
-    final r = await _dio.get('/coordinator/students/$studentId/fees');
-    return r.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> updateStudentFees(String studentId, Map<String, dynamic> data) async {
-    final r = await _dio.put('/coordinator/students/$studentId/fees', data: data);
-    return r.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> recordFeePayment(String studentId, Map<String, dynamic> data) async {
-    final r = await _dio.post('/coordinator/students/$studentId/fees/payments', data: data);
-    return r.data as Map<String, dynamic>;
-  }
-
-  Future<Map<String, dynamic>> getStudentFeePayments(String studentId) async {
-    final r = await _dio.get('/coordinator/students/$studentId/fees/payments');
-    return r.data as Map<String, dynamic>;
-  }
+  // NOTE: Fee management is Admin-only. Coordinators have no fee endpoints.
 
   Future<Map<String, dynamic>> createEnquiry(Map<String, dynamic> data) async {
     final r = await _dio.post('/coordinator/enquiries', data: data);

@@ -1,0 +1,21 @@
+# Virtual environments
+.venv/
+.venv_win/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets - never commit the real .env, only .env.example
+.env
+
+# Runtime data / uploads
+uploads/
+logs/
+*.log
+
+# Editor/OS junk
+.DS_Store
+._.DS_Store

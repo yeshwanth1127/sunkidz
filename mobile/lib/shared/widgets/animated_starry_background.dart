@@ -45,14 +45,9 @@ class _AnimatedStarryBackgroundState extends State<AnimatedStarryBackground>
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0F2027),
-                      Color(0xFF2C5364),
-                      Color(0xFF1B2936),
-                    ],
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/backg.jpeg'),
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),

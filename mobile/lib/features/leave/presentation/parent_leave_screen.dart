@@ -4,6 +4,20 @@ import '../../../core/api/chat_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
+/// Formats a leave request's real backend submission timestamp
+/// (`created_at`, an ISO-8601 string) as a short local date + time.
+/// Returns '' when the field is absent (e.g. legacy requests created before
+/// the timestamp was recorded) so nothing is rendered for those.
+String _formatSubmittedAt(String? iso) {
+  if (iso == null || iso.isEmpty) return '';
+  final dt = DateTime.tryParse(iso)?.toLocal();
+  if (dt == null) return '';
+  String p2(int n) => n.toString().padLeft(2, '0');
+  final h12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+  final ampm = dt.hour < 12 ? 'AM' : 'PM';
+  return '${p2(dt.day)}/${p2(dt.month)}/${dt.year}  $h12:${p2(dt.minute)} $ampm';
+}
+
 class ParentLeaveScreen extends ConsumerStatefulWidget {
   const ParentLeaveScreen({super.key});
 
@@ -48,7 +62,8 @@ class _ParentLeaveScreenState extends ConsumerState<ParentLeaveScreen> {
     if (api == null) return;
     try {
       final data = await api.getChildren();
-      final list = (data['children'] as List?) ?? (data['students'] as List?) ?? [];
+      final list =
+          (data['children'] as List?) ?? (data['students'] as List?) ?? [];
       if (!mounted) return;
       setState(() {
         _children = List<Map<String, dynamic>>.from(list);
@@ -66,12 +81,16 @@ class _ParentLeaveScreenState extends ConsumerState<ParentLeaveScreen> {
     final res = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
-        child: _CreateLeaveForm(children: _children, initialChild: selected),
-      ),
+      builder:
+          (ctx) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: _CreateLeaveForm(
+              children: _children,
+              initialChild: selected,
+            ),
+          ),
     );
     if (res == true) _loadList();
   }
@@ -92,30 +111,31 @@ class _ParentLeaveScreenState extends ConsumerState<ParentLeaveScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _loadList,
-        child: _loading && _items.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : _items.isEmpty
+        child:
+            _loading && _items.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : _items.isEmpty
                 ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 150),
-                      Icon(Icons.event_note, size: 64, color: Colors.black26),
-                      SizedBox(height: 16),
-                      Center(
-                        child: Text(
-                          'No leave requests yet.',
-                          style: TextStyle(color: Colors.black54),
-                        ),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 150),
+                    Icon(Icons.event_note, size: 64, color: Colors.black26),
+                    SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        'No leave requests yet.',
+                        style: TextStyle(color: Colors.black54),
                       ),
-                    ],
-                  )
+                    ),
+                  ],
+                )
                 : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => _tile(_items[i]),
-                  ),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) => _tile(_items[i]),
+                ),
       ),
     );
   }
@@ -148,22 +168,46 @@ class _ParentLeaveScreenState extends ConsumerState<ParentLeaveScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     label,
-                    style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            Text(
-              '${a['start_date']} → ${a['end_date']}',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${a['start_date']} → ${a['end_date']}',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+                if (_formatSubmittedAt(a['created_at']?.toString()).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      _formatSubmittedAt(a['created_at']?.toString()),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(a['reason']?.toString() ?? ''),
@@ -171,7 +215,10 @@ class _ParentLeaveScreenState extends ConsumerState<ParentLeaveScreen> {
               const SizedBox(height: 6),
               Text(
                 'Note: ${a['review_note']}',
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ],
@@ -200,7 +247,9 @@ class _CreateLeaveFormState extends ConsumerState<_CreateLeaveForm> {
   @override
   void initState() {
     super.initState();
-    _selected = widget.initialChild ?? (widget.children.isNotEmpty ? widget.children.first : null);
+    _selected =
+        widget.initialChild ??
+        (widget.children.isNotEmpty ? widget.children.first : null);
     final today = DateTime.now();
     _start = today;
     _end = today;
@@ -213,7 +262,8 @@ class _CreateLeaveFormState extends ConsumerState<_CreateLeaveForm> {
   }
 
   Future<void> _pickDate(bool start) async {
-    final initial = start ? (_start ?? DateTime.now()) : (_end ?? DateTime.now());
+    final initial =
+        start ? (_start ?? DateTime.now()) : (_end ?? DateTime.now());
     final res = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -281,7 +331,10 @@ class _CreateLeaveFormState extends ConsumerState<_CreateLeaveForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('New leave request', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text(
+              'New leave request',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             const SizedBox(height: 12),
             if (widget.children.length > 1)
               DropdownButtonFormField<Map<String, dynamic>>(
@@ -308,7 +361,9 @@ class _CreateLeaveFormState extends ConsumerState<_CreateLeaveForm> {
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.calendar_today, size: 16),
-                    label: Text('From: ${_start == null ? '—' : _iso(_start!)}'),
+                    label: Text(
+                      'From: ${_start == null ? '—' : _iso(_start!)}',
+                    ),
                     onPressed: () => _pickDate(true),
                   ),
                 ),
@@ -340,13 +395,19 @@ class _CreateLeaveFormState extends ConsumerState<_CreateLeaveForm> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: _saving
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
-                    )
-                  : const Text('Submit'),
+              child:
+                  _saving
+                      ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                      : const Text('Submit'),
             ),
           ],
         ),

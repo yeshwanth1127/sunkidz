@@ -1,0 +1,105 @@
+"""Seed admin user. Run: python -m scripts.seed_admin"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app.core.config import settings
+from app.core.database import SessionLocal
+from app.core.security import get_password_hash
+from app.core.class_names import get_default_classes_for_system, normalize_class_name
+from app.models.user import User
+from app.models.branch import Branch, BranchAssignment, Class
+
+
+ADMIN_EMAIL = "admin@sunkidz.com"
+ADMIN_PASSWORD = "roopa_admin@123!"
+
+
+def seed():
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.email == ADMIN_EMAIL).first()
+        if existing:
+            existing.password_hash = get_password_hash(ADMIN_PASSWORD)
+            existing.is_active = "true"
+            db.commit()
+            print(f"Updated admin password for {ADMIN_EMAIL}")
+            return
+        admin = User(
+            email=ADMIN_EMAIL,
+            password_hash=get_password_hash(ADMIN_PASSWORD),
+            full_name="Admin",
+            role="admin",
+            is_active="true",
+        )
+        db.add(admin)
+        db.commit()
+        db.refresh(admin)
+        print(f"Created admin user: {admin.email} (password: {ADMIN_PASSWORD})")
+
+        # Create a sample branch and class
+        branch = db.query(Branch).first()
+        if not branch:
+            branch = Branch(
+                name="Main Branch",
+                code="main",
+                address="123 Main St",
+                contact_no="+1234567890",
+                status="active",
+                system_type="sunkidz",
+            )
+            db.add(branch)
+            db.commit()
+            db.refresh(branch)
+            print(f"Created branch: {branch.name}")
+
+        # Ensure default classes for this branch
+        for class_name in get_default_classes_for_system(getattr(branch, "system_type", "sunkidz")):
+            canonical = normalize_class_name(class_name)
+            if not db.query(Class).filter(Class.branch_id == branch.id, Class.name == canonical).first():
+                db.add(Class(branch_id=branch.id, name=canonical, academic_year="2026-27"))
+        db.commit()
+        cls = db.query(Class).filter(Class.branch_id == branch.id, Class.name == "IG1").first()
+        if not cls:
+            cls = db.query(Class).filter(Class.branch_id == branch.id).order_by(Class.name.asc()).first()
+
+        # Create coordinator and teacher for demo
+        coord = db.query(User).filter(User.email == "coord@sunkidz.com").first()
+        if not coord:
+            coord = User(
+                email="coord@sunkidz.com",
+                password_hash=get_password_hash("coord123"),
+                full_name="Sarah Coordinator",
+                role="coordinator",
+                is_active="true",
+            )
+            db.add(coord)
+            db.commit()
+            db.refresh(coord)
+            db.add(BranchAssignment(user_id=coord.id, branch_id=branch.id))
+            db.commit()
+            print(f"Created coordinator: {coord.email} (password: coord123)")
+
+        teacher = db.query(User).filter(User.email == "teacher@sunkidz.com").first()
+        if not teacher:
+            teacher = User(
+                email="teacher@sunkidz.com",
+                password_hash=get_password_hash("teacher123"),
+                full_name="Jane Teacher",
+                role="teacher",
+                is_active="true",
+            )
+            db.add(teacher)
+            db.commit()
+            db.refresh(teacher)
+            db.add(BranchAssignment(user_id=teacher.id, branch_id=branch.id, class_id=cls.id if cls else None))
+            db.commit()
+            print(f"Created teacher: {teacher.email} (password: teacher123)")
+
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    seed()

@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/admin_provider.dart';
 import '../../../core/api/chat_provider.dart';
+import '../../../core/api/parent_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -19,6 +21,148 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
   bool _loading = true;
   String? _error;
   Timer? _poll;
+  String? _selectedBranchId;
+
+  /// threadId -> set of branch ids that thread could belong to, resolved
+  /// client-side from existing student/admissions data (never from the
+  /// thread payload itself, which carries no branch field).
+  Map<String, Set<String>> _threadBranchIds = {};
+
+  /// branchId -> display name, collected while resolving the map above.
+  Map<String, String> _branchNames = {};
+
+  List<Map<String, String>> get _availableBranches {
+    final entries =
+        _branchNames.entries.toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
+    return entries.map((e) => {'id': e.key, 'name': e.value}).toList();
+  }
+
+  List<Map<String, dynamic>> get _visibleThreads {
+    if (_selectedBranchId == null) return _threads;
+    return _threads.where((t) {
+      final ids = _threadBranchIds[t['id']?.toString()];
+      return ids != null && ids.contains(_selectedBranchId);
+    }).toList();
+  }
+
+  /// Builds the thread -> branch mapping from data the app already has
+  /// access to elsewhere (Students screen for admin, "My Children" for
+  /// parent). Every chat thread is parent<->staff, never staff<->staff, so:
+  /// - admin: other party is always a parent -> resolve via that parent's
+  ///   admitted children (student_id directly, or parent_user_id when the
+  ///   thread has no student context).
+  /// - parent: other party is always staff -> resolve via the thread's own
+  ///   student_id against the parent's own children.
+  /// - teacher/coordinator/other staff: their visible threads are already
+  ///   confined to one branch by backend authority rules, so no branch data
+  ///   is fetched and the filter simply stays hidden (unchanged behavior).
+  Future<void> _resolveBranches() async {
+    final auth = ref.read(authProvider);
+    final threadBranches = <String, Set<String>>{};
+    final branchNames = <String, String>{};
+
+    if (auth.role == UserRole.admin) {
+      final api = ref.read(adminApiProvider);
+      if (api == null) return;
+      List<Map<String, dynamic>> admissions;
+      try {
+        admissions = await api.getAdmissions();
+      } catch (_) {
+        return;
+      }
+      // Dropdown options must list every branch that exists, not just ones
+      // with an admitted student — deriving names from admissions alone
+      // silently drops branches with zero (or very few) admissions.
+      try {
+        final branches = await api.getBranches();
+        for (final b in branches) {
+          final branchId = b['id']?.toString();
+          final branchName = b['name']?.toString();
+          if (branchId != null &&
+              branchId.isNotEmpty &&
+              branchName != null &&
+              branchName.isNotEmpty) {
+            branchNames[branchId] = branchName;
+          }
+        }
+      } catch (_) {
+        // If the branch list can't be fetched, fall back to whatever names
+        // the admissions loop below discovers rather than showing nothing.
+      }
+      final studentBranch = <String, String>{};
+      final parentBranches = <String, Set<String>>{};
+      for (final s in admissions) {
+        final branchId = s['branch_id']?.toString();
+        if (branchId == null || branchId.isEmpty) continue;
+        final branchName = s['branch_name']?.toString();
+        if (branchName != null &&
+            branchName.isNotEmpty &&
+            !branchNames.containsKey(branchId)) {
+          branchNames[branchId] = branchName;
+        }
+        final studentId = s['id']?.toString();
+        if (studentId != null) studentBranch[studentId] = branchId;
+        final parentId = s['parent_user_id']?.toString();
+        if (parentId != null) {
+          parentBranches.putIfAbsent(parentId, () => <String>{}).add(branchId);
+        }
+      }
+      for (final t in _threads) {
+        final threadId = t['id']?.toString();
+        if (threadId == null) continue;
+        final studentId = t['student_id']?.toString();
+        final otherId = t['other_user_id']?.toString();
+        if (studentId != null && studentBranch.containsKey(studentId)) {
+          threadBranches[threadId] = {studentBranch[studentId]!};
+        } else if (otherId != null && parentBranches.containsKey(otherId)) {
+          threadBranches[threadId] = parentBranches[otherId]!;
+        }
+      }
+    } else if (auth.role == UserRole.parent) {
+      final api = ref.read(parentApiProvider);
+      if (api == null) return;
+      Map<String, dynamic> data;
+      try {
+        data = await api.getChildren();
+      } catch (_) {
+        return;
+      }
+      final children =
+          (data['children'] as List? ?? []).cast<Map<String, dynamic>>();
+      final studentBranch = <String, String>{};
+      final allBranches = <String>{};
+      for (final c in children) {
+        final branchId = c['branch_id']?.toString();
+        if (branchId == null || branchId.isEmpty) continue;
+        final branchName = c['branch_name']?.toString();
+        if (branchName != null && branchName.isNotEmpty) {
+          branchNames[branchId] = branchName;
+        }
+        final studentId = c['id']?.toString();
+        if (studentId != null) studentBranch[studentId] = branchId;
+        allBranches.add(branchId);
+      }
+      for (final t in _threads) {
+        final threadId = t['id']?.toString();
+        if (threadId == null) continue;
+        final studentId = t['student_id']?.toString();
+        if (studentId != null && studentBranch.containsKey(studentId)) {
+          threadBranches[threadId] = {studentBranch[studentId]!};
+        } else if (allBranches.length == 1) {
+          // General chat with no student context is only unambiguous when
+          // the parent has children in exactly one branch.
+          threadBranches[threadId] = {allBranches.first};
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _threadBranchIds = threadBranches;
+      _branchNames = branchNames;
+    });
+  }
 
   @override
   void initState() {
@@ -45,6 +189,7 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
         _loading = false;
         _error = null;
       });
+      await _resolveBranches();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -114,7 +259,9 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
   }
 
   void _openThread(Map<String, dynamic> thread) {
-    context.push('/chat/thread', extra: thread).then((_) => _refresh(silent: true));
+    context
+        .push('/chat/thread', extra: thread)
+        .then((_) => _refresh(silent: true));
   }
 
   void _showError(String msg) {
@@ -124,6 +271,8 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final branches = _availableBranches;
+    final visibleThreads = _visibleThreads;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chats'),
@@ -135,20 +284,65 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: _loading && _threads.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null && _threads.isEmpty
-                ? _emptyState(_error!, isError: true)
-                : _threads.isEmpty
-                    ? _emptyState('No chats yet.\nTap the button below to start one.')
-                    : ListView.separated(
+      body: Column(
+        children: [
+          if (branches.isNotEmpty) _buildBranchFilter(branches),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child:
+                  _loading && _threads.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null && _threads.isEmpty
+                      ? _emptyState(_error!, isError: true)
+                      : _threads.isEmpty
+                      ? _emptyState(
+                        'No chats yet.\nTap the button below to start one.',
+                      )
+                      : visibleThreads.isEmpty
+                      ? _emptyState('No chats for this branch.')
+                      : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _threads.length,
+                        itemCount: visibleThreads.length,
                         separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (_, i) => _threadTile(_threads[i]),
+                        itemBuilder: (_, i) => _threadTile(visibleThreads[i]),
                       ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBranchFilter(List<Map<String, String>> branches) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButtonFormField<String>(
+          value: _selectedBranchId,
+          isExpanded: true,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
+            hintText: 'Branch',
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: const Color(0xFFF1F5F9),
+          ),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('All Branches')),
+            ...branches.map(
+              (b) => DropdownMenuItem(
+                value: b['id'],
+                child: Text(b['name'] ?? '—', overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: (v) => setState(() => _selectedBranchId = v),
+        ),
       ),
     );
   }
@@ -192,7 +386,9 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100, width: 1)),
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+          ),
         ),
         child: Row(
           children: [
@@ -201,7 +397,11 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
               backgroundColor: AppColors.primaryLight,
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -215,13 +415,19 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
                         child: Text(
                           name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                       if (role != null)
                         Container(
                           margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.pastelBlue.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(4),
@@ -245,7 +451,8 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
                     style: TextStyle(
                       color: unread > 0 ? Colors.black87 : Colors.black54,
                       fontSize: 14,
-                      fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                          unread > 0 ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -261,23 +468,35 @@ class _ChatThreadsScreenState extends ConsumerState<ChatThreadsScreen> {
                     _fmtTime(when),
                     style: TextStyle(
                       fontSize: 11,
-                      color: unread > 0 ? AppColors.accentGreen : Colors.black45,
-                      fontWeight: unread > 0 ? FontWeight.bold : FontWeight.normal,
+                      color:
+                          unread > 0 ? AppColors.accentGreen : Colors.black45,
+                      fontWeight:
+                          unread > 0 ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 const SizedBox(height: 6),
                 if (unread > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.accentGreen,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
                     alignment: Alignment.center,
                     child: Text(
                       unread > 99 ? '99+' : '$unread',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
               ],
@@ -307,13 +526,18 @@ class _StaffPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Select teacher/admin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text(
+                'Select teacher/admin',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
             const Divider(height: 1),
             Flexible(
@@ -388,13 +612,18 @@ class _ParentPickerState extends State<_ParentPicker> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Select parent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: Text(
+                'Select parent',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -414,57 +643,75 @@ class _ParentPickerState extends State<_ParentPicker> {
             const SizedBox(height: 8),
             const Divider(height: 1),
             Flexible(
-              child: _loading
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : _parents.isEmpty
+              child:
+                  _loading
                       ? const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(child: Text('No matching parents')),
-                        )
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                      : _parents.isEmpty
+                      ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: Text('No matching parents')),
+                      )
                       : ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: _parents.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final p = _parents[i];
-                            final students = (p['students'] as List?) ?? [];
-                            return ExpansionTile(
-                              leading: const Icon(Icons.person_outline),
-                              title: Text(p['full_name']?.toString() ?? ''),
-                              subtitle: Text(p['phone']?.toString() ?? ''),
-                              children: students.isEmpty
-                                  ? [
+                        shrinkWrap: true,
+                        itemCount: _parents.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final p = _parents[i];
+                          final students = (p['students'] as List?) ?? [];
+                          return ExpansionTile(
+                            leading: const Icon(Icons.person_outline),
+                            title: Text(p['full_name']?.toString() ?? ''),
+                            subtitle: Text(p['phone']?.toString() ?? ''),
+                            children:
+                                students.isEmpty
+                                    ? [
                                       ListTile(
-                                        title: const Text('Open chat (no student)'),
-                                        onTap: () => Navigator.of(context).pop({
-                                          'user_id': p['user_id'],
-                                        }),
+                                        title: const Text(
+                                          'Open chat (no student)',
+                                        ),
+                                        onTap:
+                                            () => Navigator.of(
+                                              context,
+                                            ).pop({'user_id': p['user_id']}),
                                       ),
                                     ]
-                                  : [
+                                    : [
                                       for (final s in students)
                                         ListTile(
-                                          title: Text((s as Map)['name']?.toString() ?? ''),
-                                          subtitle: Text(s['admission_number']?.toString() ?? ''),
-                                          onTap: () => Navigator.of(context).pop({
-                                            'user_id': p['user_id'],
-                                            'student_id': s['id'],
-                                          }),
+                                          title: Text(
+                                            (s as Map)['name']?.toString() ??
+                                                '',
+                                          ),
+                                          subtitle: Text(
+                                            s['admission_number']?.toString() ??
+                                                '',
+                                          ),
+                                          onTap:
+                                              () => Navigator.of(context).pop({
+                                                'user_id': p['user_id'],
+                                                'student_id': s['id'],
+                                              }),
                                         ),
                                       ListTile(
-                                        leading: const Icon(Icons.chat_outlined, size: 20),
-                                        title: const Text('General chat (no student)'),
-                                        onTap: () => Navigator.of(context).pop({
-                                          'user_id': p['user_id'],
-                                        }),
+                                        leading: const Icon(
+                                          Icons.chat_outlined,
+                                          size: 20,
+                                        ),
+                                        title: const Text(
+                                          'General chat (no student)',
+                                        ),
+                                        onTap:
+                                            () => Navigator.of(
+                                              context,
+                                            ).pop({'user_id': p['user_id']}),
                                       ),
                                     ],
-                            );
-                          },
-                        ),
+                          );
+                        },
+                      ),
             ),
           ],
         ),

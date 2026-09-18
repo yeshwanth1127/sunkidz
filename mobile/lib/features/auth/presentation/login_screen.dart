@@ -20,7 +20,8 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -40,7 +41,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeIn,
+    );
     _fadeController.forward();
     _checkBiometricSupport();
     _checkLogoutReason();
@@ -49,7 +53,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   Future<void> _checkLogoutReason() async {
     final reason = await ref.read(authProvider.notifier).consumeLogoutReason();
     if (reason != null && mounted) {
-      setState(() => _loggedOutMessage = 'You have been logged out. Please login again.');
+      setState(
+        () =>
+            _loggedOutMessage = 'You have been logged out. Please login again.',
+      );
     }
   }
 
@@ -116,14 +123,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
       if (token != null) {
         final roleStr = data['role'] ?? 'admin';
         final role = _roleFromString(roleStr);
-        
-        await ref.read(authProvider.notifier).login(
-          token: token,
-          userId: data['userId'] ?? '',
-          role: role,
-          branchId: data['branchId'],
-          classId: data['classId'],
-        );
+
+        await ref
+            .read(authProvider.notifier)
+            .login(
+              token: token,
+              userId: data['userId'] ?? '',
+              role: role,
+              branchId: data['branchId'],
+              classId: data['classId'],
+            );
         if (mounted) {
           context.go(_homeForRole(role));
         }
@@ -170,20 +179,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
             branchId: branchId,
             classId: classId,
           );
-      
+
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         final targetRoute = _homeForRole(role);
-        
+
         // --- Prompt for Biometric before navigating ---
         if (_canCheckBiometrics) {
           final isCurrentlyEnabled = await _biometricService.isEnabled();
           if (!isCurrentlyEnabled && mounted) {
-            await _showBiometricDialog(token, userId, roleStr, branchId, classId);
+            await _showBiometricDialog(
+              token,
+              userId,
+              roleStr,
+              branchId,
+              classId,
+            );
           }
         }
-        
+
         if (mounted) {
           context.go(targetRoute);
         }
@@ -198,7 +213,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
     }
   }
 
-  Future<void> _showBiometricDialog(String token, String userId, String role, String? branchId, String? classId) async {
+  Future<void> _showBiometricDialog(
+    String token,
+    String userId,
+    String role,
+    String? branchId,
+    String? classId,
+  ) async {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -218,7 +239,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
               final success = await _biometricService.authenticate();
               if (success) {
                 await _biometricService.setEnabled(
-                  enabled: true, 
+                  enabled: true,
                   token: token,
                   userId: userId,
                   role: role,
@@ -295,9 +316,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 60),
-                  const Center(child: SunkidzLogo(size: 140, showText: true)),
+                  const Center(child: SunkidzLogo(size: 140, showText: false)),
                   const SizedBox(height: 48),
-                  
+
                   // Premium Toggle
                   Container(
                     height: 50,
@@ -311,7 +332,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                         AnimatedAlign(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeOutBack,
-                          alignment: _isParentLogin ? Alignment.centerRight : Alignment.centerLeft,
+                          alignment: _isParentLogin
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
                           child: Container(
                             width: (MediaQuery.of(context).size.width - 48) / 2,
                             height: 42,
@@ -339,7 +362,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                                       fontWeight: FontWeight.w700,
                                       fontSize: 12,
                                       letterSpacing: 1,
-                                      color: !_isParentLogin ? AppColors.primary : const Color(0xFF64748B),
+                                      color: !_isParentLogin
+                                          ? AppColors.primary
+                                          : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ),
@@ -359,7 +384,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                                       fontWeight: FontWeight.w700,
                                       fontSize: 12,
                                       letterSpacing: 1,
-                                      color: _isParentLogin ? AppColors.primary : const Color(0xFF64748B),
+                                      color: _isParentLogin
+                                          ? AppColors.primary
+                                          : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ),
@@ -370,9 +397,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   if (_loggedOutMessage != null) ...[
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -384,12 +411,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline_rounded, color: Colors.blue.shade600, size: 20),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: Colors.blue.shade600,
+                            size: 20,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               _loggedOutMessage!,
-                              style: TextStyle(color: Colors.blue.shade800, fontSize: 13, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -409,50 +444,78 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 20),
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: Colors.red.shade400,
+                            size: 20,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                  
+
                   TextField(
                     controller: _emailController,
                     decoration: InputDecoration(
-                      labelText: _isParentLogin ? 'Admission Number' : 'Email Address',
-                      hintText: _isParentLogin ? 'e.g. SK2024-001' : 'e.g. admin@sunkidz.com',
-                      prefixIcon: Icon(_isParentLogin ? Icons.badge_outlined : Icons.alternate_email_rounded, size: 20),
+                      labelText: _isParentLogin
+                          ? 'Admission Number'
+                          : 'Email Address',
+                      hintText: _isParentLogin
+                          ? 'e.g. SK2024-001'
+                          : 'e.g. admin@sunkidz.com',
+                      prefixIcon: Icon(
+                        _isParentLogin
+                            ? Icons.badge_outlined
+                            : Icons.alternate_email_rounded,
+                        size: 20,
+                      ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: _isParentLogin ? 'Date of Birth' : 'Security Password',
+                      labelText: _isParentLogin
+                          ? 'Date of Birth'
+                          : 'Security Password',
                       hintText: _isParentLogin ? 'YYYY-MM-DD' : '••••••••',
-                      prefixIcon: Icon(_isParentLogin ? Icons.calendar_today_outlined : Icons.lock_outline_rounded, size: 20),
+                      prefixIcon: Icon(
+                        _isParentLogin
+                            ? Icons.calendar_today_outlined
+                            : Icons.lock_outline_rounded,
+                        size: 20,
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                           size: 20,
                           color: const Color(0xFF94A3B8),
                         ),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Premium Gradient Login Button
                   Container(
                     height: 56,
@@ -466,35 +529,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                       child: _isLoading
                           ? const SizedBox(
                               height: 24,
                               width: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
                             )
                           : Stack(
                               alignment: Alignment.center,
                               children: [
                                 Shimmer.fromColors(
-                                  baseColor: Colors.white.withValues(alpha: 0.1),
-                                  highlightColor: Colors.white.withValues(alpha: 0.4),
+                                  baseColor: Colors.white.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  highlightColor: Colors.white.withValues(
+                                    alpha: 0.4,
+                                  ),
                                   child: Container(
                                     width: double.infinity,
                                     height: 56,
-                                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
                                   ),
                                 ),
                                 const Text(
                                   'SIGN IN',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Colors.white),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ],
                             ),
                     ),
                   ),
-                  
+
                   if (_canCheckBiometrics) ...[
                     const SizedBox(height: 24),
                     Center(
@@ -508,12 +587,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                             boxShadow: [AppShadows.soft],
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: Icon(Icons.fingerprint_rounded, color: AppColors.primary, size: 32),
+                          child: Icon(
+                            Icons.fingerprint_rounded,
+                            color: AppColors.primary,
+                            size: 32,
+                          ),
                         ),
                       ),
                     ),
                   ],
-                  
+
                   const SizedBox(height: 40),
                 ],
               ),

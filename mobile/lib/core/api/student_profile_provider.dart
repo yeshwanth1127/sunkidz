@@ -51,15 +51,13 @@ final studentProfileApiProvider = Provider<StudentProfileApi?>((ref) {
     );
   }
   if (coordinatorApi != null) {
+    // Fee management is Admin-only. Coordinators cannot view, edit, validate,
+    // or record fee payments.
     return StudentProfileApi(
       getStudent: coordinatorApi.getStudent,
       updateStudent: coordinatorApi.updateStudent,
       getStudentAttendance: coordinatorApi.getStudentAttendance,
       updateStudentAttendance: coordinatorApi.updateStudentAttendance,
-      getStudentFees: coordinatorApi.getStudentFees,
-      updateStudentFees: coordinatorApi.updateStudentFees,
-      recordFeePayment: coordinatorApi.recordFeePayment,
-      getStudentFeePayments: coordinatorApi.getStudentFeePayments,
     );
   }
   if (parentApi != null) {

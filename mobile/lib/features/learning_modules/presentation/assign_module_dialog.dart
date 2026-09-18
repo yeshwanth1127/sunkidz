@@ -1,6 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/admin_provider.dart';
+import '../../../core/utils/branch_system.dart';
 import '../data/learning_modules_provider.dart';
 
 class AssignModuleDialog extends ConsumerStatefulWidget {
@@ -78,7 +79,9 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Module assigned to ${selectedClassIds.length} class(es) successfully'),
+              content: Text(
+                'Module assigned to ${selectedClassIds.length} class(es) successfully',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -111,7 +114,9 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Module assigned to ${selectedBranchIds.length} branch(es) successfully'),
+              content: Text(
+                'Module assigned to ${selectedBranchIds.length} branch(es) successfully',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -138,9 +143,10 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
       final bBranch = branchNames[b['branch_id']?.toString()] ?? '';
       final branchCompare = aBranch.compareTo(bBranch);
       if (branchCompare != 0) return branchCompare;
-      final aName = a['name']?.toString() ?? '';
-      final bName = b['name']?.toString() ?? '';
-      return aName.compareTo(bName);
+      // Within a branch: fixed Playgroup -> IG1 -> IG2 -> IG3 order, never alphabetical.
+      return gradeSortIndex(
+        a['name']?.toString(),
+      ).compareTo(gradeSortIndex(b['name']?.toString()));
     });
 
     return AlertDialog(
@@ -182,21 +188,28 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
               ...sortedClasses.map((c) {
                 final id = c['id']?.toString();
                 if (id == null) return const SizedBox.shrink();
-                final name = c['name']?.toString() ?? 'Unnamed Class';
+                final rawName = c['name']?.toString();
+                final name =
+                    rawName == null || rawName.isEmpty
+                        ? 'Unnamed Class'
+                        : canonicalGradeLabel(rawName);
                 final branchId = c['branch_id']?.toString();
                 final branchName = branchNames[branchId] ?? 'Unknown Branch';
                 return CheckboxListTile(
                   dense: true,
                   value: selectedClassIds.contains(id),
-                  onChanged: isLoading ? null : (value) {
-                    setState(() {
-                      if (value ?? false) {
-                        selectedClassIds.add(id);
-                      } else {
-                        selectedClassIds.remove(id);
-                      }
-                    });
-                  },
+                  onChanged:
+                      isLoading
+                          ? null
+                          : (value) {
+                            setState(() {
+                              if (value ?? false) {
+                                selectedClassIds.add(id);
+                              } else {
+                                selectedClassIds.remove(id);
+                              }
+                            });
+                          },
                   title: Text(name),
                   subtitle: Text(branchName),
                 );
@@ -222,15 +235,18 @@ class _AssignModuleDialogState extends ConsumerState<AssignModuleDialog> {
                 return CheckboxListTile(
                   dense: true,
                   value: selectedBranchIds.contains(id),
-                  onChanged: isLoading ? null : (value) {
-                    setState(() {
-                      if (value ?? false) {
-                        selectedBranchIds.add(id);
-                      } else {
-                        selectedBranchIds.remove(id);
-                      }
-                    });
-                  },
+                  onChanged:
+                      isLoading
+                          ? null
+                          : (value) {
+                            setState(() {
+                              if (value ?? false) {
+                                selectedBranchIds.add(id);
+                              } else {
+                                selectedBranchIds.remove(id);
+                              }
+                            });
+                          },
                   title: Text(name),
                 );
               }),

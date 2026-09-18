@@ -1,17 +1,21 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/api/parent_api.dart';
 import '../../../core/api/parent_provider.dart';
-import '../../../shared/widgets/marks_card_display.dart';
+import '../../../core/config/api_config.dart';
+import '../../../shared/widgets/marks_card_view.dart';
 
 class ParentMarksCardsScreen extends ConsumerStatefulWidget {
   const ParentMarksCardsScreen({super.key});
 
   @override
-  ConsumerState<ParentMarksCardsScreen> createState() => _ParentMarksCardsScreenState();
+  ConsumerState<ParentMarksCardsScreen> createState() =>
+      _ParentMarksCardsScreenState();
 }
 
-class _ParentMarksCardsScreenState extends ConsumerState<ParentMarksCardsScreen> {
+class _ParentMarksCardsScreenState
+    extends ConsumerState<ParentMarksCardsScreen> {
   List<Map<String, dynamic>> _marksCards = [];
   bool _loading = true;
   String? _error;
@@ -41,7 +45,9 @@ class _ParentMarksCardsScreenState extends ConsumerState<ParentMarksCardsScreen>
       final res = await api.getMarksCards();
       if (mounted) {
         setState(() {
-          _marksCards = List<Map<String, dynamic>>.from(res['marks_cards'] as List? ?? []);
+          _marksCards = List<Map<String, dynamic>>.from(
+            res['marks_cards'] as List? ?? [],
+          );
           _loading = false;
         });
       }
@@ -55,55 +61,86 @@ class _ParentMarksCardsScreenState extends ConsumerState<ParentMarksCardsScreen>
     }
   }
 
+  Future<String?> _uploadSignature(
+    String studentId,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final api = ref.read(parentApiProvider);
+    if (api == null) return null;
+    try {
+      final res = await api.uploadMarksSignature(
+        studentId,
+        academicYear: '2026-27',
+        bytes: bytes,
+        filename: filename,
+      );
+      _loadMarksCards(); // refresh the list so the saved image persists on reopen
+      return res['path'] as String?;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
   void _showMarksCard(BuildContext context, Map<String, dynamic> mc) {
-    final data = mc['data'] as Map<String, dynamic>? ?? {};
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 1,
-        expand: false,
-        builder: (_, controller) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${mc['student_name']} • ${mc['academic_year']}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: controller,
-                padding: const EdgeInsets.all(16),
-                child: MarksCardDisplay(
-                  studentName: mc['student_name'] as String? ?? '—',
-                  academicYear: mc['academic_year'] as String? ?? '—',
-                  data: data,
-                  fatherName: mc['father_name']?.toString(),
-                  motherName: mc['mother_name']?.toString(),
-                  dob: (mc['date_of_birth']?.toString() ?? '').split('T').first,
-                  className: mc['class_name']?.toString(),
-                  branchName: mc['branch_name']?.toString(),
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            initialChildSize: 0.9,
+            minChildSize: 0.5,
+            maxChildSize: 1,
+            expand: false,
+            builder:
+                (_, controller) => Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${mc['student_name']} • ${mc['academic_year']}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: controller,
+                        padding: const EdgeInsets.all(16),
+                        child: MarksCardView(
+                          marksCard: mc,
+                          signatureBaseUrl: ApiConfig.baseUrl,
+                          onUploadSignature:
+                              (role, bytes, filename) => _uploadSignature(
+                                mc['student_id']?.toString() ?? '',
+                                bytes,
+                                filename,
+                              ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -111,62 +148,60 @@ class _ParentMarksCardsScreenState extends ConsumerState<ParentMarksCardsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4E0),
-      appBar: AppBar(
-        title: const Text('Marks Cards'),
-        elevation: 0,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
+      appBar: AppBar(title: const Text('Marks Cards'), elevation: 0),
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                      const SizedBox(height: 16),
-                      Text('Error: $_error', textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadMarksCards,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : _marksCards.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.assignment, size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          const Text('No marks cards available yet'),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Marks cards will appear here once published by your teachers',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadMarksCards,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _marksCards.length,
-                        itemBuilder: (context, index) {
-                          final mc = _marksCards[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _MarksCardTile(
-                              marksCard: mc,
-                              onTap: () => _showMarksCard(context, mc),
-                            ),
-                          );
-                        },
-                      ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                    const SizedBox(height: 16),
+                    Text('Error: $_error', textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadMarksCards,
+                      child: const Text('Retry'),
                     ),
+                  ],
+                ),
+              )
+              : _marksCards.isEmpty
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.assignment, size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    const Text('No marks cards available yet'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Marks cards will appear here once published by your teachers',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    ),
+                  ],
+                ),
+              )
+              : RefreshIndicator(
+                onRefresh: _loadMarksCards,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _marksCards.length,
+                  itemBuilder: (context, index) {
+                    final mc = _marksCards[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _MarksCardTile(
+                        marksCard: mc,
+                        onTap: () => _showMarksCard(context, mc),
+                      ),
+                    );
+                  },
+                ),
+              ),
     );
   }
 }
@@ -232,10 +267,7 @@ class _MarksCardTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${marksCard['class_name'] ?? '—'} • ${marksCard['academic_year'] ?? '—'}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -246,10 +278,7 @@ class _MarksCardTile extends StatelessWidget {
               children: [
                 Text(
                   'Sent',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -262,10 +291,7 @@ class _MarksCardTile extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
           ],
         ),
       ),

@@ -6,7 +6,6 @@ import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
-import 'fee_receipt_pdf.dart';
 
 class AdminFeeManagementScreen extends ConsumerStatefulWidget {
   final String branchId;
@@ -36,6 +35,12 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
     _loadBranches();
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadBranches() async {
     final api = ref.read(adminApiProvider);
     if (api == null) return;
@@ -57,14 +62,21 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
     } catch (_) { if (mounted) setState(() => _loading = false); }
   }
 
-  Future<void> _loadFees() async {
+  Future<void> _loadFees({bool showSpinner = true}) async {
     final api = ref.read(adminApiProvider);
     if (api == null || _selectedStudentId == null) return;
-    if (mounted) setState(() => _loadingFees = true);
+    if (mounted && showSpinner && _feeData == null) setState(() => _loadingFees = true);
     try {
       final data = await api.getStudentFees(_selectedStudentId!);
       if (mounted) setState(() { _feeData = data; _loadingFees = false; });
-    } catch (_) { if (mounted) setState(() => _loadingFees = false); }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingFees = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not refresh fees: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -194,68 +206,222 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
     );
   }
 
+  /// Parse an amount field exactly as typed. Empty means 0. Anything that is not
+  /// a valid non-negative number returns null so the caller can block the save
+  /// instead of silently substituting a default.
+  double? _parseAmount(String raw) {
+    final s = raw.replaceAll(RegExp(r'[,\s₹]'), '');
+    if (s.isEmpty) return 0.0;
+    final v = double.tryParse(s);
+    if (v == null || v < 0 || v.isNaN || v.isInfinite) return null;
+    return v;
+  }
+
+  /// Show a whole number without a trailing ".0" so the field round-trips cleanly.
+  String _fmtAmount(dynamic v) {
+    final d = (v as num?)?.toDouble() ?? 0.0;
+    return d == d.roundToDouble() ? d.toInt().toString() : d.toString();
+  }
+
+  String _slugify(String s) => s
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+
+  Widget _sheetError(String? msg) {
+    if (msg == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(children: [
+        Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(msg, style: TextStyle(color: Colors.red.shade900, fontSize: 13, fontWeight: FontWeight.w600))),
+      ]),
+    );
+  }
+
   void _showEditFeeSheet() {
-    final advCtrl = TextEditingController(text: (_feeData!['advance_fees']?.toString() ?? '0'));
-    final t1Ctrl = TextEditingController(text: (_feeData!['term_fee_1']?.toString() ?? '0'));
-    final t2Ctrl = TextEditingController(text: (_feeData!['term_fee_2']?.toString() ?? '0'));
-    final t3Ctrl = TextEditingController(text: (_feeData!['term_fee_3']?.toString() ?? '0'));
+    final advCtrl = TextEditingController(text: _fmtAmount(_feeData!['advance_fees']));
+    final t1Ctrl = TextEditingController(text: _fmtAmount(_feeData!['term_fee_1']));
+    final t2Ctrl = TextEditingController(text: _fmtAmount(_feeData!['term_fee_2']));
+    final t3Ctrl = TextEditingController(text: _fmtAmount(_feeData!['term_fee_3']));
+
+    final customRows = <_CustomFeeRow>[
+      for (final cf in (_feeData!['custom_fields'] as List? ?? []))
+        _CustomFeeRow(
+          originalKey: cf['key'] as String?,
+          label: TextEditingController(text: (cf['label'] as String?) ?? ''),
+          amount: TextEditingController(text: _fmtAmount(cf['amount'])),
+        ),
+    ];
+    String? errText;
+    bool saving = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Container(
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-            const Text('Edit Fee Structure', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 20),
-            _feeField(advCtrl, 'Advance Deposit (₹)'),
-            _feeField(t1Ctrl, 'Term I Fee (₹)'),
-            _feeField(t2Ctrl, 'Term II Fee (₹)'),
-            _feeField(t3Ctrl, 'Term III Fee (₹)'),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () async {
-                final api = ref.read(adminApiProvider);
-                if (api == null) return;
-                Navigator.pop(context);
-                try {
-                  await api.updateStudentFees(_selectedStudentId!, {
-                    'advance_fees': double.tryParse(advCtrl.text) ?? 0,
-                    'term_fee_1': double.tryParse(t1Ctrl.text) ?? 0,
-                    'term_fee_2': double.tryParse(t2Ctrl.text) ?? 0,
-                    'term_fee_3': double.tryParse(t3Ctrl.text) ?? 0,
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fees updated!')));
-                  _loadFees();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              },
-              style: FilledButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                const Text('Edit Fee Structure', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 20),
+                _sheetError(errText),
+                _feeField(advCtrl, 'Advance Deposit (₹)'),
+                _feeField(t1Ctrl, 'Term I Fee (₹)'),
+                _feeField(t2Ctrl, 'Term II Fee (₹)'),
+                _feeField(t3Ctrl, 'Term III Fee (₹)'),
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Text('Custom Fees', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => setS(() => customRows.add(_CustomFeeRow(
+                      originalKey: null,
+                      label: TextEditingController(),
+                      amount: TextEditingController(),
+                    ))),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add'),
+                  ),
+                ]),
+                for (int i = 0; i < customRows.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(children: [
+                      Expanded(flex: 3, child: TextFormField(
+                        controller: customRows[i].label,
+                        decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder(), isDense: true),
+                      )),
+                      const SizedBox(width: 8),
+                      Expanded(flex: 2, child: TextFormField(
+                        controller: customRows[i].amount,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: '₹', border: OutlineInputBorder(), isDense: true),
+                      )),
+                      IconButton(
+                        onPressed: () => setS(() => customRows.removeAt(i)),
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        tooltip: 'Remove',
+                      ),
+                    ]),
+                  ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: saving ? null : () async {
+                    final built = _buildFeeStructureBody(advCtrl, t1Ctrl, t2Ctrl, t3Ctrl, customRows);
+                    if (built.error != null) {
+                      setS(() => errText = built.error);
+                      return; // nothing sent; error is shown in the sheet
+                    }
+                    setS(() { errText = null; saving = true; });
+                    Navigator.pop(ctx);
+                    await _submitFeeStructure(built.body!);
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: Text(saving ? 'Saving…' : 'Save Changes', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ),
+              ]),
             ),
-          ])),
+          ),
         ),
       ),
     );
   }
 
+  /// Validate + assemble the exact request body. Returns an error message (and no
+  /// body) when anything is invalid — never silently coerces a bad value.
+  ({String? error, Map<String, dynamic>? body}) _buildFeeStructureBody(
+    TextEditingController adv,
+    TextEditingController t1,
+    TextEditingController t2,
+    TextEditingController t3,
+    List<_CustomFeeRow> customRows,
+  ) {
+    final bad = <String>[];
+    final advVal = _parseAmount(adv.text);
+    final t1Val = _parseAmount(t1.text);
+    final t2Val = _parseAmount(t2.text);
+    final t3Val = _parseAmount(t3.text);
+    if (advVal == null) bad.add('Advance Deposit');
+    if (t1Val == null) bad.add('Term I');
+    if (t2Val == null) bad.add('Term II');
+    if (t3Val == null) bad.add('Term III');
+
+    final customPayload = <Map<String, dynamic>>[];
+    final seenKeys = <String>{};
+    for (var i = 0; i < customRows.length; i++) {
+      final row = customRows[i];
+      final label = row.label.text.trim();
+      final amtText = row.amount.text.trim();
+      if (label.isEmpty && amtText.isEmpty) continue; // untouched blank row
+      final amt = _parseAmount(amtText);
+      if (label.isEmpty) { bad.add('custom fee #${i + 1} name'); continue; }
+      if (amt == null) { bad.add('"$label" amount'); continue; }
+      final key = (row.originalKey != null && row.originalKey!.isNotEmpty)
+          ? row.originalKey!
+          : _slugify(label);
+      if (key.isEmpty) { bad.add('"$label" (use letters or numbers)'); continue; }
+      if (!seenKeys.add(key)) { bad.add('duplicate "$label"'); continue; }
+      customPayload.add({'key': key, 'label': label, 'amount': amt});
+    }
+
+    if (bad.isNotEmpty) {
+      return (error: 'Enter a valid non-negative amount for: ${bad.join(", ")}', body: null);
+    }
+    return (
+      error: null,
+      body: {
+        'advance_fees': advVal,
+        'term_fee_1': t1Val,
+        'term_fee_2': t2Val,
+        'term_fee_3': t3Val,
+        'custom_fields': customPayload,
+      },
+    );
+  }
+
+  Future<void> _submitFeeStructure(Map<String, dynamic> body) async {
+    final api = ref.read(adminApiProvider);
+    if (api == null || _selectedStudentId == null) return;
+    try {
+      final updated = await api.updateStudentFees(_selectedStudentId!, body);
+      if (!mounted) return;
+      // Show the exact saved structure across every tab immediately,
+      // then reconcile with a fresh fetch from the server.
+      setState(() => _feeData = updated);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fees updated!')));
+      await _loadFees(showSpinner: false);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   void _showRecordPaymentSheet() {
     final amtCtrl = TextEditingController();
-    String mode = 'Cash';
+    String mode = 'cash';
     String component = 'advance_fees';
+    String? errText;
+    bool saving = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => StatefulBuilder(builder: (ctx, setS) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
           decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
           padding: const EdgeInsets.all(24),
@@ -263,59 +429,119 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
             Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const Text('Record Payment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             const SizedBox(height: 20),
-            TextFormField(controller: amtCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Amount (₹) *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.currency_rupee))),
+            _sheetError(errText),
+            TextFormField(
+              controller: amtCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Amount (₹) *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.currency_rupee)),
+            ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: mode,
               decoration: const InputDecoration(labelText: 'Payment Mode', border: OutlineInputBorder(), prefixIcon: Icon(Icons.payment)),
               items: const [
-                DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                DropdownMenuItem(value: 'Card', child: Text('Card')),
-                DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
-                DropdownMenuItem(value: 'Cheque', child: Text('Cheque')),
+                DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                DropdownMenuItem(value: 'upi', child: Text('UPI')),
+                DropdownMenuItem(value: 'net_banking', child: Text('Net Banking')),
+                DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer')),
+                DropdownMenuItem(value: 'cheque', child: Text('Cheque')),
               ],
-              onChanged: (v) => setS(() => mode = v ?? 'Cash'),
+              onChanged: (v) => setS(() => mode = v ?? 'cash'),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: component,
               decoration: const InputDecoration(labelText: 'Fee Category *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.category_rounded)),
-              items: const [
-                DropdownMenuItem(value: 'advance_fees', child: Text('Advance Deposit')),
-                DropdownMenuItem(value: 'term_fee_1', child: Text('Term I Fee')),
-                DropdownMenuItem(value: 'term_fee_2', child: Text('Term II Fee')),
-                DropdownMenuItem(value: 'term_fee_3', child: Text('Term III Fee')),
+              items: [
+                const DropdownMenuItem(value: 'advance_fees', child: Text('Advance Deposit')),
+                const DropdownMenuItem(value: 'term_fee_1', child: Text('Term I Fee')),
+                const DropdownMenuItem(value: 'term_fee_2', child: Text('Term II Fee')),
+                const DropdownMenuItem(value: 'term_fee_3', child: Text('Term III Fee')),
+                for (final cf in (_feeData?['custom_fields'] as List? ?? []))
+                  DropdownMenuItem(
+                    value: cf['key'] as String,
+                    child: Text((cf['label'] as String?) ?? (cf['key'] as String)),
+                  ),
               ],
               onChanged: (v) => setS(() => component = v ?? 'advance_fees'),
             ),
             const SizedBox(height: 20),
             FilledButton(
-              onPressed: () async {
-                final api = ref.read(adminApiProvider);
-                if (api == null) return;
-                final amt = double.tryParse(amtCtrl.text.trim());
-                if (amt == null || amt <= 0) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount'))); return; }
-                Navigator.pop(context);
-                try {
-                  await api.recordFeePayment(_selectedStudentId!, {
-                    'amount_paid': amt, 
-                    'payment_mode': mode,
-                    'component': component,
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded!')));
-                  _loadFees();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              onPressed: saving ? null : () async {
+                final amt = _parseAmount(amtCtrl.text);
+                if (amt == null) {
+                  setS(() => errText = 'Enter a valid amount — numbers only.');
+                  return;
                 }
+                if (amt <= 0) {
+                  setS(() => errText = 'Amount must be greater than 0.');
+                  return;
+                }
+                setS(() { errText = null; saving = true; });
+                Navigator.pop(ctx);
+                await _submitPayment(component: component, amount: amt, mode: mode);
               },
               style: FilledButton.styleFrom(backgroundColor: AppColors.accentGreen, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              child: Text(saving ? 'Recording…' : 'Record Payment', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
           ]),
         ),
       )),
     );
+  }
+
+  Future<void> _submitPayment({required String component, required double amount, required String mode}) async {
+    final api = ref.read(adminApiProvider);
+    if (api == null || _selectedStudentId == null) return;
+    try {
+      final res = await api.recordFeePayment(_selectedStudentId!, {
+        'amount_paid': amount,
+        'payment_mode': mode,
+        'component': component,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded!')));
+      await _loadFees(showSpinner: false); // Payments tab reflects it immediately
+      _promptSendReceipt(res['id']?.toString());
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _promptSendReceipt(String? paymentId) {
+    if (paymentId == null || paymentId.isEmpty || !mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Payment recorded'),
+        content: const Text('Send the receipt to the parent portal now?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Later')),
+          FilledButton(
+            onPressed: () { Navigator.pop(ctx); _sendReceipt(paymentId); },
+            child: const Text('Send Receipt'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendReceipt(String paymentId) async {
+    final api = ref.read(adminApiProvider);
+    if (api == null || _selectedStudentId == null) return;
+    try {
+      final res = await api.sendFeeReceipt(_selectedStudentId!, paymentId);
+      if (!mounted) return;
+      final alreadySent = res['already_sent'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(alreadySent
+            ? 'Receipt was already sent to the parent.'
+            : 'Receipt sent to parent portal ✓'),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Widget _feeField(TextEditingController ctrl, String label) => Padding(
@@ -355,40 +581,81 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
     );
   }
 
+  /// Minimal underline tab bar for the Fee Statement. Purely presentational —
+  /// it drives the same [_tabController] the TabBarView below already uses.
   Widget _buildFeeTabSystem() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(16)),
+    const labelStyle = TextStyle(fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: 0.1);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
       child: TabBar(
         controller: _tabController,
-        indicator: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [AppShadows.soft]),
-        labelColor: const Color(0xFF0F172A),
-        unselectedLabelColor: const Color(0xFF64748B),
-        labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-        tabs: const [Tab(text: 'STRUCTURE'), Tab(text: 'PAYMENTS'), Tab(text: 'HISTORY')],
+        labelColor: AppColors.primary,
+        unselectedLabelColor: const Color(0xFF475569),
+        labelStyle: labelStyle,
+        unselectedLabelStyle: labelStyle,
+        indicatorColor: AppColors.primary,
+        indicatorWeight: 2,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: const Color(0xFFE2E8F0),
+        dividerHeight: 1,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        tabs: const [
+          Tab(text: 'Structure'),
+          Tab(text: 'Payments'),
+          Tab(text: 'Summary'),
+        ],
       ),
     );
   }
 
   Widget _buildStructureView() {
-    final components = [
+    const standard = [
       {'label': 'Advance Deposit', 'key': 'advance_fees'},
       {'label': 'Term I Fee', 'key': 'term_fee_1'},
       {'label': 'Term II Fee', 'key': 'term_fee_2'},
       {'label': 'Term III Fee', 'key': 'term_fee_3'},
     ];
 
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: components.length,
-      itemBuilder: (context, i) {
-        final key = components[i]['key']!;
-        final total = (_feeData![key] as num?)?.toDouble() ?? 0.0;
-        final paid = (_feeData!['${key}_paid'] as num?)?.toDouble() ?? 0.0;
-        return _FeeComponentCard(label: components[i]['label']!, total: total, paid: paid);
-      },
+      children: [
+        for (final c in standard)
+          _FeeComponentCard(
+            label: c['label']!,
+            total: (_feeData![c['key']] as num?)?.toDouble() ?? 0.0,
+            paid: (_feeData!['${c['key']}_paid'] as num?)?.toDouble() ?? 0.0,
+          ),
+        for (final cf in (_feeData!['custom_fields'] as List? ?? []))
+          _FeeComponentCard(
+            label: (cf['label'] as String?) ?? (cf['key'] as String? ?? 'Custom Fee'),
+            total: (cf['amount'] as num?)?.toDouble() ?? 0.0,
+            paid: (cf['paid'] as num?)?.toDouble() ?? 0.0,
+          ),
+      ],
     );
+  }
+
+  static const _modeLabels = {
+    'cash': 'Cash',
+    'upi': 'UPI',
+    'net_banking': 'Net Banking',
+    'cheque': 'Cheque',
+    'bank_transfer': 'Bank Transfer',
+  };
+
+  String _componentLabel(String key) {
+    const standard = {
+      'advance_fees': 'Advance Deposit',
+      'term_fee_1': 'Term I Fee',
+      'term_fee_2': 'Term II Fee',
+      'term_fee_3': 'Term III Fee',
+    };
+    if (standard.containsKey(key)) return standard[key]!;
+    for (final cf in (_feeData?['custom_fields'] as List? ?? [])) {
+      if (cf['key'] == key) return (cf['label'] as String?) ?? key;
+    }
+    return key;
   }
 
   Widget _buildHistoryView() {
@@ -399,22 +666,42 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
       itemCount: payments.length,
       itemBuilder: (context, i) {
         final p = payments[i] as Map<String, dynamic>;
-        final amt = (p['amount'] as num?)?.toDouble() ?? 0.0;
+        final amt = (p['amount_paid'] as num?)?.toDouble() ?? 0.0;
         final date = p['payment_date']?.toString() ?? p['created_at']?.toString() ?? '';
-        final mode = p['payment_mode']?.toString() ?? 'Cash';
+        final rawMode = p['payment_mode']?.toString() ?? 'cash';
+        final mode = _modeLabels[rawMode] ?? rawMode;
+        final component = _componentLabel(p['component']?.toString() ?? '');
+        final paymentId = p['id']?.toString();
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [AppShadows.soft], border: Border.all(color: const Color(0xFFF1F5F9))),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(Icons.receipt_long_rounded, color: AppColors.accentGreen, size: 20)),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Payment — $mode', style: const TextStyle(fontWeight: FontWeight.w700,fontSize: 14)),
-                Text(date.length > 10 ? date.substring(0, 10) : date, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-              ])),
-              Text('₹${NumberFormat('#,###').format(amt)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accentGreen)),
+              Row(
+                children: [
+                  Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(Icons.receipt_long_rounded, color: AppColors.accentGreen, size: 20)),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('$component — $mode', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                    Text(date.length > 10 ? date.substring(0, 10) : date, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                  ])),
+                  Text('₹${NumberFormat('#,###').format(amt)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accentGreen)),
+                ],
+              ),
+              if (paymentId != null) ...[
+                const Divider(height: 20),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => _sendReceipt(paymentId),
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text('Send Receipt'),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.primary, visualDensity: VisualDensity.compact),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -423,7 +710,7 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
   }
 
   Widget _buildReportsView() {
-    final total = (_feeData!['total_fees'] as num?)?.toDouble() ?? 0.0;
+    final total = (_feeData!['total_due'] as num?)?.toDouble() ?? 0.0;
     final paid = (_feeData!['total_paid'] as num?)?.toDouble() ?? 0.0;
     final balance = (_feeData!['total_balance'] as num?)?.toDouble() ?? 0.0;
     return Padding(
@@ -439,6 +726,16 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
       ),
     );
   }
+}
+
+/// One editable custom-fee row in the Edit Fee Structure sheet.
+class _CustomFeeRow {
+  /// Key of an already-saved custom fee; kept on save so recorded payments stay
+  /// linked even if the admin renames the label. Null for a newly added row.
+  final String? originalKey;
+  final TextEditingController label;
+  final TextEditingController amount;
+  _CustomFeeRow({this.originalKey, required this.label, required this.amount});
 }
 
 class _SelectionCard extends StatelessWidget {

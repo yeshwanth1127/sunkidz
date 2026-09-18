@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 
@@ -5,19 +6,41 @@ class ParentApi {
   ParentApi(this._token);
 
   final String _token;
-  late final Dio _dio = Dio(BaseOptions(
-    baseUrl: '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}',
-    connectTimeout: const Duration(seconds: 30),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $_token',
-    },
-  ));
+  late final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}',
+      connectTimeout: const Duration(seconds: 30),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+    ),
+  );
 
   Future<Map<String, dynamic>> getMarksCards() async {
     final r = await _dio.get('/parent/marks-cards');
     return r.data as Map<String, dynamic>;
+  }
+
+  /// Parent uploads / replaces the Parent signature image on their own child's
+  /// current marks card (role is fixed server-side to 'parent').
+  Future<Map<String, dynamic>> uploadMarksSignature(
+    String studentId, {
+    required String academicYear,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final form = FormData.fromMap({
+      'academic_year': academicYear,
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final r = await _dio.post(
+      '/parent/marks-cards/$studentId/signature',
+      data: form,
+      options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+    );
+    return Map<String, dynamic>.from(r.data as Map);
   }
 
   Future<Map<String, dynamic>> getChildren() async {
@@ -25,8 +48,14 @@ class ParentApi {
     return r.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getStudentAttendance(String studentId, {int days = 30}) async {
-    final r = await _dio.get('/parent/student/$studentId/attendance', queryParameters: {'days': days});
+  Future<Map<String, dynamic>> getStudentAttendance(
+    String studentId, {
+    int days = 30,
+  }) async {
+    final r = await _dio.get(
+      '/parent/student/$studentId/attendance',
+      queryParameters: {'days': days},
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -45,10 +74,10 @@ class ParentApi {
     required String title,
     required String message,
   }) async {
-    final r = await _dio.post('/parent/messages/send', data: {
-      'title': title,
-      'message': message,
-    });
+    final r = await _dio.post(
+      '/parent/messages/send',
+      data: {'title': title, 'message': message},
+    );
     return r.data as Map<String, dynamic>;
   }
 
@@ -62,7 +91,10 @@ class ParentApi {
     if (studentId != null) params['student_id'] = studentId;
     if (fromDate != null) params['from_date'] = fromDate;
     if (toDate != null) params['to_date'] = toDate;
-    final r = await _dio.get('/daycare/parent/updates', queryParameters: params);
+    final r = await _dio.get(
+      '/daycare/parent/updates',
+      queryParameters: params,
+    );
     return List<Map<String, dynamic>>.from(r.data as List);
   }
 }

@@ -111,6 +111,8 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
                           _buildStudentHeader(),
                           const SizedBox(height: 24),
                           _buildTotalSummary(),
+                          const SizedBox(height: 16),
+                          _buildActions(),
                           const SizedBox(height: 24),
                           _buildFeeBreakdown(),
                           const SizedBox(height: 24),
@@ -179,6 +181,100 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildActions() {
+    final balance = (_feeData!['total_balance'] as num?)?.toDouble() ?? 0.0;
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: _showPayInfo,
+            icon: const Icon(Icons.payments_outlined, size: 18),
+            label: const Text('Pay'),
+            style: FilledButton.styleFrom(
+              backgroundColor: balance > 0 ? Colors.green[600] : Colors.grey,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => context.push('/parent/receipts'),
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: const Text('Receipts'),
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showPayInfo() {
+    final moneyFmt = NumberFormat('#,##0.00', 'en_IN');
+    final balance = (_feeData!['total_balance'] as num?)?.toDouble() ?? 0.0;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 24, right: 24, top: 20,
+          bottom: 24 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const Text('Pay Fees', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: balance > 0 ? Colors.orange[50] : Colors.green[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Outstanding balance', style: TextStyle(fontWeight: FontWeight.w500)),
+                  Text('₹${moneyFmt.format(balance)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: balance > 0 ? Colors.orange[800] : Colors.green[800],
+                      )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Online payment is coming soon.\n\n'
+              'For now, please pay at the school office or use the bank / UPI '
+              'details shared by the school. Once the school confirms your payment, '
+              'the receipt will appear in your Receipts section.',
+              style: TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

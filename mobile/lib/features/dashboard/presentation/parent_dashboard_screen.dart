@@ -7,8 +7,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/api/current_user_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../shared/widgets/marks_card_display.dart';
-import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/dashboard_app_bar.dart';
+import '../../../shared/widgets/marks_card_view.dart';
 import '../../../shared/widgets/parent_bus_tracking_widget.dart';
 import '../../../shared/widgets/parent_drawer.dart';
 import '../../../features/syllabus/providers/syllabus_provider.dart';
@@ -230,54 +230,46 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   }
 
   void _showMarksCard(BuildContext context, Map<String, dynamic> mc) {
-    final data = mc['data'] as Map<String, dynamic>? ?? {};
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 1,
-        expand: false,
-        builder: (_, controller) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${mc['student_name']} • ${mc['academic_year']}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: controller,
-                padding: const EdgeInsets.all(16),
-                child: MarksCardDisplay(
-                  studentName: mc['student_name'] as String? ?? '—',
-                  academicYear: mc['academic_year'] as String? ?? '—',
-                  data: data,
-                  fatherName: mc['father_name']?.toString(),
-                  motherName: mc['mother_name']?.toString(),
-                  dob: (mc['date_of_birth']?.toString() ?? '').split('T').first,
-                  className: mc['class_name']?.toString(),
-                  branchName: mc['branch_name']?.toString(),
+      builder:
+          (ctx) => DraggableScrollableSheet(
+            initialChildSize: 0.9,
+            minChildSize: 0.5,
+            maxChildSize: 1,
+            expand: false,
+            builder:
+                (_, controller) => Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${mc['student_name']} • ${mc['academic_year']}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: controller,
+                        padding: const EdgeInsets.all(16),
+                        child: MarksCardView(marksCard: mc),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -289,160 +281,117 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
-    final userName = userAsync.valueOrNull?['full_name']?.toString() ?? 'Parent';
+    final userName =
+        userAsync.valueOrNull?['full_name']?.toString() ?? 'Parent';
     final userId = ref.read(authProvider).userId;
     final authToken = ref.read(authProvider).token;
     final hasProfilePhoto = userAsync.valueOrNull?['profile_photo'] != null;
-    final profilePhotoUrl = hasProfilePhoto && userId != null
-        ? '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/auth/profile-photo/$userId'
-        : null;
+    final profilePhotoUrl =
+        hasProfilePhoto && userId != null
+            ? '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/auth/profile-photo/$userId'
+            : null;
 
     final childName = _selectedChild?['name'] as String? ?? 'Unknown';
-    final childClass = _selectedChild?['class_name'] as String? ?? 'Not Assigned';
-    final childBranch = _selectedChild?['branch_name'] as String? ?? 'No Branch';
-    final childAvatarLetter = childName.isNotEmpty ? childName[0].toUpperCase() : 'S';
+    final childClass =
+        _selectedChild?['class_name'] as String? ?? 'Not Assigned';
+    final childBranch =
+        _selectedChild?['branch_name'] as String? ?? 'No Branch';
+    final childAvatarLetter =
+        childName.isNotEmpty ? childName[0].toUpperCase() : 'S';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFDFBF7),
+      backgroundColor: AppColors.backgroundLight,
       extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Custom Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Image.asset(
-                        'assets/images/sunkidz_logo_hd.png',
-                        height: 28,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.school, size: 28, color: AppColors.primary);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Parent Portal',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 20,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Container(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFF0E5),
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(2),
-                        child: CircleAvatar(
-                          backgroundColor: Colors.black87,
-                          radius: 16,
-                          child: InkWell(
-                            onTap: () => context.push('/parent/notifications'),
-                            child: const Icon(Icons.notifications, color: Colors.white, size: 18),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () => context.push('/parent/settings'),
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFFF0E5),
-                            shape: BoxShape.circle,
-                          ),
-                          padding: const EdgeInsets.all(3),
-                          child: CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Colors.transparent,
-                            backgroundImage: profilePhotoUrl != null
-                                ? NetworkImage('$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}')
-                                : null,
-                            child: profilePhotoUrl == null
-                                ? Icon(Icons.person, color: Colors.orange.shade300, size: 20)
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ],
+      drawer: const ParentDrawer(),
+      appBar: DashboardAppBar(
+        title: 'Parent Portal',
+        accentColor: const Color(0xFFF28F1D),
+        notificationsRoute: '/parent/notifications',
+        onAvatarTap: () => context.push('/parent/settings'),
+        avatarInitial: userName.isNotEmpty ? userName[0].toUpperCase() : 'P',
+        avatarPhotoUrl:
+            profilePhotoUrl != null
+                ? '$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}'
+                : null,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadChildren,
+        child: SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_loadingChildren)
+                  const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.orange),
+                    ),
+                  )
+                else if (_selectedChild != null) ...[
+                  if (_children.length > 1) _buildChildSwitcher(),
+                  _buildProfileCard(
+                    childName,
+                    childClass,
+                    childBranch,
+                    childAvatarLetter,
+                    profilePhotoUrl,
                   ),
                 ],
-              ),
-            ),
 
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_loadingChildren)
-                      const Padding(
-                        padding: EdgeInsets.all(40),
-                        child: Center(child: CircularProgressIndicator(color: Colors.orange)),
-                      )
-                    else if (_selectedChild != null) ...[
-                      if (_children.length > 1)
-                        _buildChildSwitcher(),
-                      _buildProfileCard(childName, childClass, childBranch, childAvatarLetter, profilePhotoUrl),
-                    ],
-                    
-                    // Messaging & Communication
-                    _buildMessagingSection(context),
+                // Messaging & Communication
+                _buildMessagingSection(context),
 
-                    // Quick Actions
-                    _buildQuickActions(context),
+                // Quick Actions
+                _buildQuickActions(context),
 
-                    // Learning Modules
-                    if (_selectedChild != null)
-                      ParentLearningModulesSection(studentId: _selectedChild!['id']),
+                // Learning Modules
+                if (_selectedChild != null)
+                  ParentLearningModulesSection(
+                    studentId: _selectedChild!['id'],
+                  ),
 
-                    // Recent Homework
-                    if (_homework.isNotEmpty)
-                      _buildRecentHomework(),
+                // Recent Homework
+                if (_homework.isNotEmpty) _buildRecentHomework(),
 
-                    const SizedBox(height: 30),
+                const SizedBox(height: 30),
 
-                    // Classroom Moments
-                    _buildClassroomMoments(authToken),
+                // Classroom Moments
+                _buildClassroomMoments(authToken),
 
-                    // Fee Summary
-                    if (_selectedChild != null && !_loadingFees && _feeData != null)
-                      _buildFeeSummary(),
+                // Fee Summary
+                if (_selectedChild != null && !_loadingFees && _feeData != null)
+                  _buildFeeSummary(),
 
-                    // Bus Tracking
-                    if (_hasBusAccess && _selectedChild != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Bus Tracking',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 12),
-                            const ParentBusTrackingWidget(),
-                          ],
+                // Bus Tracking
+                if (_hasBusAccess && _selectedChild != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Bus Tracking',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        const ParentBusTrackingWidget(),
+                      ],
+                    ),
+                  ),
 
-                    const SizedBox(height: 120), // Bottom navigation padding
-                  ],
-                ),
-              ),
+                const SizedBox(height: 120), // Bottom navigation padding
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -464,15 +413,16 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             isExpanded: true,
             icon: const Icon(Icons.swap_horiz, color: Colors.orange),
             hint: const Text('Select Child'),
-            items: _children.map((child) {
-              return DropdownMenuItem<String>(
-                value: child['id'],
-                child: Text(
-                  child['name'],
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              );
-            }).toList(),
+            items:
+                _children.map((child) {
+                  return DropdownMenuItem<String>(
+                    value: child['id'],
+                    child: Text(
+                      child['name'],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  );
+                }).toList(),
             onChanged: (childId) {
               final child = _children.firstWhere((c) => c['id'] == childId);
               _onChildSwitched(child);
@@ -483,7 +433,13 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildProfileCard(String name, String className, String branch, String letter, String? profilePhotoUrl) {
+  Widget _buildProfileCard(
+    String name,
+    String className,
+    String branch,
+    String letter,
+    String? profilePhotoUrl,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       width: double.infinity,
@@ -496,7 +452,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             blurRadius: 30,
             spreadRadius: 5,
             offset: const Offset(0, 10),
-          )
+          ),
         ],
       ),
       padding: const EdgeInsets.symmetric(vertical: 30),
@@ -507,19 +463,27 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
           // Floating background icons
           Positioned(
             top: -10,
-            child: Icon(Icons.wb_sunny_outlined, color: Colors.yellow.shade600, size: 28),
+            child: Icon(
+              Icons.wb_sunny_outlined,
+              color: Colors.yellow.shade600,
+              size: 28,
+            ),
           ),
           Positioned(
             bottom: -20,
             right: 40,
-            child: Icon(Icons.rocket_launch, color: Colors.blue.shade200, size: 28),
+            child: Icon(
+              Icons.rocket_launch,
+              color: Colors.blue.shade200,
+              size: 28,
+            ),
           ),
           Positioned(
             top: -20,
             right: 80,
             child: Icon(Icons.star, color: Colors.orange.shade100, size: 24),
           ),
-          
+
           Column(
             children: [
               Stack(
@@ -529,20 +493,32 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.orange.shade200, width: 2, style: BorderStyle.solid),
+                      border: Border.all(
+                        color: Colors.orange.shade200,
+                        width: 2,
+                        style: BorderStyle.solid,
+                      ),
                     ),
                     child: CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.teal.shade700,
-                      backgroundImage: profilePhotoUrl != null
-                          ? NetworkImage('$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}')
-                          : null,
-                      child: profilePhotoUrl == null
-                          ? Text(
-                              letter,
-                              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
-                            )
-                          : null,
+                      backgroundImage:
+                          profilePhotoUrl != null
+                              ? NetworkImage(
+                                '$profilePhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}',
+                              )
+                              : null,
+                      child:
+                          profilePhotoUrl == null
+                              ? Text(
+                                letter,
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : null,
                     ),
                   ),
                   Positioned(
@@ -554,7 +530,11 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                         color: Color(0xFFF29B27),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 16),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
                 ],
@@ -627,14 +607,21 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.edit_note, color: Colors.orange.shade700, size: 20),
+                          Icon(
+                            Icons.edit_note,
+                            color: Colors.orange.shade700,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               hw.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ],
@@ -645,7 +632,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                           hw.description ?? 'No description provided.',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -687,9 +677,16 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             textColor: const Color(0xFF0F6FA3),
             onTap: () {
               if (_selectedChild != null) {
-                context.push('/parent/attendance', extra: {'student': _selectedChild});
+                context.push(
+                  '/parent/attendance',
+                  extra: {'student': _selectedChild},
+                );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a student first')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please select a student first'),
+                  ),
+                );
               }
             },
           ),
@@ -733,7 +730,10 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             textColor: const Color(0xFF148540),
             onTap: () {
               if (_selectedChild != null) {
-                context.push('/parent/fees', extra: {'student': _selectedChild, 'feeData': _feeData});
+                context.push(
+                  '/parent/fees',
+                  extra: {'student': _selectedChild, 'feeData': _feeData},
+                );
               }
             },
           ),
@@ -858,42 +858,75 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.orange.shade200)),
-                    child: const Icon(Icons.chevron_left, color: Colors.orange, size: 20),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.orange.shade200)),
-                    child: const Icon(Icons.chevron_right, color: Colors.orange, size: 20),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
                   ),
                 ],
-              )
+              ),
             ],
           ),
         ),
         const SizedBox(height: 20),
         SizedBox(
           height: 260,
-          child: _loadingGallery
-              ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-              : _dailyGalleryItems.isEmpty
-                  ? Center(child: Text('No gallery photos yet.', style: TextStyle(color: Colors.grey.shade600)))
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      itemCount: _dailyGalleryItems.length,
-                      itemBuilder: (context, index) {
-                        final item = _dailyGalleryItems[index];
-                        final url = '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/gallery/${item.id}/file${authToken != null ? '?token=$authToken' : ''}';
-                        // Alternate rotations: left, straight, right
-                        final double rotation = index % 3 == 0 ? -0.05 : (index % 3 == 1 ? 0.0 : 0.05);
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 20),
-                          child: _PolaroidCard(url: url, caption: 'Moment ${index + 1} 📸', angle: rotation),
-                        );
-                      },
+          child:
+              _loadingGallery
+                  ? const Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  )
+                  : _dailyGalleryItems.isEmpty
+                  ? Center(
+                    child: Text(
+                      'No gallery photos yet.',
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
+                  )
+                  : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    itemCount: _dailyGalleryItems.length,
+                    itemBuilder: (context, index) {
+                      final item = _dailyGalleryItems[index];
+                      final url =
+                          '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/gallery/${item.id}/file${authToken != null ? '?token=$authToken' : ''}';
+                      // Alternate rotations: left, straight, right
+                      final double rotation =
+                          index % 3 == 0
+                              ? -0.05
+                              : (index % 3 == 1 ? 0.0 : 0.05);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: _PolaroidCard(
+                          url: url,
+                          caption: 'Moment ${index + 1} 📸',
+                          angle: rotation,
+                        ),
+                      );
+                    },
+                  ),
         ),
       ],
     );
@@ -912,7 +945,7 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             blurRadius: 20,
             spreadRadius: 5,
             offset: const Offset(0, 10),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -926,7 +959,11 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                   color: const Color(0xFFFFEDD8),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Icon(Icons.savings, color: Color(0xFFF28F1D), size: 36),
+                child: const Icon(
+                  Icons.savings,
+                  color: Color(0xFFF28F1D),
+                  size: 36,
+                ),
               ),
               const SizedBox(width: 16),
               Column(
@@ -934,14 +971,21 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 children: [
                   const Text(
                     'Fee Summary',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2D2323)),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D2323),
+                    ),
                   ),
                   Text(
                     'Total Yearly Overview',
-                    style: TextStyle(fontSize: 14, color: Colors.orange.shade800),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.orange.shade800,
+                    ),
                   ),
                 ],
-              )
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -966,14 +1010,27 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 4, right: 4),
-                    child: Text('₹', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF2D2323))),
+                    child: Text(
+                      '₹',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D2323),
+                      ),
+                    ),
                   ),
                   Text(
-                    NumberFormat('#,##,###').format(_feeData!['total_balance'] ?? 0),
-                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFF2D2323)),
+                    NumberFormat(
+                      '#,##,###',
+                    ).format(_feeData!['total_balance'] ?? 0),
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF2D2323),
+                    ),
                   ),
                 ],
-              )
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -988,9 +1045,16 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
       height: 80,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5))
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
         ],
       ),
       child: Stack(
@@ -1001,8 +1065,16 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
             children: [
               const SizedBox(width: 60), // Space for PLAY button
               _BottomNavBtn(icon: Icons.school, label: 'LEARN', active: false),
-              _BottomNavBtn(icon: Icons.auto_awesome, label: 'MOMENTS', active: false),
-              _BottomNavBtn(icon: Icons.chat_bubble, label: 'CHAT', active: false),
+              _BottomNavBtn(
+                icon: Icons.auto_awesome,
+                label: 'MOMENTS',
+                active: false,
+              ),
+              _BottomNavBtn(
+                icon: Icons.chat_bubble,
+                label: 'CHAT',
+                active: false,
+              ),
               const SizedBox(width: 60), // Space for FAB
             ],
           ),
@@ -1016,7 +1088,11 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 color: const Color(0xFFF25C15),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFFF25C15).withValues(alpha: 0.4), blurRadius: 10, offset: const Offset(0, 5))
+                  BoxShadow(
+                    color: const Color(0xFFF25C15).withValues(alpha: 0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
                 ],
               ),
               child: const Column(
@@ -1024,11 +1100,18 @@ class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
                 children: [
                   Icon(Icons.toys, color: Colors.white, size: 24),
                   SizedBox(height: 4),
-                  Text('PLAY', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(
+                    'PLAY',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -1075,7 +1158,11 @@ class _SaffronGridBtn extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               label,
-              style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1090,7 +1177,11 @@ class _PolaroidCard extends StatelessWidget {
   final String caption;
   final double angle;
 
-  const _PolaroidCard({required this.url, required this.caption, required this.angle});
+  const _PolaroidCard({
+    required this.url,
+    required this.caption,
+    required this.angle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1098,7 +1189,12 @@ class _PolaroidCard extends StatelessWidget {
       angle: angle,
       child: Container(
         width: 160,
-        padding: const EdgeInsets.only(top: 10, left: 10, right: 10, bottom: 20),
+        padding: const EdgeInsets.only(
+          top: 10,
+          left: 10,
+          right: 10,
+          bottom: 20,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
@@ -1107,7 +1203,7 @@ class _PolaroidCard extends StatelessWidget {
               color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 15,
               offset: const Offset(5, 10),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -1119,7 +1215,10 @@ class _PolaroidCard extends StatelessWidget {
                   url,
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                  errorBuilder:
+                      (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image, color: Colors.grey),
+                      ),
                 ),
               ),
             ),
@@ -1131,7 +1230,7 @@ class _PolaroidCard extends StatelessWidget {
                 fontSize: 12,
                 color: Color(0xFF2D2323),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -1144,14 +1243,22 @@ class _BottomNavBtn extends StatelessWidget {
   final String label;
   final bool active;
 
-  const _BottomNavBtn({required this.icon, required this.label, required this.active});
+  const _BottomNavBtn({
+    required this.icon,
+    required this.label,
+    required this.active,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: active ? const Color(0xFFF25C15) : Colors.grey.shade400, size: 24),
+        Icon(
+          icon,
+          color: active ? const Color(0xFFF25C15) : Colors.grey.shade400,
+          size: 24,
+        ),
         const SizedBox(height: 4),
         Text(
           label,
@@ -1160,11 +1267,12 @@ class _BottomNavBtn extends StatelessWidget {
             fontWeight: FontWeight.bold,
             color: active ? const Color(0xFFF25C15) : Colors.grey.shade400,
           ),
-        )
+        ),
       ],
     );
   }
 }
+
 class _ParentActionCard extends StatelessWidget {
   final IconData icon;
   final String label;

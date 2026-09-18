@@ -29,6 +29,7 @@ import '../../features/admin/presentation/staff_management_screen.dart';
 import '../../features/admin/presentation/toddlers_management_screen.dart';
 import '../../features/admin/presentation/daycare_management_screen.dart';
 import '../../features/admin/presentation/branch_detail_screen.dart';
+import '../../features/admin/presentation/class_detail_screen.dart';
 import '../../features/enquiries/presentation/enquiry_list_screen.dart';
 import '../../features/admissions/presentation/admission_list_screen.dart';
 import '../../features/admissions/presentation/admission_new_screen.dart';
@@ -65,6 +66,9 @@ import '../../features/learning_modules/presentation/admin_learning_modules_scre
 import '../../features/learning_modules/presentation/day_detail_screen.dart';
 import '../../features/learning_modules/presentation/folder_contents_screen.dart';
 import '../../features/daily_report/presentation/grade_list_screen.dart';
+import '../../features/gallery/presentation/gallery_screen.dart';
+import '../../features/documents/presentation/document_queue_screen.dart';
+import '../../features/documents/presentation/document_upload_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -102,12 +106,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (loc.startsWith('/bus-staff') && role != UserRole.busStaff) {
         return roleHome;
       }
-      if (loc.startsWith('/toddler') && role != UserRole.toddlers) return roleHome;
-      if (loc.startsWith('/daycare') && role != UserRole.daycare) return roleHome;
+      if (loc.startsWith('/toddler') && role != UserRole.toddlers)
+        return roleHome;
+      if (loc.startsWith('/daycare') && role != UserRole.daycare)
+        return roleHome;
 
       // Toddlers and daycare cannot access syllabus/homework (upload is staff/coordinator/admin only)
       if ((loc == '/syllabus' || loc == '/homework') &&
           (role == UserRole.toddlers || role == UserRole.daycare)) {
+        return roleHome;
+      }
+
+      // The standalone branch Gallery: admins, coordinators and teachers upload
+      // and manage; parents get a read-only view. Toddlers/daycare/bus-staff
+      // have their own galleries and cannot reach this one.
+      if ((loc == '/gallery' || loc.startsWith('/gallery/')) &&
+          role != UserRole.admin &&
+          role != UserRole.coordinator &&
+          role != UserRole.teacher &&
+          role != UserRole.parent) {
         return roleHome;
       }
 
@@ -171,10 +188,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'send-message',
             builder: (_, __) => const AdminSendMessageScreen(),
           ),
-          GoRoute(
-            path: 'leave',
-            builder: (_, __) => const StaffLeaveScreen(),
-          ),
+          GoRoute(path: 'leave', builder: (_, __) => const StaffLeaveScreen()),
           GoRoute(
             path: 'learning-modules',
             builder: (_, __) => const AdminLearningModulesScreen(),
@@ -182,6 +196,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'daily-report',
             builder: (_, __) => const GradeListScreen(),
+          ),
+          GoRoute(
+            path: 'documents',
+            builder: (_, __) => const DocumentQueueScreen(),
+            routes: [
+              GoRoute(
+                path: 'upload',
+                builder: (_, __) => const DocumentUploadScreen(),
+              ),
+            ],
           ),
         ],
       ),
@@ -203,9 +227,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: ':id',
-                builder: (_, state) => StudentProfileScreen(
-                  studentId: state.pathParameters['id']!,
-                ),
+                builder:
+                    (_, state) => StudentProfileScreen(
+                      studentId: state.pathParameters['id']!,
+                    ),
               ),
             ],
           ),
@@ -238,13 +263,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'send-message',
             builder: (_, __) => const CoordinatorSendMessageScreen(),
           ),
-          GoRoute(
-            path: 'leave',
-            builder: (_, __) => const StaffLeaveScreen(),
-          ),
+          GoRoute(path: 'leave', builder: (_, __) => const StaffLeaveScreen()),
           GoRoute(
             path: 'daily-report',
             builder: (_, __) => const GradeListScreen(),
+          ),
+          GoRoute(
+            path: 'documents',
+            builder: (_, __) => const DocumentQueueScreen(),
+            routes: [
+              GoRoute(
+                path: 'upload',
+                builder: (_, __) => const DocumentUploadScreen(),
+              ),
+            ],
           ),
         ],
       ),
@@ -258,8 +290,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'students/:id',
-            builder: (_, s) =>
-                TeacherStudentProfileScreen(studentId: s.pathParameters['id']!),
+            builder:
+                (_, s) => TeacherStudentProfileScreen(
+                  studentId: s.pathParameters['id']!,
+                ),
           ),
           GoRoute(
             path: 'attendance',
@@ -283,9 +317,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'marks/:studentId',
-            builder: (_, s) => TeacherMarksEntryScreen(
-              studentId: s.pathParameters['studentId']!,
-            ),
+            builder:
+                (_, s) => TeacherMarksEntryScreen(
+                  studentId: s.pathParameters['studentId']!,
+                ),
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
           GoRoute(
@@ -296,13 +331,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'send-message',
             builder: (_, __) => const TeacherSendMessageScreen(),
           ),
-          GoRoute(
-            path: 'leave',
-            builder: (_, __) => const StaffLeaveScreen(),
-          ),
+          GoRoute(path: 'leave', builder: (_, __) => const StaffLeaveScreen()),
           GoRoute(
             path: 'daily-report',
             builder: (_, __) => const GradeListScreen(),
+          ),
+          GoRoute(
+            path: 'documents',
+            builder: (_, __) => const DocumentQueueScreen(),
+            routes: [
+              GoRoute(
+                path: 'upload',
+                builder: (_, __) => const DocumentUploadScreen(),
+              ),
+            ],
           ),
         ],
       ),
@@ -356,10 +398,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'send-message',
             builder: (_, __) => const ParentSendMessageScreen(),
           ),
-          GoRoute(
-            path: 'leave',
-            builder: (_, __) => const ParentLeaveScreen(),
-          ),
+          GoRoute(path: 'leave', builder: (_, __) => const ParentLeaveScreen()),
         ],
       ),
       GoRoute(
@@ -370,10 +409,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'notifications',
             builder: (_, __) => const NotificationsScreen(),
           ),
-          GoRoute(
-            path: 'settings',
-            builder: (_, __) => const SettingsScreen(),
-          ),
+          GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
       GoRoute(
@@ -386,12 +422,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'gallery',
-            builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: true),
+            builder:
+                (_, __) => const ToddlerDaycareGalleryScreen(isToddler: true),
           ),
-          GoRoute(
-            path: 'settings',
-            builder: (_, __) => const SettingsScreen(),
-          ),
+          GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
       GoRoute(
@@ -404,16 +438,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'gallery',
-            builder: (_, __) => const ToddlerDaycareGalleryScreen(isToddler: false),
+            builder:
+                (_, __) => const ToddlerDaycareGalleryScreen(isToddler: false),
           ),
           GoRoute(
             path: 'daily-updates',
             builder: (_, __) => const DaycareDailyUpdatesScreen(),
           ),
-          GoRoute(
-            path: 'settings',
-            builder: (_, __) => const SettingsScreen(),
-          ),
+          GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
         ],
       ),
       GoRoute(
@@ -458,8 +490,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/branches', builder: (_, __) => const BranchListScreen()),
       GoRoute(
         path: '/branches/:id',
-        builder: (_, state) =>
-            BranchDetailScreen(branchId: state.pathParameters['id']!),
+        builder:
+            (_, state) =>
+                BranchDetailScreen(branchId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/branches/:branchId/classes/:classId',
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return ClassDetailScreen(
+            branchId: state.pathParameters['branchId']!,
+            classId: state.pathParameters['classId']!,
+            className: extra?['className'] as String?,
+            systemType: extra?['systemType'] as String?,
+          );
+        },
       ),
       GoRoute(
         path: '/staff',
@@ -489,8 +534,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: ':id',
-            builder: (_, state) =>
-                StudentProfileScreen(studentId: state.pathParameters['id']!),
+            builder:
+                (_, state) => StudentProfileScreen(
+                  studentId: state.pathParameters['id']!,
+                ),
           ),
         ],
       ),
@@ -505,9 +552,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'thread',
-            builder: (_, state) => ChatThreadScreen(
-              thread: (state.extra as Map<String, dynamic>?) ?? const {},
-            ),
+            builder:
+                (_, state) => ChatThreadScreen(
+                  thread: (state.extra as Map<String, dynamic>?) ?? const {},
+                ),
           ),
         ],
       ),
@@ -518,6 +566,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/homework',
         builder: (_, __) => const HomeworkListScreen(),
+      ),
+      // Shared branch Gallery, reachable from every role's drawer (below
+      // Chats). Visibility + upload rights are enforced by the backend.
+      GoRoute(
+        path: '/gallery',
+        builder: (_, __) => const GalleryScreen(),
       ),
     ],
   );

@@ -3,6 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/chat_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
+/// Formats a leave request's real backend submission timestamp
+/// (`created_at`, an ISO-8601 string) as a short local date + time.
+/// Returns '' when the field is absent (e.g. legacy requests created before
+/// the timestamp was recorded) so nothing is rendered for those.
+String _formatSubmittedAt(String? iso) {
+  if (iso == null || iso.isEmpty) return '';
+  final dt = DateTime.tryParse(iso)?.toLocal();
+  if (dt == null) return '';
+  String p2(int n) => n.toString().padLeft(2, '0');
+  final h12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+  final ampm = dt.hour < 12 ? 'AM' : 'PM';
+  return '${p2(dt.day)}/${p2(dt.month)}/${dt.year}  $h12:${p2(dt.minute)} $ampm';
+}
+
 class StaffLeaveScreen extends ConsumerStatefulWidget {
   const StaffLeaveScreen({super.key});
 
@@ -62,7 +76,10 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
   Future<void> _review(Map<String, dynamic> a, String status) async {
     final note = await showDialog<String?>(
       context: context,
-      builder: (ctx) => _NoteDialog(title: status == 'approved' ? 'Approve leave' : 'Reject leave'),
+      builder:
+          (ctx) => _NoteDialog(
+            title: status == 'approved' ? 'Approve leave' : 'Reject leave',
+          ),
     );
     if (note == null) return;
     final api = ref.read(leaveApiProvider);
@@ -70,15 +87,15 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
     try {
       await api.reviewLeave(leaveId: a['id'], status: status, note: note);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Leave $status')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Leave $status')));
       _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 
@@ -101,16 +118,17 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
           ],
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                _tabList('pending'),
-                _tabList('approved'),
-                _tabList('rejected'),
-              ],
-            ),
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : TabBarView(
+                controller: _tabs,
+                children: [
+                  _tabList('pending'),
+                  _tabList('approved'),
+                  _tabList('rejected'),
+                ],
+              ),
     );
   }
 
@@ -125,7 +143,12 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
             SizedBox(height: 150),
             Icon(Icons.event_note, size: 64, color: Colors.black26),
             SizedBox(height: 16),
-            Center(child: Text('Nothing here.', style: TextStyle(color: Colors.black54))),
+            Center(
+              child: Text(
+                'Nothing here.',
+                style: TextStyle(color: Colors.black54),
+              ),
+            ),
           ],
         ),
       );
@@ -163,7 +186,22 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
             const SizedBox(height: 6),
-            Text('${a['start_date']} → ${a['end_date']}'),
+            Row(
+              children: [
+                Expanded(child: Text('${a['start_date']} → ${a['end_date']}')),
+                if (_formatSubmittedAt(a['created_at']?.toString()).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      _formatSubmittedAt(a['created_at']?.toString()),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 4),
             Text(a['reason']?.toString() ?? ''),
             if (key == 'pending') ...[
@@ -172,8 +210,15 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.close, size: 16, color: Colors.redAccent),
-                      label: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: Colors.redAccent,
+                      ),
+                      label: const Text(
+                        'Reject',
+                        style: TextStyle(color: Colors.redAccent),
+                      ),
                       onPressed: () => _review(a, 'rejected'),
                     ),
                   ),
@@ -195,7 +240,10 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
               const SizedBox(height: 6),
               Text(
                 'Note: ${a['review_note']}',
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ],
@@ -236,7 +284,10 @@ class _NoteDialogState extends State<_NoteDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel'),
+        ),
         ElevatedButton(
           onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
           child: const Text('Confirm'),

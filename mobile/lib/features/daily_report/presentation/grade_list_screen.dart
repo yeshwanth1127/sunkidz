@@ -6,6 +6,7 @@ import '../../../core/api/admin_provider.dart';
 import '../../../core/api/coordinator_provider.dart';
 import '../../../core/api/teacher_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/utils/branch_system.dart';
 import '../data/daily_report_provider.dart';
 import 'report_screen.dart';
 
@@ -31,7 +32,10 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
   }
 
   Future<void> _loadClasses() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final auth = ref.read(authProvider);
     final classes = <Map<String, dynamic>>[];
     try {
@@ -44,7 +48,7 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
           for (final cls in (b['classes'] as List? ?? [])) {
             classes.add({
               'id': cls['id']?.toString() ?? '',
-              'name': cls['name']?.toString() ?? '',
+              'name': canonicalGradeLabel(cls['name']?.toString()),
               'branch_name': bName,
             });
           }
@@ -53,17 +57,19 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
         final api = ref.read(coordinatorApiProvider);
         if (api == null) throw Exception('Not authenticated');
         final dashboard = await api.getDashboard();
-        final assignedBranchId = auth.branchId ?? dashboard['branch_id']?.toString() ?? '';
+        final assignedBranchId =
+            auth.branchId ?? dashboard['branch_id']?.toString() ?? '';
         final branchName = dashboard['branch_name']?.toString() ?? '';
         for (final cls in (dashboard['classes'] as List? ?? [])) {
           final clsMap = cls as Map;
           if (assignedBranchId.isNotEmpty) {
             final clsBranchId = clsMap['branch_id']?.toString() ?? '';
-            if (clsBranchId.isNotEmpty && clsBranchId != assignedBranchId) continue;
+            if (clsBranchId.isNotEmpty && clsBranchId != assignedBranchId)
+              continue;
           }
           classes.add({
             'id': clsMap['id']?.toString() ?? '',
-            'name': clsMap['name']?.toString() ?? '',
+            'name': canonicalGradeLabel(clsMap['name']?.toString()),
             'branch_name': branchName,
           });
         }
@@ -73,16 +79,33 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
         final dashboard = await api.getDashboard();
         final assignedClassId = auth.classId ?? '';
         final classId = dashboard['class_id']?.toString() ?? '';
-        final className = dashboard['class_name']?.toString() ?? '';
+        final className = canonicalGradeLabel(
+          dashboard['class_name']?.toString(),
+        );
         final branchName = dashboard['branch_name']?.toString() ?? '';
-        if (classId.isNotEmpty && (assignedClassId.isEmpty || classId == assignedClassId)) {
-          classes.add({'id': classId, 'name': className, 'branch_name': branchName});
+        if (classId.isNotEmpty &&
+            (assignedClassId.isEmpty || classId == assignedClassId)) {
+          classes.add({
+            'id': classId,
+            'name': className,
+            'branch_name': branchName,
+          });
         }
       }
-      setState(() { _classes = classes; _loading = false; });
+      final sortedClasses = sortByCanonicalGrade(
+        classes,
+        (c) => c['name'] as String?,
+      );
+      setState(() {
+        _classes = sortedClasses;
+        _loading = false;
+      });
       _loadStatuses(classes);
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -96,30 +119,40 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
     }
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final Map<String, String> statuses = {};
-    await Future.wait(classes.map((cls) async {
-      final id = cls['id'] as String;
-      try {
-        final report = await service.getReport(id, today);
-        if (report != null && report.isNotEmpty) {
-          statuses[id] = (report['sent_to_parents'] as bool? ?? false) ? 'sent' : 'draft';
-        } else {
+    await Future.wait(
+      classes.map((cls) async {
+        final id = cls['id'] as String;
+        try {
+          final report = await service.getReport(id, today);
+          if (report != null && report.isNotEmpty) {
+            statuses[id] =
+                (report['sent_to_parents'] as bool? ?? false)
+                    ? 'sent'
+                    : 'draft';
+          } else {
+            statuses[id] = 'none';
+          }
+        } catch (_) {
           statuses[id] = 'none';
         }
-      } catch (_) {
-        statuses[id] = 'none';
-      }
-    }));
-    if (mounted) setState(() { _statuses = statuses; _statusLoading = false; });
+      }),
+    );
+    if (mounted)
+      setState(() {
+        _statuses = statuses;
+        _statusLoading = false;
+      });
   }
 
   void _openClass(Map<String, dynamic> cls) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ReportScreen(
-          classId: cls['id'] as String,
-          className: cls['name'] as String,
-        ),
+        builder:
+            (_) => ReportScreen(
+              classId: cls['id'] as String,
+              className: cls['name'] as String,
+            ),
       ),
     ).then((_) => _loadStatuses(_classes));
   }
@@ -146,51 +179,64 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
         ),
         centerTitle: true,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-          : _error != null
+      body:
+          _loading
+              ? const Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              )
+              : _error != null
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-                        const SizedBox(height: 12),
-                        Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: _loadClasses,
-                          style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _classes.isEmpty
-                  ? const Center(child: Text('No classes found'))
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.1,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red.shade300,
                       ),
-                      itemCount: _classes.length,
-                      itemBuilder: (context, index) {
-                        final cls = _classes[index];
-                        final id = cls['id'] as String;
-                        final status = _statuses[id];
-                        return _ClassCard(
-                          className: cls['name'] as String,
-                          branchName: cls['branch_name'] as String,
-                          status: _statusLoading ? null : status,
-                          onTap: () => _openClass(cls),
-                        );
-                      },
-                    ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: _loadClasses,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              : _classes.isEmpty
+              ? const Center(child: Text('No classes found'))
+              : GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: _classes.length,
+                itemBuilder: (context, index) {
+                  final cls = _classes[index];
+                  final id = cls['id'] as String;
+                  final status = _statuses[id];
+                  return _ClassCard(
+                    className: cls['name'] as String,
+                    branchName: cls['branch_name'] as String,
+                    status: _statusLoading ? null : status,
+                    onTap: () => _openClass(cls),
+                  );
+                },
+              ),
     );
   }
 }
@@ -238,7 +284,11 @@ class _ClassCard extends StatelessWidget {
                     color: Colors.orange.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.class_outlined, color: Colors.orange.shade600, size: 26),
+                  child: Icon(
+                    Icons.class_outlined,
+                    color: Colors.orange.shade600,
+                    size: 26,
+                  ),
                 ),
                 if (status != null && status != 'none')
                   Positioned(

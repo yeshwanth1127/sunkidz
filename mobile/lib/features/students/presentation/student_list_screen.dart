@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../core/api/admin_api.dart';
+import '../../../core/utils/branch_system.dart';
 
 import '../../../shared/widgets/dob_picker.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
@@ -21,11 +22,39 @@ class StudentListScreen extends ConsumerStatefulWidget {
 class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   List<Map<String, dynamic>> _students = [];
   List<Map<String, dynamic>> _branches = [];
-  List<Map<String, dynamic>> _classes = [];
   String? _selectedBranchId;
-  String? _selectedClassId;
+  String? _selectedGrade;
   bool _loading = true;
   String? _error;
+
+  /// The selected branch's configured class system (sunkidz/normal), so the
+  /// Grade filter offers/matches the right grade set for that branch. Null
+  /// (All Branches) falls back to the default Sunkidz set, matching prior
+  /// behavior.
+  String? get _selectedSystemType {
+    if (_selectedBranchId == null) return null;
+    final branch = _branches.firstWhere(
+      (b) => b['id']?.toString() == _selectedBranchId,
+      orElse: () => <String, dynamic>{},
+    );
+    return branch['system_type'] as String?;
+  }
+
+  /// Students filtered by the selected fixed grade (client-side), on top of
+  /// whatever the branch filter already fetched from the backend.
+  List<Map<String, dynamic>> get _visibleStudents {
+    if (_selectedGrade == null) return _students;
+    return _students
+        .where(
+          (s) =>
+              canonicalGradeLabel(
+                s['class_name']?.toString(),
+                _selectedSystemType,
+              ) ==
+              _selectedGrade,
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -47,24 +76,9 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
         });
       }
       await _loadStudents();
-      if (_selectedBranchId != null) await _loadClasses(_selectedBranchId!);
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  Future<void> _loadClasses(String branchId) async {
-    final api = ref.read(adminApiProvider);
-    if (api == null) return;
-    try {
-      final classes = await api.getClasses(branchId: branchId);
-      if (mounted) {
-        setState(() {
-          _classes = classes;
-          _selectedClassId = null;
-        });
-      }
-    } catch (_) {}
   }
 
   Future<void> _loadStudents() async {
@@ -80,10 +94,7 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       });
     }
     try {
-      final students = await api.getAdmissions(
-        branchId: _selectedBranchId,
-        classId: _selectedClassId,
-      );
+      final students = await api.getAdmissions(branchId: _selectedBranchId);
       if (mounted) {
         setState(() {
           _students = students;
@@ -103,19 +114,15 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
   void _onBranchChanged(String? branchId) {
     setState(() {
       _selectedBranchId = branchId;
-      _classes = [];
-      _selectedClassId = null;
+      // The grade set depends on the branch's class system, so a grade
+      // chosen under the previous branch may no longer be valid.
+      _selectedGrade = null;
     });
-    if (branchId != null) {
-      _loadClasses(branchId).then((_) => _loadStudents());
-    } else {
-      _loadStudents();
-    }
+    _loadStudents();
   }
 
-  void _onClassChanged(String? classId) {
-    setState(() => _selectedClassId = classId);
-    _loadStudents();
+  void _onGradeChanged(String? grade) {
+    setState(() => _selectedGrade = grade);
   }
 
   @override
@@ -133,7 +140,7 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                       ? const _StudentLoadingPlaceholder()
                       : _error != null
                       ? _buildErrorState()
-                      : _students.isEmpty
+                      : _visibleStudents.isEmpty
                       ? _buildEmptyState()
                       : RefreshIndicator(
                         onRefresh: _loadStudents,
@@ -143,23 +150,26 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
                             horizontal: 16,
                             vertical: 12,
                           ),
-                          itemCount: _students.length,
+                          itemCount: _visibleStudents.length,
                           itemBuilder:
                               (context, i) => AnimatedListItem(
                                 index: i,
                                 child: _StudentCard(
-                                  student: _students[i],
+                                  student: _visibleStudents[i],
                                   onTap:
                                       () => context.push(
-                                        '/students/${_students[i]['id']}',
+                                        '/students/${_visibleStudents[i]['id']}',
                                       ),
                                   onDelete:
-                                      () => _confirmDeleteStudent(_students[i]),
+                                      () => _confirmDeleteStudent(
+                                        _visibleStudents[i],
+                                      ),
                                   onBusOptToggle:
-                                      () => _toggleBusOpt(_students[i]),
+                                      () => _toggleBusOpt(_visibleStudents[i]),
                                   onShiftBranch:
-                                      () =>
-                                          _showShiftBranchDialog(_students[i]),
+                                      () => _showShiftBranchDialog(
+                                        _visibleStudents[i],
+                                      ),
                                 ),
                               ),
                         ),
@@ -264,7 +274,7 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
           const SizedBox(height: 12),
           DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
-              value: _selectedClassId,
+              value: _selectedGrade,
               isExpanded: true,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.grid_3x3_rounded, size: 18),
@@ -279,19 +289,16 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
               ),
               items: [
                 const DropdownMenuItem(value: null, child: Text('All Grades')),
-                ..._classes.map(
-                  (c) => DropdownMenuItem(
-                    value: c['id'] as String?,
+                ...gradeOptionsForSystem(_selectedSystemType).map(
+                  (g) => DropdownMenuItem(
+                    value: g,
                     child: Flexible(
-                      child: Text(
-                        c['name']?.toString() ?? '—',
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: Text(g, overflow: TextOverflow.ellipsis),
                     ),
                   ),
                 ),
               ],
-              onChanged: _onClassChanged,
+              onChanged: _onGradeChanged,
             ),
           ),
         ],

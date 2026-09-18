@@ -9,26 +9,39 @@ class LandingScreen extends StatefulWidget {
   State<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends State<LandingScreen> with TickerProviderStateMixin {
+class _LandingScreenState extends State<LandingScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _fadeCtrl;
   late final Animation<double> _logoFade;
   late final Animation<Offset> _logoSlide;
-  late final Animation<double> _line1Fade;
-  late final Animation<double> _line2Fade;
   late final Animation<double> _btnFade;
 
   @override
   void initState() {
     super.initState();
 
-    _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
 
-    _logoFade  = CurvedAnimation(parent: _fadeCtrl, curve: const Interval(0.0, 0.35, curve: Curves.easeOut));
-    _logoSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _fadeCtrl, curve: const Interval(0.0, 0.35, curve: Curves.easeOut)));
-    _line1Fade   = CurvedAnimation(parent: _fadeCtrl, curve: const Interval(0.30, 0.60, curve: Curves.easeIn));
-    _line2Fade   = CurvedAnimation(parent: _fadeCtrl, curve: const Interval(0.50, 0.75, curve: Curves.easeIn));
-    _btnFade     = CurvedAnimation(parent: _fadeCtrl, curve: const Interval(0.80, 1.00, curve: Curves.easeIn));
+    _logoFade = CurvedAnimation(
+      parent: _fadeCtrl,
+      curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
+    );
+    _logoSlide = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _fadeCtrl,
+        curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
+      ),
+    );
+    _btnFade = CurvedAnimation(
+      parent: _fadeCtrl,
+      curve: const Interval(0.80, 1.00, curve: Curves.easeIn),
+    );
 
     _fadeCtrl.forward();
   }
@@ -50,7 +63,11 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
               padding: EdgeInsets.only(top: 16),
               child: Text(
                 'www.sunkidz.in',
-                style: TextStyle(fontSize: 13, color: Color(0xFF8B7355), letterSpacing: 0.5),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF8B7355),
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
 
@@ -62,7 +79,7 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
               child: FadeTransition(
                 opacity: _logoFade,
                 child: Image.asset(
-                  'assets/images/sunkidz_logo_hd.png',
+                  'assets/images/landlogo.png',
                   width: 260,
                   height: 90,
                   fit: BoxFit.contain,
@@ -71,34 +88,6 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
             ),
 
             const SizedBox(height: 24),
-
-            // Animated tagline
-            FadeTransition(
-              opacity: _line1Fade,
-              child: const Text(
-                'Making child\'s life',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF5D4037),
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            FadeTransition(
-              opacity: _line2Fade,
-              child: const Text(
-                'a Celebration',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFE65100),
-                  letterSpacing: 0.5,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
             const SizedBox(height: 36),
 
             // GET STARTED button
@@ -112,8 +101,13 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                   child: OutlinedButton(
                     onPressed: () => context.go('/login'),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFF9B85), width: 2.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: const BorderSide(
+                        color: Color(0xFFFF9B85),
+                        width: 2.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       backgroundColor: Colors.transparent,
                     ),
                     child: const Text(
