@@ -1,0 +1,263 @@
+.pillar-crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.back-link {
+  display: inline-block;
+  font-size: 0.9rem;
+}
+
+.pillar-eyebrow {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+.pillar-eyebrow.color-sky {
+  background: var(--sky);
+  color: var(--ink);
+}
+
+.pillar-eyebrow.color-leaf {
+  background: var(--leaf);
+  color: var(--ink);
+}
+
+.pillar-eyebrow.color-coral {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.pillar-eyebrow.color-sun {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.pillar-hero-icon {
+  display: block;
+  font-size: 3.25rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+  animation: icon-bounce 2.8s ease-in-out infinite;
+}
+
+.pillar-hero p {
+  max-width: 42ch;
+  color: var(--ink-muted);
+}
+
+/* ---- Activity switcher ---- */
+
+.pillar-switcher {
+  margin-top: var(--space-lg);
+}
+
+.activity-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.activity-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--ink-muted);
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.activity-tab-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.activity-tab:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.activity-tab.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--white);
+  transform: translateY(-2px);
+}
+
+.activity-panel {
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  animation: panel-in 0.35s ease;
+}
+
+.activity-panel.color-sky {
+  background: var(--sky);
+}
+
+.activity-panel.color-leaf {
+  background: var(--leaf);
+}
+
+.activity-panel.color-coral {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.activity-panel.color-sun {
+  background: var(--sun);
+}
+
+.activity-panel-icon {
+  display: block;
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.activity-panel h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.activity-intro {
+  max-width: 48ch;
+  margin-bottom: 1.1rem;
+  opacity: 0.85;
+}
+
+.activity-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.35rem;
+}
+
+.activity-tags li {
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.activity-quote {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-family: var(--font-brand);
+  font-size: 1.25rem;
+  line-height: 1.35;
+  max-width: 40ch;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes icon-bounce {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-6px) rotate(-4deg);
+  }
+  70% {
+    transform: translateY(-2px) rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pillar-hero-icon {
+    animation: none;
+  }
+
+  .activity-panel {
+    animation: none;
+  }
+}
+
+/* ---- Next pillar banner ---- */
+
+.pillar-next {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: var(--space-xl);
+  padding: 1.25rem 1.4rem;
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  transition: transform 0.2s ease;
+}
+
+.pillar-next:hover {
+  transform: translateX(4px);
+}
+
+.pillar-next-icon {
+  flex: none;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.pillar-next-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.pillar-next-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.pillar-next-text strong {
+  font-size: 1.05rem;
+}
+
+.pillar-next-arrow {
+  flex: none;
+  font-size: 1.3rem;
+}
+
+.pillar-next.color-sky {
+  background: var(--sky);
+}
+
+.pillar-next.color-leaf {
+  background: var(--leaf);
+}
+
+.pillar-next.color-coral {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.pillar-next.color-sun {
+  background: var(--sun);
+}

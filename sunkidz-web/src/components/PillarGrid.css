@@ -1,0 +1,84 @@
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+}
+
+.pillar-card {
+  display: block;
+  padding: 1.6rem 1.4rem;
+  min-height: 11rem;
+  color: var(--ink);
+}
+
+.pillar-card:hover {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.pillar-card.color-sky {
+  background: var(--sky);
+}
+
+.pillar-card.color-leaf {
+  background: var(--leaf);
+}
+
+.pillar-card.color-coral {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.pillar-card.color-sun {
+  background: var(--sun);
+}
+
+.pillar-icon {
+  display: block;
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  transition: transform 0.25s ease;
+}
+
+.pillar-card:hover .pillar-icon {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+.pillar-code {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.55rem;
+}
+
+.pillar-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 0.45rem;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.pillar-summary {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.pillar-link {
+  display: inline-block;
+  margin-top: 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+.pillar-grid:not(.is-compact) .pillar-card {
+  min-height: auto;
+}
+
+@media (max-width: 640px) {
+  .pillar-grid {
+    grid-template-columns: 1fr;
+  }
+}

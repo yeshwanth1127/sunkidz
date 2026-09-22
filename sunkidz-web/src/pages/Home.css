@@ -1,0 +1,229 @@
+.hero {
+  padding-block: clamp(3rem, 9vh, 5.5rem) var(--space-xl);
+  border-bottom: 1px solid var(--line);
+  background: var(--white);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.hero-content {
+  max-width: 38rem;
+}
+
+.hero-headline {
+  font-size: clamp(1.75rem, 3.6vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  max-width: 18ch;
+  margin-bottom: 0.9rem;
+}
+
+.hero-support {
+  font-size: 1.08rem;
+  color: var(--ink-muted);
+  max-width: 36ch;
+  margin-bottom: 1.5rem;
+}
+
+.hero-mark {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-sun {
+  width: min(100%, 17.5rem);
+  height: auto;
+}
+
+.home-more {
+  margin-top: var(--space-md);
+}
+
+.text-link {
+  font-weight: 750;
+  border-bottom: 2px solid var(--sun);
+  padding-bottom: 0.05rem;
+}
+
+.text-link:hover {
+  border-bottom-color: var(--coral);
+}
+
+.program-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.program-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.25rem 1.15rem;
+  color: var(--ink);
+}
+
+.program-chip strong {
+  font-size: 1.05rem;
+}
+
+.program-chip span {
+  font-size: 0.92rem;
+}
+
+.program-chip.color-sky {
+  background: var(--sky);
+}
+
+.program-chip.color-leaf {
+  background: var(--leaf);
+}
+
+.program-chip.color-sun {
+  background: var(--sun);
+}
+
+.branch-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.branch-preview a {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.branch-preview a:hover strong {
+  color: var(--coral);
+}
+
+.branch-preview strong {
+  font-size: 1.05rem;
+}
+
+.branch-preview span {
+  font-size: 0.92rem;
+  color: var(--ink-muted);
+}
+
+.cta-band {
+  padding-block: var(--space-2xl);
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.cta-band-inner {
+  max-width: 34rem;
+}
+
+.cta-tag {
+  margin-bottom: 0.35rem;
+}
+
+.cta-band h2 {
+  font-size: clamp(1.7rem, 3.5vw, 2.3rem);
+}
+
+.cta-band p {
+  margin-bottom: 1.25rem;
+}
+
+.cta-band .btn-secondary:hover {
+  background: var(--ink);
+  color: var(--white);
+}
+
+/* Chunky toy-button CTA: sits on a solid ledge, bobs at rest, presses on click. */
+.btn-playful {
+  font-family: var(--font-brand);
+  font-size: 1.35rem;
+  padding: 0.7rem 1.9rem;
+  animation: cta-bob 2.6s ease-in-out infinite;
+  transition: transform 0.18s cubic-bezier(0.34, 1.8, 0.64, 1),
+    background 0.2s ease, color 0.2s ease, box-shadow 0.18s ease;
+}
+
+.btn-playful.btn-primary {
+  box-shadow: 0 5px 0 #c22b2b;
+}
+
+.btn-playful.btn-secondary {
+  background: var(--white);
+  box-shadow: 0 5px 0 var(--ink);
+}
+
+/* Offset the two so they bob out of sync, like they are taking turns. */
+.btn-playful:nth-child(2) {
+  animation-delay: 0.45s;
+}
+
+.btn-playful:hover {
+  transform: translateY(-4px) rotate(-2deg) scale(1.05);
+}
+
+.btn-playful.btn-primary:hover {
+  box-shadow: 0 9px 0 #c22b2b;
+}
+
+.btn-playful.btn-secondary:hover {
+  box-shadow: 0 9px 0 var(--ink);
+}
+
+.btn-playful:active {
+  transform: translateY(4px) scale(0.98);
+  animation-play-state: paused;
+}
+
+.btn-playful.btn-primary:active,
+.btn-playful.btn-secondary:active {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+@keyframes cta-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-5px) rotate(-1.5deg);
+  }
+  70% {
+    transform: translateY(-2px) rotate(1.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-playful {
+    animation: none;
+  }
+
+  .btn-playful:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-mark {
+    order: -1;
+  }
+
+  .hero-sun {
+    width: min(55%, 12rem);
+  }
+
+  .program-row {
+    grid-template-columns: 1fr;
+  }
+}

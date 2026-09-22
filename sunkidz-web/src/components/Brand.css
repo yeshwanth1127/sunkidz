@@ -1,0 +1,19 @@
+.brand-wordmark {
+  display: block;
+  height: auto;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.brand-mark {
+  display: block;
+  object-fit: contain;
+}
+
+.brand-lettering {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
