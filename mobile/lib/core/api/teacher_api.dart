@@ -23,6 +23,14 @@ class TeacherApi {
     return r.data as Map<String, dynamic>;
   }
 
+  Future<List<Map<String, dynamic>>> getMyClasses() async {
+    final r = await _dio.get('/teacher/classes');
+    final data = Map<String, dynamic>.from(r.data as Map);
+    return List<Map<String, dynamic>>.from(
+      data['classes'] as List? ?? const [],
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getMyStudents() async {
     final r = await _dio.get('/teacher/students');
     return List<Map<String, dynamic>>.from(r.data as List);

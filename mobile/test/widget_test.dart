@@ -10,13 +10,12 @@ void main() {
     const storage = FlutterSecureStorage();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          authProvider.overrideWith((ref) => AuthNotifier(storage)),
-        ],
+        overrides: [authProvider.overrideWith((ref) => AuthNotifier(storage))],
         child: const SunkidzApp(),
       ),
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Preschool LMS'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('GET STARTED'), findsOneWidget);
+    expect(find.text('www.sunkidz.in'), findsOneWidget);
   });
 }

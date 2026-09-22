@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>SunKidz uses Face ID to securely unlock your saved school account.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SunKidz uses your location while bus tracking is active so families and school staff can follow the current route.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SunKidz uses your photo library so authorized staff can attach student photos and school media.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
