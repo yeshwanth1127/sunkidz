@@ -1,0 +1,81 @@
+.enquire-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  max-width: 34rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  border: 1.5px solid rgba(26, 26, 26, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  background: var(--white);
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--sky);
+  box-shadow: 0 0 0 3px rgba(8, 209, 208, 0.2);
+}
+
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: var(--coral);
+}
+
+.field-error {
+  font-size: 0.8rem;
+  color: var(--coral);
+  font-weight: 600;
+}
+
+.enquire-success {
+  max-width: 34rem;
+  padding: 1.75rem;
+  background: var(--leaf);
+}
+
+.enquire-success h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.enquire-success a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.enquire-success .btn {
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}

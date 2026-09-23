@@ -1,0 +1,237 @@
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: var(--space-lg);
+}
+
+.about-block {
+  padding: 1.6rem 1.4rem;
+  border-radius: var(--radius-lg);
+}
+
+.about-block h2 {
+  font-size: 1.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.about-block.color-coral {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.about-block.color-sky {
+  background: var(--sky);
+}
+
+.about-block.color-leaf {
+  background: var(--leaf);
+}
+
+.about-block.color-sun {
+  background: var(--sun);
+}
+
+.subhead {
+  font-size: 1.2rem;
+  margin: var(--space-lg) 0 var(--space-md);
+}
+
+.dev-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  margin-bottom: var(--space-lg);
+}
+
+.dev-grid li {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  border: 1px solid rgba(26, 26, 26, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dev-grid strong {
+  font-size: 1rem;
+}
+
+.dev-grid span {
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+}
+
+.quote-line {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-md);
+  color: var(--ink);
+}
+
+.program-list {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.program-panel {
+  padding: 1.75rem 1.5rem;
+  border-radius: var(--radius-lg);
+}
+
+.program-panel h2 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.program-blurb {
+  margin-bottom: 1rem;
+  max-width: 52ch;
+}
+
+.program-panel.color-sky {
+  background: var(--sky);
+}
+
+.program-panel.color-leaf {
+  background: var(--leaf);
+}
+
+.program-panel.color-sun {
+  background: var(--sun);
+}
+
+.bullet-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.bullet-list li {
+  position: relative;
+  padding-left: 1.15rem;
+  font-size: 0.98rem;
+}
+
+.bullet-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0.55;
+}
+
+.page-cta {
+  margin-top: var(--space-xl);
+}
+
+.page-cta p {
+  color: var(--ink-muted);
+  margin-bottom: 1rem;
+}
+
+.branch-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.branch-card {
+  position: relative;
+  padding: 1.6rem 1.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  border: 1px solid rgba(26, 26, 26, 0.07);
+}
+
+.branch-card.is-primary {
+  background: var(--sky);
+  border-color: transparent;
+}
+
+.branch-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--white);
+  padding: 0.25rem 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.branch-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.branch-address {
+  color: var(--ink-muted);
+  max-width: 48ch;
+  margin-bottom: 1rem;
+}
+
+.branch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.contact-strip {
+  margin-top: var(--space-xl);
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.contact-strip h2 {
+  color: var(--white);
+  margin-bottom: 0.75rem;
+}
+
+.contact-lines {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1.15rem;
+}
+
+.contact-lines a:hover {
+  color: var(--sun);
+}
+
+.enquire-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.enquire-layout .page-hero {
+  margin-bottom: 0;
+}
+
+.inline-phone {
+  font-weight: 750;
+  border-bottom: 2px solid var(--sun);
+}
+
+@media (max-width: 900px) {
+  .about-grid,
+  .enquire-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dev-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .dev-grid {
+    grid-template-columns: 1fr;
+  }
+}

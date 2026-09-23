@@ -1,0 +1,31 @@
+:root {
+  /* Exact quadrant colors from sunkidz.in homepage */
+  --sky: rgba(0, 255, 255, 0.79);
+  --leaf: #83bc3c;
+  --coral: #ff4040;
+  --sun: rgba(255, 180, 4, 0.95);
+
+  --ink: #1a1a1a;
+  --ink-muted: #4d4d4d;
+  --paper: #ffffff;
+  --white: #ffffff;
+  --line: rgba(26, 26, 26, 0.1);
+
+  --font-brand: "Schoolbell", cursive;
+  --font-body: "Nunito Sans", system-ui, sans-serif;
+
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1.25rem;
+  --space-lg: 2rem;
+  --space-xl: 3.5rem;
+  --space-2xl: 5.5rem;
+
+  --radius-sm: 0.35rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.65rem;
+  --radius-pill: 999px;
+
+  --max-width: 1080px;
+  --header-h: 4.75rem;
+}

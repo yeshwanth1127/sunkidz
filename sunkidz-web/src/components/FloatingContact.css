@@ -1,0 +1,45 @@
+.float-contact {
+  position: fixed;
+  right: 1.1rem;
+  bottom: 1.1rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.float-btn {
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  color: var(--white);
+  box-shadow: 0 8px 20px rgba(26, 26, 26, 0.12);
+  transition: transform 0.2s ease;
+}
+
+.float-btn:hover {
+  transform: translateY(-3px) scale(1.04);
+}
+
+.float-call {
+  background: var(--leaf);
+  color: var(--ink);
+}
+
+.float-wa {
+  background: #25d366;
+}
+
+@media (max-width: 480px) {
+  .float-contact {
+    right: 0.85rem;
+    bottom: 0.85rem;
+  }
+
+  .float-btn {
+    width: 2.85rem;
+    height: 2.85rem;
+  }
+}
