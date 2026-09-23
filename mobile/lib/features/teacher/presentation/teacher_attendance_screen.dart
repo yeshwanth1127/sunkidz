@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/teacher_provider.dart';
 import '../../../shared/widgets/teacher_drawer.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class TeacherAttendanceScreen extends ConsumerStatefulWidget {
   const TeacherAttendanceScreen({super.key});
@@ -400,7 +401,13 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
             margin: const EdgeInsets.only(bottom: 8),
             child: ExpansionTile(
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('Roll #$admissionNumber • P: $present  A: $absent  L: $leave'),
+              subtitle: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(child: Text('Roll #$admissionNumber • P: $present  A: $absent  L: $leave')),
+                  CopyAdmissionNumberButton(admissionNumber: admissionNumber, size: 13),
+                ],
+              ),
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -500,7 +507,13 @@ class _StudentAttendanceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(student['name'] as String? ?? '—', style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text('Roll #${student['admission_number'] ?? '—'}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(child: Text('Roll #${student['admission_number'] ?? '—'}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600))),
+                    CopyAdmissionNumberButton(admissionNumber: student['admission_number']?.toString(), size: 12),
+                  ],
+                ),
               ],
             ),
           ),

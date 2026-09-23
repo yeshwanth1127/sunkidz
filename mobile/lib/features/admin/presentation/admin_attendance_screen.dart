@@ -177,19 +177,24 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> w
             ),
           ),
           const SizedBox(width: 12),
-          Container(
+          // Share the row with the date button instead of sizing to the widest
+          // branch name, which on phone widths left the date button ~0px wide.
+          Expanded(
+            child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _filterBranchId,
+                isExpanded: true,
                 hint: const Text('Branch', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('All Branches')),
-                  ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Text(b['name'] as String? ?? '—'))),
+                  const DropdownMenuItem(value: null, child: Text('All Branches', overflow: TextOverflow.ellipsis)),
+                  ..._branches.map((b) => DropdownMenuItem(value: b['id'] as String?, child: Text(b['name'] as String? ?? '—', overflow: TextOverflow.ellipsis))),
                 ],
                 onChanged: (v) { setState(() => _filterBranchId = v); _loadAttendance(); },
               ),
+            ),
             ),
           ),
         ],

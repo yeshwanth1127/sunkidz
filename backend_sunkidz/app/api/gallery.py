@@ -49,6 +49,13 @@ os.makedirs(GALLERY_ITEMS_DIR, exist_ok=True)
 UPLOAD_ROLES = ("admin", "coordinator", "teacher")
 
 
+def _portable_path(path: str) -> str:
+    """Stored file paths always use "/" so a row written by a backend on one OS
+    (e.g. a Windows dev machine, which stores backslash-separated paths)
+    resolves on another (the Linux server). "/" works on Windows too."""
+    return path.replace("\\", "/")
+
+
 def _resolve_request_user(
     db: Session, current_user: Optional[User], token: Optional[str]
 ) -> User:
@@ -204,7 +211,7 @@ async def upload_item(
         media_type=media_type,
         title=clean_title,
         description=clean_desc,
-        file_path=path,
+        file_path=_portable_path(path),
         file_name=orig_name,
         file_mime=mime,
         file_size=size_label,
@@ -255,9 +262,9 @@ def delete_item(
     if not can_manage_branch_gallery(db, user, item.branch_id):
         raise HTTPException(status_code=403, detail="You don't have permission to delete this item")
 
-    if item.file_path and os.path.exists(item.file_path):
+    if item.file_path and os.path.exists(_portable_path(item.file_path)):
         try:
-            os.remove(item.file_path)
+            os.remove(_portable_path(item.file_path))
         except OSError:
             pass
     db.delete(item)
@@ -282,7 +289,8 @@ def get_item_file(
     if branch_ids is not None and item.branch_id not in branch_ids:
         raise HTTPException(status_code=403, detail="You don't have access to this item")
 
-    if not os.path.exists(item.file_path):
+    file_path = _portable_path(item.file_path)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     media = item.file_mime or mime_for_filename(item.file_name)
-    return FileResponse(path=item.file_path, filename=item.file_name, media_type=media)
+    return FileResponse(path=file_path, filename=item.file_name, media_type=media)

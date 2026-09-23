@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/admin_api.dart';
 import '../../../core/api/admin_provider.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class DaycareManagementScreen extends ConsumerStatefulWidget {
   const DaycareManagementScreen({super.key});
@@ -548,7 +549,13 @@ class _AddStudentToGroupSheetState extends State<_AddStudentToGroupSheet> {
                       Text('Add student', style: Theme.of(context).textTheme.titleSmall),
                       ..._students.map((s) => ListTile(
                             title: Text(s['name'] ?? ''),
-                            subtitle: Text(s['admission_number'] ?? ''),
+                            subtitle: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: Text(s['admission_number'] ?? '')),
+                                CopyAdmissionNumberButton(admissionNumber: s['admission_number']?.toString(), size: 13),
+                              ],
+                            ),
                             trailing: IconButton(
                               icon: const Icon(Icons.add_circle_outline),
                               onPressed: () => _addStudent(s['id'] as String),

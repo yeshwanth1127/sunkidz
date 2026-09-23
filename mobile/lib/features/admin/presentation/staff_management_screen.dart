@@ -7,6 +7,7 @@ import '../../../core/api/admin_provider.dart';
 import '../../../core/utils/branch_system.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
+import '../../../shared/widgets/branch_grade_filter.dart';
 
 class StaffManagementScreen extends ConsumerStatefulWidget {
   const StaffManagementScreen({super.key});
@@ -19,10 +20,25 @@ class StaffManagementScreen extends ConsumerStatefulWidget {
 class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
   int _tabIndex = 0; // 0: all, 1: teachers, 2: coordinators, 3: bus_staff
   String? _selectedBranchId;
+  String? _selectedGrade;
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _branches = [];
   bool _loading = true;
   String? _error;
+
+  /// Staff filtered by the selected grade (client-side, like the Student
+  /// Directory): a staff member matches when their assigned class resolves to
+  /// that grade, so unassigned staff only show under "All Grades".
+  List<Map<String, dynamic>> get _visibleUsers {
+    if (_selectedGrade == null) return _users;
+    return _users
+        .where(
+          (u) =>
+              canonicalGradeLabel(u['class_name']?.toString()) ==
+              _selectedGrade,
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -236,6 +252,7 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
           children: [
             _buildAppBar(),
             _buildBranchFilter(),
+            _buildGradeFilter(),
             _buildCategoryFilters(),
             Expanded(
               child:
@@ -243,23 +260,26 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
                       ? const _StaffLoadingPlaceholder()
                       : _error != null
                       ? _buildErrorState()
-                      : _users.isEmpty
+                      : _visibleUsers.isEmpty
                       ? _buildEmptyState()
                       : RefreshIndicator(
                         onRefresh: _load,
                         color: AppColors.primary,
                         child: ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                          itemCount: _users.length,
+                          itemCount: _visibleUsers.length,
                           itemBuilder:
                               (context, i) => AnimatedListItem(
                                 index: i,
                                 child: _StaffCard(
-                                  user: _users[i],
-                                  onEdit: () => _showEditStaff(_users[i]),
-                                  onReassign: () => _showReassign(_users[i]),
+                                  user: _visibleUsers[i],
+                                  onEdit: () => _showEditStaff(_visibleUsers[i]),
+                                  onReassign:
+                                      () => _showReassign(_visibleUsers[i]),
                                   onDelete:
-                                      () => _confirmDeleteStaff(_users[i]),
+                                      () => _confirmDeleteStaff(
+                                        _visibleUsers[i],
+                                      ),
                                 ),
                               ),
                         ),
@@ -310,38 +330,27 @@ class _StaffManagementScreenState extends ConsumerState<StaffManagementScreen> {
   Widget _buildBranchFilter() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          value: _selectedBranchId,
-          isExpanded: true,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
-            hintText: 'Branch',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('All Branches')),
-            ..._branches.map(
-              (b) => DropdownMenuItem(
-                value: b['id'] as String?,
-                child: Text(
-                  b['name']?.toString() ?? '—',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-          onChanged: (branchId) {
-            setState(() => _selectedBranchId = branchId);
-            _load();
-          },
-        ),
+      child: BranchFilterDropdown(
+        branches: _branches,
+        value: _selectedBranchId,
+        onChanged: (branchId) {
+          setState(() {
+            _selectedBranchId = branchId;
+            // Same as the Student Directory: a new branch clears the grade.
+            _selectedGrade = null;
+          });
+          _load();
+        },
+      ),
+    );
+  }
+
+  Widget _buildGradeFilter() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: GradeFilterDropdown(
+        value: _selectedGrade,
+        onChanged: (grade) => setState(() => _selectedGrade = grade),
       ),
     );
   }

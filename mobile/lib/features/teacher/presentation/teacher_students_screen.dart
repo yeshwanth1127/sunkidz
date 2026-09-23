@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/teacher_provider.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class TeacherStudentsScreen extends ConsumerStatefulWidget {
   const TeacherStudentsScreen({super.key});
@@ -151,7 +152,13 @@ class _StudentCard extends StatelessWidget {
                       Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
                       const SizedBox(height: 4),
-                      Text(admissionNo, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontFamily: 'monospace')),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(admissionNo, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontFamily: 'monospace')),
+                          CopyAdmissionNumberButton(admissionNumber: admissionNo, size: 13),
+                        ],
+                      ),
                     ],
                   ),
                 ),

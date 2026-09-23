@@ -334,6 +334,24 @@ def get_class_calendar(
     )
     folder_count_by_day = {row[0]: row[1] for row in folder_counts_raw}
 
+    # Days that have at least one uploaded item (video or document) inside any
+    # subject folder (the DayFolder/DayFolderContent flow behind the
+    # per-subject upload UI reachable from this calendar) -- distinct from the
+    # school_day-tagged LearningVideo rows above, which come from the separate
+    # class-upload/branch-upload flow. The calendar's "uploaded" state must
+    # reflect either source so it updates immediately after an upload.
+    folder_content_days_raw = (
+        db.query(DayFolder.school_day)
+        .join(DayFolderContent, DayFolderContent.folder_id == DayFolder.id)
+        .filter(
+            DayFolder.class_id == str(class_id),
+            DayFolder.academic_year_start == ay_start,
+        )
+        .distinct()
+        .all()
+    )
+    folder_content_days = {row[0] for row in folder_content_days_raw}
+
     result_days = []
     for cd in cal_days:
         ld = cd["day"]
@@ -350,6 +368,7 @@ def get_class_calendar(
             "documents": None,
             "videos": videos_by_day.get(ld, []),
             "folder_count": folder_count_by_day.get(ld, 0),
+            "has_content": bool(videos_by_day.get(ld)) or ld in folder_content_days,
         })
 
     return {

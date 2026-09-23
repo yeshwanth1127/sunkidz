@@ -339,17 +339,26 @@ class _FilterBar extends StatelessWidget {
               child: DropdownButtonFormField<String?>(
                 initialValue: branchFilter,
                 isDense: true,
+                // Fit the width Expanded gives it instead of the widest
+                // branch name, which overflowed on phone widths.
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Branch',
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('All branches')),
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('All branches', overflow: TextOverflow.ellipsis),
+                  ),
                   ...branchOptions.map(
                     (b) => DropdownMenuItem(
                       value: b['id'].toString(),
-                      child: Text(b['name']?.toString() ?? ''),
+                      child: Text(
+                        b['name']?.toString() ?? '',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],

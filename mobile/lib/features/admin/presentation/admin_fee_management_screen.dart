@@ -6,6 +6,7 @@ import '../../../core/theme/app_shadows.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class AdminFeeManagementScreen extends ConsumerStatefulWidget {
   final String branchId;
@@ -151,6 +152,7 @@ class _AdminFeeManagementScreenState extends ConsumerState<AdminFeeManagementScr
         child: _SelectionCard(
           title: _students[i]['name'] ?? 'Student',
           subtitle: 'ID: ${_students[i]['admission_number'] ?? '—'}',
+          copyAdmissionNumber: _students[i]['admission_number']?.toString(),
           icon: Icons.person_rounded,
           onTap: () { setState(() => _selectedStudentId = _students[i]['id']); _loadFees(); },
         ),
@@ -743,7 +745,8 @@ class _SelectionCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
-  const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap});
+  final String? copyAdmissionNumber;
+  const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.copyAdmissionNumber});
 
   @override
   Widget build(BuildContext context) {
@@ -757,7 +760,13 @@ class _SelectionCard extends StatelessWidget {
           contentPadding: const EdgeInsets.all(16),
           leading: Container(width: 48, height: 48, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: AppColors.primary)),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-          subtitle: Text(subtitle, style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          subtitle: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(subtitle, style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500))),
+              if (copyAdmissionNumber != null) CopyAdmissionNumberButton(admissionNumber: copyAdmissionNumber, color: const Color(0xFF94A3B8), size: 13),
+            ],
+          ),
           trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
         ),
       ),

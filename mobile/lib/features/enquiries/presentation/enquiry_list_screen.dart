@@ -178,13 +178,22 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
     );
   }
 
-  void _showEnquiryDetails(Map<String, dynamic> enquiry) {
-    showModalBottomSheet(
+  /// Shows the full submitted enquiry form. Convert / Reject are only
+  /// reachable from here, so the enquiry is always reviewed first; the sheet
+  /// returns the chosen action and the existing handlers take over.
+  Future<void> _showEnquiryDetails(Map<String, dynamic> enquiry) async {
+    final action = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _EnquiryDetailSheet(enquiry: enquiry),
     );
+    if (!mounted) return;
+    if (action == 'convert') {
+      await _convertEnquiry(enquiry);
+    } else if (action == 'reject') {
+      await _rejectEnquiry(enquiry);
+    }
   }
 
   @override
@@ -223,8 +232,9 @@ class _EnquiryListScreenState extends ConsumerState<EnquiryListScreen> {
                                   onTap:
                                       () => _showEnquiryDetails(_enquiries[i]),
                                   onConvert:
-                                      () => _convertEnquiry(_enquiries[i]),
-                                  onReject: () => _rejectEnquiry(_enquiries[i]),
+                                      () => _showEnquiryDetails(_enquiries[i]),
+                                  onReject:
+                                      () => _showEnquiryDetails(_enquiries[i]),
                                 ),
                               ),
                         ),
@@ -456,7 +466,7 @@ class _EnquiryCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          enquiry['child_name'] ?? 'Inquiry',
+                          enquiry['child_name'] ?? 'Enquiry',
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 16,
@@ -1511,12 +1521,98 @@ class _EnquiryLoadingPlaceholder extends StatelessWidget {
   }
 }
 
-class _EnquiryDetailSheet extends StatelessWidget {
+/// Full enquiry review: every field captured by the New Enquiry form
+/// (`_AddEnquirySheet`), grouped and labelled the same way. The list endpoint
+/// only returns a summary, so the complete record is fetched from
+/// GET /admin/enquiries/{id}. Pops with 'convert' / 'reject' when chosen.
+class _EnquiryDetailSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> enquiry;
   const _EnquiryDetailSheet({required this.enquiry});
+
+  @override
+  ConsumerState<_EnquiryDetailSheet> createState() =>
+      _EnquiryDetailSheetState();
+}
+
+class _EnquiryDetailSheetState extends ConsumerState<_EnquiryDetailSheet> {
+  late Map<String, dynamic> _enquiry = widget.enquiry;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final id = widget.enquiry['id']?.toString();
+    final api = ref.read(adminApiProvider);
+    if (id == null || api == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final full = await api.getEnquiry(id);
+      if (mounted) {
+        setState(() {
+          _enquiry = {...widget.enquiry, ...full};
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String? _date(dynamic raw) {
+    if (raw == null) return null;
+    final d = DateTime.tryParse(raw.toString());
+    return d == null ? raw.toString() : DateFormat('dd MMM yyyy').format(d);
+  }
+
+  Widget _sec(String title, IconData icon) => Padding(
+    padding: const EdgeInsets.only(top: 8, bottom: 12),
+    child: Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Divider(color: AppColors.primary.withValues(alpha: 0.25)),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final e = _enquiry;
+    final status = e['status']?.toString().toLowerCase() ?? 'pending';
+    final isActionable = status != 'converted' && status != 'rejected';
+    final submitted = _date(e['created_at']);
+
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -1535,21 +1631,171 @@ class _EnquiryDetailSheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           const Text(
-            'Inquiry Overview',
+            'Enquiry Details',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 24),
-          _DetailRow(label: 'Child Name', value: enquiry['child_name']),
-          _DetailRow(label: 'Father Name', value: enquiry['father_name']),
-          _DetailRow(
-            label: 'Contact',
-            value: enquiry['father_contact_no'] ?? enquiry['mother_contact_no'],
+          if (submitted != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Submitted $submitted • ${status.toUpperCase()}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          if (_loading)
+            const LinearProgressIndicator(minHeight: 2)
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Could not load full details: $_error',
+                      style: const TextStyle(fontSize: 12, color: Colors.red),
+                    ),
+                  ),
+                  TextButton(onPressed: _load, child: const Text('Retry')),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _sec('Child Information', Icons.child_care),
+                  _DetailRow(label: 'Child Name', value: e['child_name']),
+                  _DetailRow(
+                    label: 'Date of Birth',
+                    value: _date(e['date_of_birth']),
+                  ),
+                  _DetailRow(label: 'Age (Years)', value: e['age_years']),
+                  _DetailRow(label: 'Age (Months)', value: e['age_months']),
+                  _DetailRow(label: 'Gender', value: e['gender']),
+
+                  _sec('Branch', Icons.school_outlined),
+                  _DetailRow(label: 'Branch', value: e['branch_name']),
+
+                  _sec("Father's Details", Icons.man),
+                  _DetailRow(label: 'Father Name', value: e['father_name']),
+                  _DetailRow(
+                    label: 'Contact Number',
+                    value: e['father_contact_no'],
+                  ),
+                  _DetailRow(label: 'Email', value: e['father_email']),
+                  _DetailRow(
+                    label: 'Occupation',
+                    value: e['father_occupation'],
+                  ),
+                  _DetailRow(
+                    label: 'Place of Work',
+                    value: e['father_place_of_work'],
+                  ),
+
+                  _sec("Mother's Details", Icons.woman),
+                  _DetailRow(label: 'Mother Name', value: e['mother_name']),
+                  _DetailRow(
+                    label: 'Contact Number',
+                    value: e['mother_contact_no'],
+                  ),
+                  _DetailRow(label: 'Email', value: e['mother_email']),
+                  _DetailRow(
+                    label: 'Occupation',
+                    value: e['mother_occupation'],
+                  ),
+                  _DetailRow(
+                    label: 'Place of Work',
+                    value: e['mother_place_of_work'],
+                  ),
+
+                  _sec('Address & Contact', Icons.home_outlined),
+                  _DetailRow(
+                    label: 'Residential Address',
+                    value: e['residential_address'],
+                  ),
+                  _DetailRow(
+                    label: 'Residential Phone',
+                    value: e['residential_contact_no'],
+                  ),
+
+                  _sec('Siblings', Icons.people_outline),
+                  _DetailRow(
+                    label: 'Siblings Info (name / school)',
+                    value: e['siblings_info'],
+                  ),
+                  _DetailRow(
+                    label: 'Siblings Age(s)',
+                    value: e['siblings_age'],
+                  ),
+
+                  _sec('School Notes', Icons.notes_outlined),
+                  _DetailRow(
+                    label: 'Challenges / Special Needs',
+                    value: e['challenges_specialities'],
+                  ),
+                  _DetailRow(
+                    label: 'Expectations from School',
+                    value: e['expectations_from_school'],
+                  ),
+                ],
+              ),
+            ),
           ),
-          _DetailRow(
-            label: 'Residential',
-            value: enquiry['residential_address'],
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          if (isActionable) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.pop(context, 'reject'),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: Colors.red,
+                    ),
+                    label: const Text(
+                      'REJECT',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, 'convert'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.school_rounded, size: 16),
+                    label: const Text(
+                      'CONVERT TO STUDENT',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -1576,14 +1822,16 @@ class _DetailRow extends StatelessWidget {
   const _DetailRow({required this.label, required this.value});
   @override
   Widget build(BuildContext context) {
-    if (value == null) return const SizedBox.shrink();
+    // Every form field is listed, even when left blank, so the reviewer sees
+    // the complete submission rather than a silently shortened one.
+    final text = value?.toString().trim() ?? '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 120,
             child: Text(
               label,
               style: const TextStyle(
@@ -1595,7 +1843,7 @@ class _DetailRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              value.toString(),
+              text.isEmpty ? '—' : text,
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 14,

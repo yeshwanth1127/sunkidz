@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/teacher_provider.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 /// Teacher marks: select from my class students, then open marks entry.
 /// Reuses MarksCardScreen form via navigation to a teacher-specific marks entry.
 class TeacherMarksScreen extends ConsumerStatefulWidget {
@@ -118,7 +119,13 @@ class _TeacherMarksScreenState extends ConsumerState<TeacherMarksScreen> {
                                 child: Icon(Icons.grade, color: AppColors.primary),
                               ),
                               title: Text(s['name'] as String? ?? ''),
-                              subtitle: Text(s['admission_number']?.toString() ?? ''),
+                              subtitle: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(child: Text(s['admission_number']?.toString() ?? '')),
+                                  CopyAdmissionNumberButton(admissionNumber: s['admission_number']?.toString(), size: 13),
+                                ],
+                              ),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () => context.push('/teacher/marks/${s['id']}'),
                             ),

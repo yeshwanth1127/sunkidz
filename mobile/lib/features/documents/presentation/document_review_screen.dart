@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../providers/documents_provider.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 /// Reviewer screen for one uploaded admission document: shows the original
 /// file next to the OCR-extracted fields (editable, pre-filled from
@@ -316,10 +317,22 @@ class _DocumentReviewScreenState extends ConsumerState<DocumentReviewScreen> {
                     child: ListTile(
                       dense: true,
                       title: Text(c['name']?.toString() ?? ''),
-                      subtitle: Text(
-                        isStudentConflict
-                            ? 'Admission #: ${c['admission_number'] ?? '—'}'
-                            : 'Phone: ${c['phone'] ?? '—'}',
+                      subtitle: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              isStudentConflict
+                                  ? 'Admission #: ${c['admission_number'] ?? '—'}'
+                                  : 'Phone: ${c['phone'] ?? '—'}',
+                            ),
+                          ),
+                          if (isStudentConflict)
+                            CopyAdmissionNumberButton(
+                              admissionNumber: c['admission_number']?.toString(),
+                              size: 13,
+                            ),
+                        ],
                       ),
                       trailing: TextButton(
                         onPressed: () => Navigator.pop(ctx, c['id'] as String),

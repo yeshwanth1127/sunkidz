@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../admin/presentation/marksheet_pdf.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class StudentProfileScreen extends ConsumerStatefulWidget {
   final String studentId;
@@ -149,7 +150,13 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> wit
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(999)),
-                  child: Text(admissionNo, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(admissionNo, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                      CopyAdmissionNumberButton(admissionNumber: admissionNo, color: AppColors.primary, size: 13),
+                    ],
+                  ),
                 ),
                 if (classInfo.isNotEmpty) ...[
                   const SizedBox(height: 4),

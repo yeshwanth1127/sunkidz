@@ -7,6 +7,7 @@ import '../../../core/api/chat_provider.dart';
 import '../../../core/api/parent_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class ChatThreadsScreen extends ConsumerStatefulWidget {
   const ChatThreadsScreen({super.key});
@@ -685,9 +686,23 @@ class _ParentPickerState extends State<_ParentPicker> {
                                             (s as Map)['name']?.toString() ??
                                                 '',
                                           ),
-                                          subtitle: Text(
-                                            s['admission_number']?.toString() ??
-                                                '',
+                                          subtitle: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  s['admission_number']
+                                                          ?.toString() ??
+                                                      '',
+                                                ),
+                                              ),
+                                              CopyAdmissionNumberButton(
+                                                admissionNumber:
+                                                    s['admission_number']
+                                                        ?.toString(),
+                                                size: 13,
+                                              ),
+                                            ],
                                           ),
                                           onTap:
                                               () => Navigator.of(context).pop({

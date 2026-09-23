@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/student_profile_provider.dart';
 import '../../admin/presentation/fee_receipt_pdf.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class ParentFeesScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> student;
@@ -132,9 +133,18 @@ class _ParentFeesScreenState extends ConsumerState<ParentFeesScreen> {
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        Text(
-          'Admission #: ${_feeData!['admission_number'] ?? 'N/A'}',
-          style: const TextStyle(fontSize: 14, color: Colors.grey),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                'Admission #: ${_feeData!['admission_number'] ?? 'N/A'}',
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ),
+            CopyAdmissionNumberButton(
+              admissionNumber: _feeData!['admission_number']?.toString(),
+            ),
+          ],
         ),
       ],
     );

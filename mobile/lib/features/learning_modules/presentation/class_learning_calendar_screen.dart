@@ -352,10 +352,16 @@ class _ClassLearningCalendarScreenState
     }
 
     if (_selectedClassId != null) {
-      context.push(
-        '/learning-modules/day/$_selectedClassId/$dayNum',
-        extra: {'date': date, 'academicYearStart': ayStart},
-      );
+      // Reload on return so an upload made inside the day/folder screens is
+      // reflected on the calendar grid immediately.
+      context
+          .push(
+            '/learning-modules/day/$_selectedClassId/$dayNum',
+            extra: {'date': date, 'academicYearStart': ayStart},
+          )
+          .then((_) {
+            if (mounted) _loadCalendar();
+          });
     }
   }
 
@@ -610,9 +616,13 @@ class _ClassLearningCalendarScreenState
                   // field fall back to "has a day number".
                   final isWorking =
                       row['is_working_day'] as bool? ?? (dayNum != null);
+                  // Orange whenever any Learning Module content (video or
+                  // document, any subject folder) exists for the day; older
+                  // responses without the flag fall back to tagged videos.
                   final hasVideo = !_isAllClasses &&
                       dayNum != null &&
-                      _videoByDay.containsKey(dayNum);
+                      (row['has_content'] as bool? ??
+                          _videoByDay.containsKey(dayNum));
                   final label = (row['label'] as String?)?.trim() ?? '';
 
                   final Color bg;

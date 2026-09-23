@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:screen_protector/screen_protector.dart';
 import 'package:video_player/video_player.dart';
 import '../../../core/config/api_config.dart';
 
@@ -26,7 +28,26 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _enableCaptureProtection();
     _initPlayer();
+  }
+
+  /// Blocks screenshots/screen recording of this screen where the platform
+  /// supports it (Android: FLAG_SECURE; iOS: secure overlay). No-op (and
+  /// safely ignored) on platforms without an implementation, e.g. web/desktop.
+  Future<void> _enableCaptureProtection() async {
+    if (kIsWeb) return;
+    try {
+      await ScreenProtector.preventScreenshotOn();
+    } catch (_) {
+      // Platform without a screen_protector implementation (e.g. desktop) --
+      // playback should still work, just without capture protection.
+    }
+  }
+
+  void _disableCaptureProtection() {
+    if (kIsWeb) return;
+    ScreenProtector.preventScreenshotOff().catchError((_) {});
   }
 
   String _resolveMediaUrl(String path) {
@@ -43,6 +64,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _controller = controller;
     try {
       await controller.initialize();
+      await controller.setLooping(true);
       if (!mounted) return;
       setState(() {});
       await controller.play();
@@ -54,6 +76,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _disableCaptureProtection();
     _controller?.dispose();
     super.dispose();
   }

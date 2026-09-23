@@ -7,6 +7,7 @@ import '../../../core/api/coordinator_provider.dart';
 import '../../../core/api/teacher_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/utils/branch_system.dart';
+import '../../../shared/widgets/branch_grade_filter.dart';
 import '../data/daily_report_provider.dart';
 import 'report_screen.dart';
 
@@ -19,6 +20,10 @@ class GradeListScreen extends ConsumerStatefulWidget {
 
 class _GradeListScreenState extends ConsumerState<GradeListScreen> {
   List<Map<String, dynamic>> _classes = [];
+  // Admin-only Branch / Grade filters (other roles see a single branch).
+  List<Map<String, dynamic>> _branches = [];
+  String? _selectedBranchId;
+  String? _selectedGrade;
   // classId -> 'sent' | 'draft' | 'none'
   Map<String, String> _statuses = {};
   bool _loading = true;
@@ -43,6 +48,7 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
         final api = ref.read(adminApiProvider);
         if (api == null) throw Exception('Not authenticated');
         final branches = await api.getBranches();
+        _branches = branches;
         for (final b in branches) {
           final bName = b['name']?.toString() ?? '';
           for (final cls in (b['classes'] as List? ?? [])) {
@@ -50,6 +56,7 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
               'id': cls['id']?.toString() ?? '',
               'name': canonicalGradeLabel(cls['name']?.toString()),
               'branch_name': bName,
+              'branch_id': b['id']?.toString(),
             });
           }
         }
@@ -144,6 +151,40 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
       });
   }
 
+  List<Map<String, dynamic>> get _visibleClasses =>
+      _classes
+          .where(
+            (c) =>
+                (_selectedBranchId == null ||
+                    c['branch_id'] == _selectedBranchId) &&
+                (_selectedGrade == null || c['name'] == _selectedGrade),
+          )
+          .toList();
+
+  Widget _buildFilters() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        children: [
+          BranchFilterDropdown(
+            branches: _branches,
+            value: _selectedBranchId,
+            onChanged:
+                (v) => setState(() {
+                  _selectedBranchId = v;
+                  _selectedGrade = null;
+                }),
+          ),
+          const SizedBox(height: 12),
+          GradeFilterDropdown(
+            value: _selectedGrade,
+            onChanged: (v) => setState(() => _selectedGrade = v),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openClass(Map<String, dynamic> cls) {
     Navigator.push(
       context,
@@ -216,26 +257,38 @@ class _GradeListScreenState extends ConsumerState<GradeListScreen> {
               )
               : _classes.isEmpty
               ? const Center(child: Text('No classes found'))
-              : GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.1,
-                ),
-                itemCount: _classes.length,
-                itemBuilder: (context, index) {
-                  final cls = _classes[index];
-                  final id = cls['id'] as String;
-                  final status = _statuses[id];
-                  return _ClassCard(
-                    className: cls['name'] as String,
-                    branchName: cls['branch_name'] as String,
-                    status: _statusLoading ? null : status,
-                    onTap: () => _openClass(cls),
-                  );
-                },
+              : Column(
+                children: [
+                  if (ref.read(authProvider).role == UserRole.admin)
+                    _buildFilters(),
+                  Expanded(
+                    child:
+                        _visibleClasses.isEmpty
+                            ? const Center(child: Text('No classes found'))
+                            : GridView.builder(
+                              padding: const EdgeInsets.all(16),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 1.1,
+                                  ),
+                              itemCount: _visibleClasses.length,
+                              itemBuilder: (context, index) {
+                                final cls = _visibleClasses[index];
+                                final id = cls['id'] as String;
+                                final status = _statuses[id];
+                                return _ClassCard(
+                                  className: cls['name'] as String,
+                                  branchName: cls['branch_name'] as String,
+                                  status: _statusLoading ? null : status,
+                                  onTap: () => _openClass(cls),
+                                );
+                              },
+                            ),
+                  ),
+                ],
               ),
     );
   }

@@ -9,6 +9,7 @@ import '../../../core/api/admin_provider.dart';
 import '../../../core/api/coordinator_provider.dart';
 import '../../../core/api/teacher_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/utils/branch_system.dart';
 import '../../dashboard/data/teacher_dashboard_provider.dart';
 import '../providers/syllabus_provider.dart';
 
@@ -58,7 +59,11 @@ class _HomeworkUploadScreenState extends ConsumerState<HomeworkUploadScreen> {
             for (final cls in branch['classes']) {
               classes.add({
                 'id': cls['id'],
-                'name': '${cls['name']} - ${branch['name']}',
+                'name': gradeBranchLabel(
+                  cls['name']?.toString(),
+                  branch['name']?.toString(),
+                ),
+                'grade': canonicalGradeLabel(cls['name']?.toString()),
               });
             }
           }
@@ -76,7 +81,11 @@ class _HomeworkUploadScreenState extends ConsumerState<HomeworkUploadScreen> {
         for (final cls in branchClasses) {
           classes.add({
             'id': cls['id'],
-            'name': '${cls['name']} - $branchName',
+            'name': gradeBranchLabel(
+              cls['name']?.toString(),
+              branchName.toString(),
+            ),
+            'grade': canonicalGradeLabel(cls['name']?.toString()),
           });
         }
       } else if (auth.role == UserRole.teacher) {
@@ -85,13 +94,18 @@ class _HomeworkUploadScreenState extends ConsumerState<HomeworkUploadScreen> {
         if (dashboardAsync != null && dashboardAsync.classId != null && dashboardAsync.className != null) {
           classes.add({
             'id': dashboardAsync.classId!,
-            'name': '${dashboardAsync.className!} - ${dashboardAsync.branchName ?? ""}',
+            'name': gradeBranchLabel(
+              dashboardAsync.className,
+              dashboardAsync.branchName,
+            ),
+            'grade': canonicalGradeLabel(dashboardAsync.className),
           });
         }
       }
 
       setState(() {
-        _classes = classes;
+        // Standard grade order (Playgroup -> IG1 -> IG2 -> IG3), as elsewhere.
+        _classes = sortByCanonicalGrade(classes, (c) => c['grade'] as String?);
         _loadingClasses = false;
       });
     } catch (e) {

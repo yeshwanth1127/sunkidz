@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/coordinator_provider.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class CoordinatorAttendanceScreen extends ConsumerStatefulWidget {
   const CoordinatorAttendanceScreen({super.key});
@@ -404,12 +405,23 @@ class _CoordinatorAttendanceScreenState
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              Text(
-                                'Roll: $admissionNumber',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      'Roll: $admissionNumber',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                  CopyAdmissionNumberButton(
+                                    admissionNumber: admissionNumber,
+                                    size: 12,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -621,8 +633,19 @@ class _CoordinatorAttendanceScreenState
                       name,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text(
-                      'Roll #$admissionNumber • P: $present  A: $absent  L: $leave',
+                    subtitle: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Roll #$admissionNumber • P: $present  A: $absent  L: $leave',
+                          ),
+                        ),
+                        CopyAdmissionNumberButton(
+                          admissionNumber: admissionNumber,
+                          size: 13,
+                        ),
+                      ],
                     ),
                     children: [
                       Padding(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/teacher_provider.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class TeacherStudentProfileScreen extends ConsumerStatefulWidget {
   final String studentId;
@@ -106,7 +107,13 @@ class _TeacherStudentProfileScreenState extends ConsumerState<TeacherStudentProf
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(999)),
-                    child: Text(admissionNo, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(admissionNo, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'monospace')),
+                        CopyAdmissionNumberButton(admissionNumber: admissionNo, color: AppColors.primary, size: 13),
+                      ],
+                    ),
                   ),
                   if (classInfo.isNotEmpty) ...[
                     const SizedBox(height: 4),

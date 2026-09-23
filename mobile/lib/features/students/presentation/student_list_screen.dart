@@ -11,6 +11,8 @@ import '../../../core/utils/branch_system.dart';
 import '../../../shared/widgets/dob_picker.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
+import '../../../shared/widgets/branch_grade_filter.dart';
 
 class StudentListScreen extends ConsumerStatefulWidget {
   const StudentListScreen({super.key});
@@ -238,68 +240,18 @@ class _StudentListScreenState extends ConsumerState<StudentListScreen> {
       ),
       child: Column(
         children: [
-          DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              value: _selectedBranchId,
-              isExpanded: true,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.apartment_rounded, size: 18),
-                hintText: 'Branch',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-              ),
-              items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('All Branches'),
-                ),
-                ..._branches.map(
-                  (b) => DropdownMenuItem(
-                    value: b['id'] as String?,
-                    child: Text(
-                      b['name']?.toString() ?? '—',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-              onChanged: _onBranchChanged,
-            ),
+          BranchFilterDropdown(
+            branches: _branches,
+            value: _selectedBranchId,
+            onChanged: _onBranchChanged,
+            fillColor: const Color(0xFFF8FAFC),
           ),
           const SizedBox(height: 12),
-          DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              value: _selectedGrade,
-              isExpanded: true,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.grid_3x3_rounded, size: 18),
-                hintText: 'Grade',
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('All Grades')),
-                ...gradeOptionsForSystem(_selectedSystemType).map(
-                  (g) => DropdownMenuItem(
-                    value: g,
-                    child: Flexible(
-                      child: Text(g, overflow: TextOverflow.ellipsis),
-                    ),
-                  ),
-                ),
-              ],
-              onChanged: _onGradeChanged,
-            ),
+          GradeFilterDropdown(
+            value: _selectedGrade,
+            grades: gradeOptionsForSystem(_selectedSystemType),
+            onChanged: _onGradeChanged,
+            fillColor: const Color(0xFFF8FAFC),
           ),
         ],
       ),
@@ -535,6 +487,11 @@ class _StudentCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF64748B),
                     ),
+                  ),
+                  CopyAdmissionNumberButton(
+                    admissionNumber: admissionNo.toString(),
+                    color: const Color(0xFF94A3B8),
+                    size: 13,
                   ),
                   const Spacer(),
                   if (busOpted)

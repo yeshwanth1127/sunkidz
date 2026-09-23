@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/chat_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 /// Formats a leave request's real backend submission timestamp
 /// (`created_at`, an ISO-8601 string) as a short local date + time.
@@ -181,9 +182,19 @@ class _StaffLeaveScreenState extends ConsumerState<StaffLeaveScreen>
               a['student_name']?.toString() ?? '',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            Text(
-              '${a['student_admission_number'] ?? ''}  •  ${a['parent_name'] ?? ''}',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    '${a['student_admission_number'] ?? ''}  •  ${a['parent_name'] ?? ''}',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+                CopyAdmissionNumberButton(
+                  admissionNumber: a['student_admission_number']?.toString(),
+                  size: 13,
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             Row(

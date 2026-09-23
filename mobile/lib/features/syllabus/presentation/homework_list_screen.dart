@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/utils/branch_system.dart';
+import '../../../shared/widgets/branch_grade_filter.dart';
 
 import '../../../core/api/admin_provider.dart';
 import '../providers/syllabus_provider.dart';
@@ -21,9 +22,26 @@ class HomeworkListScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
-  String? _selectedClassId;
+  String? _selectedBranchId;
+  String? _selectedGrade;
   DateTime? _selectedDate;
+  List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _classes = [];
+
+  /// Class ids matching the Branch / Grade filters, or null when neither is
+  /// set (no class filtering).
+  Set<String>? get _matchingClassIds {
+    if (_selectedBranchId == null && _selectedGrade == null) return null;
+    return _classes
+        .where(
+          (c) =>
+              (_selectedBranchId == null ||
+                  c['branch_id'] == _selectedBranchId) &&
+              (_selectedGrade == null || c['grade'] == _selectedGrade),
+        )
+        .map((c) => c['id'].toString())
+        .toSet();
+  }
 
   @override
   void initState() {
@@ -52,11 +70,13 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
               'id': cls['id'],
               'name': '$grade - ${branch['name']}',
               'grade': grade,
+              'branch_id': branch['id']?.toString(),
             });
           }
         }
       }
       setState(() {
+        _branches = branches;
         _classes = sortByCanonicalGrade(classes, (c) => c['grade'] as String?);
       });
     } catch (e) {
@@ -143,8 +163,14 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
         auth.role == UserRole.teacher ||
         auth.role == UserRole.coordinator;
     final isParent = auth.role == UserRole.parent;
+    final matchingClassIds = _matchingClassIds;
     final filter = HomeworkFilter(
-      classId: _selectedClassId,
+      // A single matching class is filtered server-side as before; broader
+      // Branch / Grade selections are filtered client-side below.
+      classId:
+          matchingClassIds != null && matchingClassIds.length == 1
+              ? matchingClassIds.first
+              : null,
       uploadDate: _selectedDate?.toIso8601String().split('T')[0],
     );
 
@@ -183,35 +209,24 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
             color: Colors.grey[100],
             child: Column(
               children: [
-                // Class filter (only for admin)
-                if (isAdmin)
-                  DropdownButtonFormField<String>(
-                    value: _selectedClassId,
-                    decoration: const InputDecoration(
-                      labelText: 'Filter by Class',
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Classes'),
-                      ),
-                      ..._classes.map(
-                        (cls) => DropdownMenuItem(
-                          value: cls['id'],
-                          child: Text(cls['name']),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedClassId = value;
-                      });
-                    },
+                // Branch / Grade filters (only for admin)
+                if (isAdmin) ...[
+                  BranchFilterDropdown(
+                    branches: _branches,
+                    value: _selectedBranchId,
+                    onChanged:
+                        (value) => setState(() {
+                          _selectedBranchId = value;
+                          _selectedGrade = null;
+                        }),
                   ),
-                if (isAdmin) const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                  GradeFilterDropdown(
+                    value: _selectedGrade,
+                    onChanged: (value) => setState(() => _selectedGrade = value),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 // Date filter
                 InkWell(
                   onTap: () async {
@@ -258,7 +273,15 @@ class _HomeworkListScreenState extends ConsumerState<HomeworkListScreen> {
             child: ref
                 .watch(homeworkListProvider(filter))
                 .when(
-                  data: (homeworkList) {
+                  data: (allHomework) {
+                    final homeworkList =
+                        matchingClassIds == null
+                            ? allHomework
+                            : allHomework
+                                .where(
+                                  (h) => matchingClassIds.contains(h.classId),
+                                )
+                                .toList();
                     if (homeworkList.isEmpty) {
                       return const Center(child: Text('No homework found'));
                     }

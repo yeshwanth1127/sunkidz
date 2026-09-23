@@ -72,6 +72,15 @@ int gradeSortIndex(String? raw, [String? systemType]) {
   return index == -1 ? kFixedGradeOptions.length : index;
 }
 
+/// Standard label for a single-class picker option: canonical grade followed
+/// by its branch, e.g. "IG1 - Koramangala" (the format Homework / Syllabus
+/// already use).
+String gradeBranchLabel(String? className, String? branchName) {
+  final grade = canonicalGradeLabel(className);
+  final branch = (branchName ?? '').trim();
+  return branch.isEmpty ? grade : '$grade - $branch';
+}
+
 /// Sorts [items] by their grade in canonical order (Playgroup -> IG1 ->
 /// IG2 -> IG3), using [nameOf] to read each item's raw class/grade name.
 /// Stable: items with the same grade (or both unrecognized) keep their

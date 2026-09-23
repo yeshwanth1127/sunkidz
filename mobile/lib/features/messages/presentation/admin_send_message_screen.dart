@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/admin_provider.dart';
+import '../../../core/utils/branch_system.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class AdminSendMessageScreen extends ConsumerStatefulWidget {
   const AdminSendMessageScreen({super.key});
@@ -44,10 +46,28 @@ class _AdminSendMessageScreenState
     try {
       final branches = await api.getBranches();
       final classes = await api.getClasses();
+      // Standard "Grade - Branch" labels in canonical grade order, so classes
+      // with the same grade in different branches can be told apart.
+      final branchNames = {
+        for (final b in branches) b['id']?.toString(): b['name']?.toString(),
+      };
+      final labelled = sortByCanonicalGrade(
+        [
+          for (final c in classes)
+            {
+              ...c,
+              'label': gradeBranchLabel(
+                c['name']?.toString(),
+                branchNames[c['branch_id']?.toString()],
+              ),
+            },
+        ],
+        (c) => c['name']?.toString(),
+      );
       if (mounted) {
         setState(() {
           _branches = branches;
-          _classes = classes;
+          _classes = labelled;
           _loadingMeta = false;
         });
       }
@@ -261,8 +281,20 @@ class _AdminSendMessageScreenState
                               child: Icon(Icons.person),
                             ),
                             title: Text(_selectedStudent!['name'] ?? ''),
-                            subtitle: Text(
-                              '${_selectedStudent!['admission_number'] ?? ''}${(_selectedStudent!['parent_name'] ?? '').toString().isNotEmpty ? ' • ${_selectedStudent!['parent_name']}' : ''}${(_selectedStudent!['parent_contact'] ?? '').toString().isNotEmpty ? ' • ${_selectedStudent!['parent_contact']}' : ''}',
+                            subtitle: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    '${_selectedStudent!['admission_number'] ?? ''}${(_selectedStudent!['parent_name'] ?? '').toString().isNotEmpty ? ' • ${_selectedStudent!['parent_name']}' : ''}${(_selectedStudent!['parent_contact'] ?? '').toString().isNotEmpty ? ' • ${_selectedStudent!['parent_contact']}' : ''}',
+                                  ),
+                                ),
+                                CopyAdmissionNumberButton(
+                                  admissionNumber:
+                                      _selectedStudent!['admission_number']
+                                          ?.toString(),
+                                  size: 13,
+                                ),
+                              ],
                             ),
                             trailing: IconButton(
                               icon: const Icon(Icons.close),
@@ -344,15 +376,28 @@ class _AdminSendMessageScreenState
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            '${s['admission_number'] ?? ''}${(s['parent_name'] ?? '').toString().isNotEmpty ? ' • ${s['parent_name']}' : ''}${(s['parent_contact'] ?? '').toString().isNotEmpty ? ' • ${s['parent_contact']}' : ''}',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.blue,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  '${s['admission_number'] ?? ''}${(s['parent_name'] ?? '').toString().isNotEmpty ? ' • ${s['parent_name']}' : ''}${(s['parent_contact'] ?? '').toString().isNotEmpty ? ' • ${s['parent_contact']}' : ''}',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.blue,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              CopyAdmissionNumberButton(
+                                                admissionNumber:
+                                                    s['admission_number']
+                                                        ?.toString(),
+                                                color: Colors.blue,
+                                                size: 13,
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -413,7 +458,7 @@ class _AdminSendMessageScreenState
                                   .map(
                                     (c) => DropdownMenuItem(
                                       value: c['id'] as String?,
-                                      child: Text(c['name'] as String? ?? ''),
+                                      child: Text(c['label'] as String? ?? ''),
                                     ),
                                   )
                                   .toList(),

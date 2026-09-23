@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/api/admin_provider.dart';
 import '../../../core/utils/branch_system.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class ClassDetailScreen extends ConsumerStatefulWidget {
   const ClassDetailScreen({
@@ -205,8 +206,16 @@ class _ClassDetailScreenState extends ConsumerState<ClassDetailScreen> {
                               ),
                             ),
                             title: Text(s['name']?.toString() ?? 'Student'),
-                            subtitle: Text(
-                              'ID: ${s['admission_number'] ?? '—'}',
+                            subtitle: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('ID: ${s['admission_number'] ?? '—'}'),
+                                CopyAdmissionNumberButton(
+                                  admissionNumber:
+                                      s['admission_number']?.toString(),
+                                  size: 13,
+                                ),
+                              ],
                             ),
                           ),
                         ),

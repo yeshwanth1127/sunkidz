@@ -8,6 +8,7 @@ import '../../../core/api/admin_provider.dart';
 
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/animated_list_item.dart';
+import '../../../shared/widgets/copy_admission_number_button.dart';
 
 class AdmissionListScreen extends ConsumerStatefulWidget {
   const AdmissionListScreen({super.key});
@@ -253,6 +254,7 @@ class _AdmissionCardState extends ConsumerState<_AdmissionCard> {
                     'ID: $admissionNo',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5),
                   ),
+                  CopyAdmissionNumberButton(admissionNumber: admissionNo, color: const Color(0xFF94A3B8), size: 13),
                   const Spacer(),
                   GestureDetector(
                     onTap: _toggling ? null : _toggleBusOpt,
