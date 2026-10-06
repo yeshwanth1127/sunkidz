@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Sunkidz (Server backend @ 10.0.0.5)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=API_BASE_URL=http://10.0.0.5:8001"
+      ]
+    },
+    {
+      "name": "Sunkidz (Local backend)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Sunkidz (Release-style, api.sunkidz.org)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=API_BASE_URL=https://api.sunkidz.org"
+      ]
+    }
+  ]
+}
